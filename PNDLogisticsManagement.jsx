@@ -592,6 +592,7 @@ export default function App() {
   const [fTerm,setFTerm]=useState("All");
   const [fStatus,setFStatus]=useState("All");
   const [lastSync,setLastSync]=useState(null);
+  const [syncing,setSyncing]=useState(false);
 
   const toast=useCallback((msg,type="info")=>{const id=Date.now();setToasts(t=>[...t,{id,message:msg,type}]);setTimeout(()=>setToasts(t=>t.filter(x=>x.id!==id)),4500);},[]);
 
@@ -599,6 +600,14 @@ export default function App() {
     const [a,b,c,d]=await Promise.all([dbLoad(SK.rt),dbLoad(SK.uni),dbLoad(SK.tr),dbLoad(SK.inj)]);
     setRts(a);setUnis(b);setTrucks(c);setInjs(d);setLastSync(new Date());setLoading(false);
   },[]);
+
+  const handleSync=useCallback(async()=>{
+    if(syncing) return;
+    setSyncing(true);
+    await loadAll();
+    setSyncing(false);
+    toast("Data refreshed from Supabase.","success");
+  },[syncing,loadAll,toast]);
 
   useEffect(()=>{loadAll();const iv=setInterval(loadAll,15000);return()=>clearInterval(iv);},[loadAll]);
 
@@ -668,6 +677,8 @@ export default function App() {
             </div>
             <div className="header-actions">
               {pendingOut>0&&<div style={{background:"#2a1200",border:"1px solid #ff6200",borderRadius:7,padding:"5px 10px",display:"flex",alignItems:"center",gap:5,animation:"pulse 2s infinite"}}><Ico n="bell" s={13}/><span style={{fontSize:12,color:"#ffaa55",fontFamily:"'DM Mono',monospace"}}>{pendingOut} awaiting outcome</span></div>}
+              <button onClick={handleSync} disabled={syncing} style={{...B("ghost"),padding:"6px 10px",display:"flex",alignItems:"center",gap:5,fontSize:12,opacity:syncing?.5:1,transition:"opacity .2s"}}><span style={{display:"inline-flex",animation:syncing?"spin 1s linear infinite":"none"}}><Ico n="refresh" s={13}/></span>{syncing?"Syncing…":"Sync"}</button>
+              {lastSync&&<span className="sync-label" style={{fontSize:10,color:"#5050a0",fontFamily:"'DM Mono',monospace"}}>{lastSync.toLocaleTimeString()}</span>}
             </div>
           </div>
           <div className="tabs-row">

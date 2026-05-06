@@ -668,8 +668,6 @@ export default function App() {
             </div>
             <div className="header-actions">
               {pendingOut>0&&<div style={{background:"#2a1200",border:"1px solid #ff6200",borderRadius:7,padding:"5px 10px",display:"flex",alignItems:"center",gap:5,animation:"pulse 2s infinite"}}><Ico n="bell" s={13}/><span style={{fontSize:12,color:"#ffaa55",fontFamily:"'DM Mono',monospace"}}>{pendingOut} awaiting outcome</span></div>}
-              <button onClick={loadAll} style={{...B("ghost"),padding:"6px 10px",display:"flex",alignItems:"center",gap:5,fontSize:12}}><Ico n="refresh" s={13}/>Sync</button>
-              {lastSync&&<span className="sync-label" style={{fontSize:10,color:"#5050a0",fontFamily:"'DM Mono',monospace"}}>{lastSync.toLocaleTimeString()}</span>}
             </div>
           </div>
           <div className="tabs-row">

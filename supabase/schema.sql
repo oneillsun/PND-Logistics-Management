@@ -32,15 +32,35 @@ create table if not exists injury_reports (
   inserted_at  timestamptz default now()
 );
 
+-- Users / Authentication
+create table if not exists users (
+  id          uuid default gen_random_uuid() primary key,
+  name        text not null,
+  username    text unique not null,
+  password    text not null,
+  role        text not null default 'user',   -- 'admin' | 'user'
+  terminal    text,
+  phone       text,
+  email       text,
+  status      text not null default 'active', -- 'active' | 'inactive'
+  created_at  timestamptz default now()
+);
+
 -- Row Level Security
 alter table road_tests     enable row level security;
 alter table uniform_orders enable row level security;
 alter table trucks         enable row level security;
 alter table injury_reports enable row level security;
+alter table users          enable row level security;
 
--- Allow full access via the anon key (internal tool — no auth required).
--- Restrict these policies if you add authentication later.
+-- Allow full access via the anon key (internal tool).
 create policy "allow_all" on road_tests     for all using (true) with check (true);
 create policy "allow_all" on uniform_orders for all using (true) with check (true);
 create policy "allow_all" on trucks         for all using (true) with check (true);
 create policy "allow_all" on injury_reports for all using (true) with check (true);
+create policy "allow_all" on users          for all using (true) with check (true);
+
+-- Seed master admin user (admin / admin)
+insert into users (name, username, password, role, status)
+values ('Administrator', 'admin', 'admin', 'admin', 'active')
+on conflict (username) do nothing;

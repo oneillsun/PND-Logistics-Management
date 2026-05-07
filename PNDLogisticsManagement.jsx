@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { dbLoad, dbSave } from "./src/lib/db.js";
+import { login, logout, getSession, fetchUsers, createUser, updateUser } from "./src/lib/auth.js";
 
 const TERMINAL_DATA = {
 "Fort Worth Terminal - 761":      { address: "4901 Village Creek Rd, Fort Worth TX 76119",        manager: "Alexis Rodriguez", phone: "+1 (787) 672-8847" },
@@ -579,8 +580,154 @@ function InjuryDetail({report,onClose}) {
   );
 }
 
+// ─── Auth Modal ───────────────────────────────────────────────────────────────
+function AuthModal({ onLogin }) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError]       = useState("");
+  const [loading, setLoading]   = useState(false);
+
+  const doLogin = async () => {
+    if (!username || !password) return setError("Please enter your username and password.");
+    setLoading(true); setError("");
+    const user = await login(username, password);
+    setLoading(false);
+    if (!user) return setError("Invalid credentials or account is inactive.");
+    onLogin(user);
+  };
+
+  const onKey = e => { if (e.key === "Enter") doLogin(); };
+
+  return (
+    <div style={{position:"fixed",inset:0,zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(4,4,18,0.82)",backdropFilter:"blur(18px)",WebkitBackdropFilter:"blur(18px)"}}>
+      <div style={{background:"rgba(13,13,30,0.97)",border:"1px solid #28284a",borderRadius:18,padding:"40px 36px",width:"100%",maxWidth:400,boxShadow:"0 40px 100px rgba(0,0,0,0.85)",animation:"slideIn .25s ease"}}>
+        {/* Logo */}
+        <div style={{display:"flex",alignItems:"center",gap:13,marginBottom:32}}>
+          <div style={{background:"#ff6200",borderRadius:9,padding:"8px 11px",display:"flex",flexShrink:0}}><Ico n="truck" s={22}/></div>
+          <div>
+            <div style={{fontSize:21,fontWeight:800,letterSpacing:1.2,color:"#eeeeff",fontFamily:"'Barlow Condensed',sans-serif",lineHeight:1}}>PND LOGISTICS</div>
+            <div style={{fontSize:10,color:"#6060a0",fontFamily:"'DM Mono',monospace",letterSpacing:1.4,marginTop:3}}>MANAGEMENT PORTAL</div>
+          </div>
+        </div>
+        <Field label="Username">
+          <input style={IS} value={username} onChange={e=>setUsername(e.target.value)} onKeyDown={onKey} placeholder="Enter your username" autoFocus/>
+        </Field>
+        <Field label="Password">
+          <input style={IS} type="password" value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={onKey} placeholder="Enter your password"/>
+        </Field>
+        {error&&<div style={{color:"#ff7777",fontSize:12,fontFamily:"'DM Mono',monospace",marginBottom:14,background:"#1a0707",border:"1px solid #4a1a1a",borderRadius:7,padding:"9px 12px"}}>{error}</div>}
+        <button onClick={doLogin} disabled={loading} style={{...B("primary"),width:"100%",marginTop:4,fontSize:16,padding:"12px 18px",letterSpacing:.8,opacity:loading?.65:1,transition:"opacity .2s"}}>
+          {loading?"Signing in…":"Sign In"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── User Form (admin) ────────────────────────────────────────────────────────
+function UserForm({ onSave, onClose, existing }) {
+  const isAdminUser = existing?.username === "admin";
+  const [form, setForm] = useState(existing ? {
+    name: existing.name, username: existing.username, password: "",
+    role: existing.role, terminal: existing.terminal||"",
+    phone: existing.phone||"", email: existing.email||"", status: existing.status,
+  } : { name:"", username:"", password:"", role:"user", terminal:"", phone:"", email:"", status:"active" });
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  const doSave = () => {
+    if (!form.name||!form.username) return alert("Name and username are required.");
+    if (!existing && !form.password) return alert("Password is required for new users.");
+    onSave(form);
+  };
+
+  return <>
+    <div className="form-grid-2">
+      <Field label="Full Name *"><input style={IS} value={form.name} onChange={e=>set("name",e.target.value)} placeholder="Jane Smith"/></Field>
+      <Field label="Username *"><input style={IS} value={form.username} onChange={e=>set("username",e.target.value)} placeholder="jsmith" disabled={isAdminUser}/></Field>
+      <Field label={existing?"New Password (blank = keep current)":"Password *"}>
+        <input style={IS} type="password" value={form.password} onChange={e=>set("password",e.target.value)} placeholder={existing?"Leave blank to keep current":"Set a password"}/>
+      </Field>
+      <Field label="Role">
+        <select style={IS} value={form.role} onChange={e=>set("role",e.target.value)} disabled={isAdminUser}>
+          <option value="user">User</option>
+          <option value="admin">Admin</option>
+        </select>
+      </Field>
+      <Field label="Terminal Location">
+        <select style={IS} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>
+          <option value="">— Not assigned —</option>
+          {TERMINALS.map(t=><option key={t} value={t}>{t}</option>)}
+        </select>
+      </Field>
+      <Field label="Status">
+        <select style={IS} value={form.status} onChange={e=>set("status",e.target.value)} disabled={isAdminUser}>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+      </Field>
+      <Field label="Email"><input style={IS} type="email" value={form.email} onChange={e=>set("email",e.target.value)} placeholder="jane@example.com"/></Field>
+      <Field label="Phone Number"><input style={IS} value={form.phone} onChange={e=>set("phone",e.target.value)} placeholder="+1 (555) 000-0000"/></Field>
+    </div>
+    {isAdminUser&&<div style={{fontSize:11,color:"#ffaa55",fontFamily:"'DM Mono',monospace",marginBottom:12,background:"#2a1a00",border:"1px solid #7a4400",borderRadius:6,padding:"8px 12px"}}>⚠️ Master admin account — username, role and status cannot be changed.</div>}
+    <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:10}}>
+      <button style={B("ghost")} onClick={onClose}>Cancel</button>
+      <button style={B("primary")} onClick={doSave}>{existing?"Update User":"Create User"}</button>
+    </div>
+  </>;
+}
+
+// ─── User Card (admin) ────────────────────────────────────────────────────────
+function UserCard({ user, onEdit, isSelf }) {
+  const isAdminUser = user.role === "admin";
+  return (
+    <div className="card" style={{background:"#0d0d20",border:`1px solid ${isAdminUser?"#3a2060":"#262642"}`,borderRadius:12,padding:18,boxShadow:"0 2px 12px rgba(0,0,0,0.4)"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
+        <div>
+          <div style={{fontSize:18,fontWeight:700,color:"#eeeeff",fontFamily:"'Barlow Condensed',sans-serif"}}>{user.name}</div>
+          <div style={{fontSize:11,color:"#7070a8",fontFamily:"'DM Mono',monospace",marginTop:2}}>@{user.username}</div>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5}}>
+          <span style={{background:isAdminUser?"#2a1a4a":"#141428",color:isAdminUser?"#bb88ff":"#7878a8",border:`1px solid ${isAdminUser?"#4a2a7a":"#252548"}`,padding:"2px 10px",borderRadius:99,fontSize:11,fontFamily:"'DM Mono',monospace",fontWeight:500}}>
+            {user.role.toUpperCase()}
+          </span>
+          <span style={{background:user.status==="active"?"#0a2a18":"#2a0d0d",color:user.status==="active"?"#00ee77":"#ff5555",border:`1px solid ${user.status==="active"?"#1a6a3a":"#7a2020"}`,padding:"2px 10px",borderRadius:99,fontSize:11,fontFamily:"'DM Mono',monospace",fontWeight:500}}>
+            {user.status}
+          </span>
+        </div>
+      </div>
+      <div style={{fontSize:12,color:"#7878a8",fontFamily:"'DM Mono',monospace",display:"flex",flexDirection:"column",gap:4,marginBottom:14}}>
+        {user.terminal&&<div style={{color:"#5599cc"}}>📍 {user.terminal}</div>}
+        {user.email&&<div>✉️ {user.email}</div>}
+        {user.phone&&<div>📞 {user.phone}</div>}
+        {isSelf&&<div style={{color:"#ffaa55",marginTop:2}}>👤 Currently logged in</div>}
+      </div>
+      <div style={{display:"flex",gap:6}}>
+        <button onClick={()=>onEdit(user)} style={{...B("ghost"),padding:"5px 12px",fontSize:12}}>Edit</button>
+      </div>
+    </div>
+  );
+}
+
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
+  // ── Auth ────────────────────────────────────────────────────────────────────
+  const [currentUser,  setCurrentUser]  = useState(null);
+  const [authChecked,  setAuthChecked]  = useState(false);
+  const [users,        setUsers]        = useState([]);
+
+  useEffect(()=>{ setCurrentUser(getSession()); setAuthChecked(true); },[]);
+
+  const handleLogin  = useCallback(user => setCurrentUser(user), []);
+  const handleLogout = useCallback(()=>{ logout(); setCurrentUser(null); },[]);
+
+  const loadUsers = useCallback(async()=>{
+    const data = await fetchUsers();
+    setUsers(data);
+  },[]);
+
+  useEffect(()=>{ if(currentUser?.role==="admin") loadUsers(); },[currentUser,loadUsers]);
+
+  // ── Data ────────────────────────────────────────────────────────────────────
   const [tab,setTab]=useState("rt");
   const [rts,setRts]=useState([]);
   const [unis,setUnis]=useState([]);
@@ -609,28 +756,35 @@ export default function App() {
     toast("Data refreshed from Supabase.","success");
   },[syncing,loadAll,toast]);
 
-  useEffect(()=>{loadAll();const iv=setInterval(loadAll,15000);return()=>clearInterval(iv);},[loadAll]);
+  // Only start polling after auth is confirmed
+  useEffect(()=>{
+    if(!currentUser) return;
+    loadAll();
+    const iv=setInterval(loadAll,15000);
+    return()=>clearInterval(iv);
+  },[currentUser,loadAll]);
 
   const saveRT=async test=>{
     const isNew=!rts.some(r=>r.id===test.id);
     const showSms=test._sms; const clean={...test}; delete clean._sms;
     const upd=isNew?[...rts,clean]:rts.map(r=>r.id===clean.id?clean:r);
-    setRts(upd);await dbSave(SK.rt,upd);
+    setRts(upd);
     toast(isNew?"✅ Road test scheduled!":"Road test updated.","success");
     setModal(showSms?{type:"sms",data:clean}:null);
+    dbSave(SK.rt,upd);
   };
-  const delRT=async id=>{if(!confirm("Delete this road test?"))return;const upd=rts.filter(r=>r.id!==id);setRts(upd);await dbSave(SK.rt,upd);toast("Road test removed.");};
-  const saveOutcome=async test=>{const upd=rts.map(r=>r.id===test.id?test:r);setRts(upd);await dbSave(SK.rt,upd);toast(test.status==="Passed"?"✅ Passed!":"❌ Outcome recorded.",test.status==="Passed"?"success":"warn");setModal(null);};
+  const delRT=async id=>{if(!confirm("Delete this road test?"))return;const upd=rts.filter(r=>r.id!==id);setRts(upd);toast("Road test removed.");dbSave(SK.rt,upd);};
+  const saveOutcome=async test=>{const upd=rts.map(r=>r.id===test.id?test:r);setRts(upd);toast(test.status==="Passed"?"✅ Passed!":"❌ Outcome recorded.",test.status==="Passed"?"success":"warn");setModal(null);dbSave(SK.rt,upd);};
 
-  const saveUni=async req=>{const isNew=!unis.some(u=>u.id===req.id);const upd=isNew?[...unis,req]:unis.map(u=>u.id===req.id?req:u);setUnis(upd);await dbSave(SK.uni,upd);toast("Uniform order saved!","success");setModal(null);};
-  const delUni=async id=>{if(!confirm("Delete?"))return;const upd=unis.filter(u=>u.id!==id);setUnis(upd);await dbSave(SK.uni,upd);toast("Removed.");};
-  const fulfillUni=async id=>{const upd=unis.map(u=>u.id===id?{...u,status:"Completed",fulfilledAt:new Date().toISOString()}:u);setUnis(upd);await dbSave(SK.uni,upd);toast("✅ Order fulfilled!","success");};
+  const saveUni=async req=>{const isNew=!unis.some(u=>u.id===req.id);const upd=isNew?[...unis,req]:unis.map(u=>u.id===req.id?req:u);setUnis(upd);toast("Uniform order saved!","success");setModal(null);dbSave(SK.uni,upd);};
+  const delUni=async id=>{if(!confirm("Delete?"))return;const upd=unis.filter(u=>u.id!==id);setUnis(upd);toast("Removed.");dbSave(SK.uni,upd);};
+  const fulfillUni=async id=>{const upd=unis.map(u=>u.id===id?{...u,status:"Completed",fulfilledAt:new Date().toISOString()}:u);setUnis(upd);toast("✅ Order fulfilled!","success");dbSave(SK.uni,upd);};
 
-  const saveTruck=async truck=>{const isNew=!trucks.some(t=>t.id===truck.id);const upd=isNew?[...trucks,truck]:trucks.map(t=>t.id===truck.id?truck:t);setTrucks(upd);await dbSave(SK.tr,upd);toast(isNew?"🚚 Truck added!":"Truck updated.","success");setModal(null);};
-  const delTruck=async id=>{if(!confirm("Remove truck?"))return;const upd=trucks.filter(t=>t.id!==id);setTrucks(upd);await dbSave(SK.tr,upd);toast("Truck removed.");};
+  const saveTruck=async truck=>{const isNew=!trucks.some(t=>t.id===truck.id);const upd=isNew?[...trucks,truck]:trucks.map(t=>t.id===truck.id?truck:t);setTrucks(upd);toast(isNew?"🚚 Truck added!":"Truck updated.","success");setModal(null);dbSave(SK.tr,upd);};
+  const delTruck=async id=>{if(!confirm("Remove truck?"))return;const upd=trucks.filter(t=>t.id!==id);setTrucks(upd);toast("Truck removed.");dbSave(SK.tr,upd);};
 
-  const saveInj=async r=>{const isNew=!injs.some(x=>x.id===r.id);const upd=isNew?[...injs,r]:injs.map(x=>x.id===r.id?r:x);setInjs(upd);await dbSave(SK.inj,upd);toast(isNew?"🚨 Injury report filed.":"Report updated.","warn");setModal(null);};
-  const delInj=async id=>{if(!confirm("Delete this injury report?"))return;const upd=injs.filter(r=>r.id!==id);setInjs(upd);await dbSave(SK.inj,upd);toast("Report deleted.");};
+  const saveInj=async r=>{const isNew=!injs.some(x=>x.id===r.id);const upd=isNew?[...injs,r]:injs.map(x=>x.id===r.id?r:x);setInjs(upd);toast(isNew?"🚨 Injury report filed.":"Report updated.","warn");setModal(null);dbSave(SK.inj,upd);};
+  const delInj=async id=>{if(!confirm("Delete this injury report?"))return;const upd=injs.filter(r=>r.id!==id);setInjs(upd);toast("Report deleted.");dbSave(SK.inj,upd);};
 
   const pendingOut=rts.filter(r=>{const e=new Date(`${r.date}T${r.time}`);e.setMinutes(e.getMinutes()+parseInt(r.duration||60));return new Date()>=e&&r.status==="Scheduled";}).length;
   const truckAlerts=trucks.filter(t=>(expStatus(t.regExpiry)!=="ok"&&expStatus(t.regExpiry)!=="none")||(expStatus(t.inspExpiry)!=="ok"&&expStatus(t.inspExpiry)!=="none")).length;
@@ -645,10 +799,11 @@ export default function App() {
     {key:"uni",   icon:"shirt",  label:"Uniform Orders", count:unis.filter(u=>u.status==="Pending").length,  badgeColor:"#ff6200"},
     {key:"fleet", icon:"fleet",  label:"Fleet",          count:truckAlerts,                                   badgeColor:"#cc6600"},
     {key:"inj",   icon:"medkit", label:"Injury Reports", count:injs.length,                                   badgeColor:"#aa1111"},
+    ...(currentUser?.role==="admin"?[{key:"users",icon:"user",label:"Users",count:0,badgeColor:"#ff6200"}]:[]),
   ];
 
-  const addLabel={rt:"Schedule Road Test",uni:"New Uniform Request",fleet:"Add Truck",inj:"File Injury Report"};
-  const addType ={rt:"newRT",uni:"newUni",fleet:"newTruck",inj:"newInj"};
+  const addLabel={rt:"Schedule Road Test",uni:"New Uniform Request",fleet:"Add Truck",inj:"File Injury Report",users:"Add User"};
+  const addType ={rt:"newRT",uni:"newUni",fleet:"newTruck",inj:"newInj",users:"newUser"};
 
   const STATS=[
     {l:"Total Tests",    v:rts.length,                                    c:"#7070a8"},
@@ -661,8 +816,31 @@ export default function App() {
     {l:"Injury Reports", v:injs.length,                                    c:"#ff8888"},
   ];
 
+  // ── User save handlers (admin) ───────────────────────────────────────────────
+  const handleSaveUser = useCallback(async form => {
+    let error;
+    if (modal?.data) {
+      error = await updateUser(modal.data.id, form);
+    } else {
+      error = await createUser(form);
+    }
+    if (error) return toast(error.message || "Failed to save user.", "warn");
+    await loadUsers();
+    toast(modal?.data ? "User updated." : "User created.", "success");
+    setModal(null);
+  }, [modal, loadUsers, toast]);
+
+  if (!authChecked) return (
+    <div style={{minHeight:"100vh",background:"#080812",display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <span style={{color:"#5050a0",fontFamily:"'DM Mono',monospace",fontSize:13}}>Loading…</span>
+    </div>
+  );
+
   return (
     <div style={{minHeight:"100vh",background:"radial-gradient(ellipse at 30% 0%, #10102a 0%, #080812 65%)",fontFamily:"'Barlow Condensed',sans-serif",color:"#eeeeff"}}>
+
+      {/* ── AUTH MODAL ─────────────────────────────────────── */}
+      {!currentUser && <AuthModal onLogin={handleLogin}/>}
 
       {/* ── HEADER ─────────────────────────────────────────── */}
       <div className="app-header" style={{background:"#0b0b1e",borderBottom:"1px solid #1e1e38"}}>
@@ -679,6 +857,12 @@ export default function App() {
               {pendingOut>0&&<div style={{background:"#2a1200",border:"1px solid #ff6200",borderRadius:7,padding:"5px 10px",display:"flex",alignItems:"center",gap:5,animation:"pulse 2s infinite"}}><Ico n="bell" s={13}/><span style={{fontSize:12,color:"#ffaa55",fontFamily:"'DM Mono',monospace"}}>{pendingOut} awaiting outcome</span></div>}
               <button onClick={handleSync} disabled={syncing} style={{...B("ghost"),padding:"6px 10px",display:"flex",alignItems:"center",gap:5,fontSize:12,opacity:syncing?.5:1,transition:"opacity .2s"}}><span style={{display:"inline-flex",animation:syncing?"spin 1s linear infinite":"none"}}><Ico n="refresh" s={13}/></span>{syncing?"Syncing…":"Sync"}</button>
               {lastSync&&<span className="sync-label" style={{fontSize:10,color:"#5050a0",fontFamily:"'DM Mono',monospace"}}>{lastSync.toLocaleTimeString()}</span>}
+              {currentUser&&(
+                <div style={{display:"flex",alignItems:"center",gap:8,borderLeft:"1px solid #1e1e38",paddingLeft:10,marginLeft:2}}>
+                  <span style={{fontSize:11,color:"#7070a8",fontFamily:"'DM Mono',monospace",maxWidth:100,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{currentUser.name}</span>
+                  <button onClick={handleLogout} style={{background:"#1c1c32",border:"1px solid #2e2e4a",color:"#9090b8",padding:"5px 10px",borderRadius:6,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:12,letterSpacing:.5}}>Logout</button>
+                </div>
+              )}
             </div>
           </div>
           <div className="tabs-row">
@@ -707,10 +891,10 @@ export default function App() {
       {/* ── MAIN ───────────────────────────────────────────── */}
       <div className="main-wrap">
         <div className="filter-bar">
-          <select style={{...IS,width:"auto",minWidth:200}} value={fTerm} onChange={e=>setFTerm(e.target.value)}>
+          {tab!=="users"&&<select style={{...IS,width:"auto",minWidth:200}} value={fTerm} onChange={e=>setFTerm(e.target.value)}>
             <option value="All">All Terminals</option>
             {TERMINALS.map(t=><option key={t} value={t}>{t}</option>)}
-          </select>
+          </select>}
           {tab==="rt"&&<select style={{...IS,width:"auto"}} value={fStatus} onChange={e=>setFStatus(e.target.value)}>{["All","Scheduled","Passed","Failed"].map(s=><option key={s} value={s}>{s}</option>)}</select>}
           <button className="add-btn" onClick={()=>setModal({type:addType[tab]})} style={{...B(tab==="inj"?"danger":"primary"),display:"flex",alignItems:"center",gap:6,marginLeft:"auto"}}>
             <Ico n="plus" s={14}/>{addLabel[tab]}
@@ -732,7 +916,11 @@ export default function App() {
           {fTrucks.length===0
             ?<div style={{textAlign:"center",padding:80,color:"#5a5a9a",fontFamily:"'DM Mono',monospace",fontSize:13}}>No trucks yet. Click "Add Truck" to begin.</div>
             :<div className="cards-grid-wide">{fTrucks.map(t=><TruckCard key={t.id} truck={t} onEdit={t=>setModal({type:"editTruck",data:t})} onDelete={delTruck}/>)}</div>}
-        </>) : (
+        </>) : tab==="users" ? (
+          users.length===0
+            ?<div style={{textAlign:"center",padding:80,color:"#5a5a9a",fontFamily:"'DM Mono',monospace",fontSize:13}}>No users yet. Click "Add User" to create one.</div>
+            :<div className="cards-grid-wide">{users.map(u=><UserCard key={u.id} user={u} onEdit={u=>setModal({type:"editUser",data:u})} isSelf={u.id===currentUser?.id}/>)}</div>
+        ) : (
           fInjs.length===0
             ?<div style={{textAlign:"center",padding:80,color:"#5a5a9a",fontFamily:"'DM Mono',monospace",fontSize:13}}>No injury reports filed yet. Click "File Injury Report" to begin.</div>
             :<div className="cards-grid-wide">{fInjs.map(r=><InjuryCard key={r.id} report={r} onView={r=>setModal({type:"viewInj",data:r})} onEdit={r=>setModal({type:"editInj",data:r})} onDelete={delInj}/>)}</div>
@@ -751,6 +939,8 @@ export default function App() {
       {modal?.type==="newInj"    && <Modal title="File Work Injury Report"   onClose={()=>setModal(null)} wide><InjuryForm onSave={saveInj}     onClose={()=>setModal(null)}/></Modal>}
       {modal?.type==="editInj"   && <Modal title="Edit Injury Report"        onClose={()=>setModal(null)} wide><InjuryForm onSave={saveInj}     onClose={()=>setModal(null)} existing={modal.data}/></Modal>}
       {modal?.type==="viewInj"   && <InjuryDetail report={modal.data} onClose={()=>setModal(null)}/>}
+      {modal?.type==="newUser"   && <Modal title="Create User"         onClose={()=>setModal(null)} wide><UserForm onSave={handleSaveUser} onClose={()=>setModal(null)}/></Modal>}
+      {modal?.type==="editUser"  && <Modal title="Edit User"           onClose={()=>setModal(null)} wide><UserForm onSave={handleSaveUser} onClose={()=>setModal(null)} existing={modal.data}/></Modal>}
 
       <Toast toasts={toasts}/>
     </div>

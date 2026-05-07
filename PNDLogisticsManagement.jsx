@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { dbLoad, dbSave } from "./src/lib/db.js";
 import { login, logout, getSession, fetchUsers, createUser, updateUser } from "./src/lib/auth.js";
+import { sendRoadTestOutcomeEmail } from "./src/lib/email.js";
 
 const TERMINAL_DATA = {
 "Fort Worth Terminal - 761":      { address: "4901 Village Creek Rd, Fort Worth TX 76119",        manager: "Alexis Rodriguez", phone: "+1 (787) 672-8847" },
@@ -286,6 +287,7 @@ function RTCard({test,onEdit,onOutcome,onDelete,onSms}) {
         <div style={{color:"#4a7090",paddingLeft:18}}>{t.address}</div>
         <div style={{color:"#9090aa"}}>📅 {new Date(test.date+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"})} · ⏰ {test.time}</div>
         <div style={{color:"#6080a0"}}>👤 {t.manager} · {t.phone}</div>
+        {test.createdBy&&<div style={{color:"#4a4a70",marginTop:2}}>🗂 Scheduled by {test.createdBy.name}</div>}
       </div>
       {test.status==="Passed"&&<div style={{background:"#071a0f",border:"1px solid #1a5a2a",borderRadius:7,padding:"7px 11px",marginBottom:12,fontSize:12,color:"#00dd66",fontFamily:"'DM Mono',monospace"}}>✅ PASSED{test.firstDay?` · Training: ${new Date(test.firstDay+"T12:00:00").toLocaleDateString()}`:""}</div>}
       {test.status==="Failed"&&<div style={{background:"#1a0707",border:"1px solid #6a1a1a",borderRadius:7,padding:"7px 11px",marginBottom:12,fontSize:12,color:"#ff6666",fontFamily:"'DM Mono',monospace"}}>❌ FAILED{test.feedback?` · ${test.feedback.slice(0,70)}`:""}</div>}
@@ -827,6 +829,7 @@ export default function App() {
   const saveRT=async test=>{
     const isNew=!rts.some(r=>r.id===test.id);
     const showSms=test._sms; const clean={...test}; delete clean._sms;
+    if(isNew) clean.createdBy={id:currentUser.id,name:currentUser.name,email:currentUser.email||null};
     const upd=isNew?[...rts,clean]:rts.map(r=>r.id===clean.id?clean:r);
     setRts(upd);
     toast(isNew?"✅ Road test scheduled!":"Road test updated.","success");
@@ -834,7 +837,16 @@ export default function App() {
     dbSave(SK.rt,upd);
   };
   const delRT=async id=>{if(!confirm("Delete this road test?"))return;const upd=rts.filter(r=>r.id!==id);setRts(upd);toast("Road test removed.");dbSave(SK.rt,upd);};
-  const saveOutcome=async test=>{const upd=rts.map(r=>r.id===test.id?test:r);setRts(upd);toast(test.status==="Passed"?"✅ Passed!":"❌ Outcome recorded.",test.status==="Passed"?"success":"warn");setModal(null);dbSave(SK.rt,upd);};
+  const saveOutcome=async test=>{
+    const upd=rts.map(r=>r.id===test.id?test:r);
+    setRts(upd);
+    toast(test.status==="Passed"?"✅ Passed!":"❌ Outcome recorded.",test.status==="Passed"?"success":"warn");
+    setModal(null);
+    dbSave(SK.rt,upd);
+    const result=await sendRoadTestOutcomeEmail(test);
+    if(result?.ok) toast("📧 Outcome email sent to "+test.createdBy.name+".","success");
+    else if(result?.error) toast("Email failed to send. Check console.","warn");
+  };
 
   const saveUni=async req=>{const isNew=!unis.some(u=>u.id===req.id);const upd=isNew?[...unis,req]:unis.map(u=>u.id===req.id?req:u);setUnis(upd);toast("Uniform order saved!","success");setModal(null);dbSave(SK.uni,upd);};
   const delUni=async id=>{if(!confirm("Delete?"))return;const upd=unis.filter(u=>u.id!==id);setUnis(upd);toast("Removed.");dbSave(SK.uni,upd);};

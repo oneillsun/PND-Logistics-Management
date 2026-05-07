@@ -1,0 +1,118 @@
+const RESEND_KEY = import.meta.env.VITE_RESEND_API_KEY
+const FROM_EMAIL = import.meta.env.VITE_FROM_EMAIL
+
+// Build a branded HTML email body for road test outcomes
+function buildOutcomeHtml(test) {
+  const passed  = test.status === 'Passed'
+  const accentColor = passed ? '#00cc66' : '#ff4444'
+  const statusLabel = passed ? '✅ PASSED' : '❌ FAILED'
+  const terminalInfo = test.terminal || '—'
+  const testDate = test.date
+    ? new Date(test.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+    : '—'
+
+  const rows = [
+    ['Candidate',       test.candidateName || '—'],
+    ['FedEx ID',        test.fedexId        || '—'],
+    ['Phone',           test.phone          || '—'],
+    ['Terminal',        terminalInfo],
+    ['Test Date',       testDate],
+    ['Test Time',       test.time           || '—'],
+    ['Duration',        test.duration ? `${test.duration} min` : '—'],
+    ['Result',          statusLabel],
+    ...(passed && test.firstDay
+      ? [['First Day of Training', new Date(test.firstDay + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })]]
+      : []),
+    ...(test.feedback ? [['Manager Feedback', test.feedback]] : []),
+    ['Completed At',    test.completedAt ? new Date(test.completedAt).toLocaleString('en-US') : '—'],
+  ]
+
+  const tableRows = rows.map(([label, value]) => `
+    <tr>
+      <td style="padding:8px 14px;color:#8888aa;font-size:12px;font-family:monospace;white-space:nowrap;vertical-align:top;">${label}</td>
+      <td style="padding:8px 14px;color:#eeeeff;font-size:13px;font-family:monospace;vertical-align:top;">${value}</td>
+    </tr>`).join('')
+
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"/></head>
+<body style="margin:0;padding:0;background:#080812;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#080812;padding:32px 0;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#0d0d22;border:1px solid #262642;border-radius:12px;overflow:hidden;max-width:100%;">
+
+        <!-- Header -->
+        <tr>
+          <td style="background:#0a0a1e;padding:24px 28px;border-bottom:1px solid #1e1e3a;">
+            <span style="font-size:11px;color:#ff6200;font-family:monospace;letter-spacing:2px;text-transform:uppercase;">PND Logistics Management</span>
+            <div style="font-size:22px;font-weight:800;color:#eeeeff;margin-top:6px;letter-spacing:1px;">Road Test Outcome</div>
+          </td>
+        </tr>
+
+        <!-- Status banner -->
+        <tr>
+          <td style="padding:20px 28px 0;">
+            <div style="background:${passed ? '#071a0f' : '#1a0707'};border:1px solid ${accentColor};border-radius:8px;padding:14px 18px;font-size:20px;font-weight:700;color:${accentColor};font-family:monospace;letter-spacing:1px;">
+              ${statusLabel} &nbsp;—&nbsp; ${test.candidateName || ''}
+            </div>
+          </td>
+        </tr>
+
+        <!-- Detail table -->
+        <tr>
+          <td style="padding:20px 28px;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#111128;border:1px solid #1e1e3a;border-radius:8px;overflow:hidden;">
+              ${tableRows}
+            </table>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="padding:16px 28px 24px;border-top:1px solid #1e1e3a;">
+            <span style="font-size:11px;color:#44447a;font-family:monospace;">This is an automated notification from PND Logistics Management.</span>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`
+}
+
+export async function sendRoadTestOutcomeEmail(test) {
+  if (!RESEND_KEY) {
+    console.warn('[email] VITE_RESEND_API_KEY not set — skipping email.')
+    return { skipped: true }
+  }
+  if (!test.createdBy?.email) {
+    console.warn('[email] Road test has no createdBy.email — skipping email.')
+    return { skipped: true }
+  }
+
+  const passed  = test.status === 'Passed'
+  const subject = `Road Test ${passed ? 'PASSED ✅' : 'FAILED ❌'} — ${test.candidateName}`
+
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${RESEND_KEY}`,
+      'Content-Type':  'application/json',
+    },
+    body: JSON.stringify({
+      from:    FROM_EMAIL,
+      to:      test.createdBy.email,
+      subject,
+      html:    buildOutcomeHtml(test),
+    }),
+  })
+
+  if (!res.ok) {
+    const err = await res.text()
+    console.error('[email] Resend error:', err)
+    return { error: err }
+  }
+
+  return { ok: true }
+}

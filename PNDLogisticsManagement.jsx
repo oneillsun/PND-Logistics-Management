@@ -57,6 +57,7 @@ function Ico({n,s=16}){
   if(n==="user")    return <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>;
   if(n==="phone")   return <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.59 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.08 6.08l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>;
   if(n==="warn")    return <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>;
+  if(n==="dl")      return <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>;
   if(n==="attach")  return <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>;
   if(n==="eye")     return <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>;
   return null;
@@ -98,6 +99,42 @@ function Field({label,children,span}) {
       {children}
     </div>
   );
+}
+
+// ─── CSV export ───────────────────────────────────────────────────────────────
+const CSV_COLS = {
+  rt:    ["id","candidateName","phone","fedexId","terminal","date","time","duration","status","manager","notes","feedback","firstDay","completedAt","createdAt"],
+  uni:   ["id","terminal","requestedBy","status","notes","items","createdAt","fulfilledAt"],
+  fleet: ["id","terminal","truckNumber","licensePlate","regState","regExpiry","inspExpiry","vin","notes","createdAt","updatedAt"],
+  inj:   ["id","terminal","employeeName","injuryDate","injuryTime","injuryAddress","description","bodyPart","medicalAttention","medicalProvider","missedWork","missedDays","witnesses","reportedBy","createdAt"],
+  users: ["id","name","username","role","terminal","phone","email","status","createdAt"],
+};
+
+function toCSV(rows, cols) {
+  const esc = v => {
+    if (v === null || v === undefined) return "";
+    const s = Array.isArray(v)
+      ? v.map(i => `${i.qty}x ${i.type} (${i.size})`).join("; ")
+      : String(v);
+    return s.includes(",") || s.includes('"') || s.includes("\n")
+      ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const header = cols.join(",");
+  const body   = rows.map(r => cols.map(c => esc(r[c])).join(",")).join("\n");
+  return `${header}\n${body}`;
+}
+
+function downloadCSV(tab, data) {
+  const cols = CSV_COLS[tab];
+  if (!cols) return;
+  const csv  = toCSV(data, cols);
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href = url;
+  a.download = `pnd_${tab}_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ─── Badge ────────────────────────────────────────────────────────────────────
@@ -919,7 +956,10 @@ export default function App() {
             {TERMINALS.map(t=><option key={t} value={t}>{t}</option>)}
           </select>}
           {tab==="rt"&&<select style={{...IS,width:"auto"}} value={fStatus} onChange={e=>setFStatus(e.target.value)}>{["All","Scheduled","Passed","Failed"].map(s=><option key={s} value={s}>{s}</option>)}</select>}
-          <button className="add-btn" onClick={()=>setModal({type:addType[tab]})} style={{...B(tab==="inj"?"danger":"primary"),display:"flex",alignItems:"center",gap:6,marginLeft:"auto"}}>
+          <button onClick={()=>downloadCSV(tab,{rt:rts,uni:unis,fleet:trucks,inj:injs,users}[tab])} style={{...B("ghost"),display:"flex",alignItems:"center",gap:6,marginLeft:"auto",padding:"6px 14px",fontSize:12}}>
+            <Ico n="dl" s={14}/><span className="sync-label">Download CSV</span>
+          </button>
+          <button className="add-btn" onClick={()=>setModal({type:addType[tab]})} style={{...B(tab==="inj"?"danger":"primary"),display:"flex",alignItems:"center",gap:6}}>
             <Ico n="plus" s={14}/>{addLabel[tab]}
           </button>
         </div>

@@ -33,7 +33,7 @@ export async function login(username, password) {
 export async function fetchUsers() {
   const { data } = await supabase
     .from('users')
-    .select('id, name, username, role, terminal, phone, email, status, created_at')
+    .select('id, name, username, password, role, terminal, phone, email, status, created_at')
     .order('created_at', { ascending: true })
   return data || []
 }

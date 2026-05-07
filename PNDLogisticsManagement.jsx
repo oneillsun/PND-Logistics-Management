@@ -677,6 +677,21 @@ function UserForm({ onSave, onClose, existing }) {
 }
 
 // ─── User Card (admin) ────────────────────────────────────────────────────────
+function CopyBtn({ value }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    navigator.clipboard.writeText(value).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+  return (
+    <button onClick={copy} title="Copy" style={{background:"none",border:"none",padding:"0 4px",cursor:"pointer",color:copied?"#00ee77":"#5050a0",fontSize:11,fontFamily:"'DM Mono',monospace",lineHeight:1}}>
+      {copied ? "✓" : "⎘"}
+    </button>
+  );
+}
+
 function UserCard({ user, onEdit, isSelf }) {
   const isAdminUser = user.role === "admin";
   return (
@@ -684,7 +699,10 @@ function UserCard({ user, onEdit, isSelf }) {
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
         <div>
           <div style={{fontSize:18,fontWeight:700,color:"#eeeeff",fontFamily:"'Barlow Condensed',sans-serif"}}>{user.name}</div>
-          <div style={{fontSize:11,color:"#7070a8",fontFamily:"'DM Mono',monospace",marginTop:2}}>@{user.username}</div>
+          <div style={{display:"flex",alignItems:"center",gap:2,marginTop:2}}>
+            <span style={{fontSize:11,color:"#7070a8",fontFamily:"'DM Mono',monospace"}}>@{user.username}</span>
+            <CopyBtn value={user.username}/>
+          </div>
         </div>
         <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5}}>
           <span style={{background:isAdminUser?"#2a1a4a":"#141428",color:isAdminUser?"#bb88ff":"#7878a8",border:`1px solid ${isAdminUser?"#4a2a7a":"#252548"}`,padding:"2px 10px",borderRadius:99,fontSize:11,fontFamily:"'DM Mono',monospace",fontWeight:500}}>
@@ -696,6 +714,11 @@ function UserCard({ user, onEdit, isSelf }) {
         </div>
       </div>
       <div style={{fontSize:12,color:"#7878a8",fontFamily:"'DM Mono',monospace",display:"flex",flexDirection:"column",gap:4,marginBottom:14}}>
+        <div style={{display:"flex",alignItems:"center",gap:2}}>
+          <span style={{color:"#5050a0"}}>🔑</span>
+          <span style={{letterSpacing:2}}>{"•".repeat(user.password?.length||6)}</span>
+          <CopyBtn value={user.password||""}/>
+        </div>
         {user.terminal&&<div style={{color:"#5599cc"}}>📍 {user.terminal}</div>}
         {user.email&&<div>✉️ {user.email}</div>}
         {user.phone&&<div>📞 {user.phone}</div>}

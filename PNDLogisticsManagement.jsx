@@ -209,7 +209,7 @@ function SmsModal({test,onClose}) {
 // ─── Road Test Form ───────────────────────────────────────────────────────────
 function RTForm({onSave,onClose,existing}) {
   const now=new Date(); const pad=n=>String(n).padStart(2,"0");
-  const [form,setForm]=useState(existing||{candidateName:"",phone:"",fedexId:"",dln:"",dlnState:"",terminal:TERMINALS[0],date:`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`,time:`${pad(now.getHours())}:${pad(now.getMinutes())}`,duration:"60",notes:""});
+  const [form,setForm]=useState(existing||{candidateName:"",phone:"",fedexId:"",dln:"",dlnState:"",vehicleUnit:"",terminal:TERMINALS[0],date:`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`,time:`${pad(now.getHours())}:${pad(now.getMinutes())}`,duration:"60",notes:""});
   const [prev,setPrev]=useState(false);
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const doSave=withSms=>{
@@ -223,6 +223,7 @@ function RTForm({onSave,onClose,existing}) {
       <Field label="FedEx ID *"><input style={IS} value={form.fedexId} onChange={e=>set("fedexId",e.target.value)} placeholder="FX-000000"/></Field>
       <Field label="Candidate License Number"><input style={IS} value={form.dln||""} onChange={e=>set("dln",e.target.value)} placeholder="DLN-000000"/></Field>
       <Field label="DLN State"><select style={IS} value={form.dlnState||""} onChange={e=>set("dlnState",e.target.value)}><option value="">— Select —</option>{US_STATES.map(s=><option key={s} value={s}>{s}</option>)}</select></Field>
+      <Field label="Vehicle Unit Number"><input style={IS} value={form.vehicleUnit||""} onChange={e=>set("vehicleUnit",e.target.value)} placeholder="e.g. 4821"/></Field>
       <Field label="Terminal Location"><select style={IS} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>{TERMINALS.map(t=><option key={t} value={t}>{t}</option>)}</select></Field>
     </div>
     <TInfo tk={form.terminal}/>
@@ -248,11 +249,12 @@ function OutcomeForm({test,onSave,onClose}) {
   const [feedback,setFeedback]=useState(test.feedback||"");
   const [dln,setDln]=useState(test.dln||"");
   const [dlnState,setDlnState]=useState(test.dlnState||"");
+  const [vehicleUnit,setVehicleUnit]=useState(test.vehicleUnit||"");
   const save=()=>{
     if(passed===null)return alert("Select Pass or Fail.");
     if(passed&&!dln.trim())return alert("Candidate Driver License Number is required for a Passed outcome.");
     if(passed&&!dlnState)return alert("Candidate Driver License State is required for a Passed outcome.");
-    onSave({...test,status:passed?"Passed":"Failed",firstDay:passed?firstDay:null,feedback,dln:passed?dln.trim():test.dln,dlnState:passed?dlnState:test.dlnState,completedAt:new Date().toISOString()});
+    onSave({...test,status:passed?"Passed":"Failed",firstDay:passed?firstDay:null,feedback,dln:passed?dln.trim():test.dln,dlnState:passed?dlnState:test.dlnState,vehicleUnit:passed?vehicleUnit:test.vehicleUnit,completedAt:new Date().toISOString()});
   };
   return <>
     <div style={{background:"#131326",border:"1px solid #2a2a48",borderRadius:8,padding:14,marginBottom:14}}>
@@ -271,7 +273,10 @@ function OutcomeForm({test,onSave,onClose}) {
       <Field label="Candidate Driver License Number *"><input style={IS} value={dln} onChange={e=>setDln(e.target.value)} placeholder="DLN-000000"/></Field>
       <Field label="Candidate Driver License State *"><select style={IS} value={dlnState} onChange={e=>setDlnState(e.target.value)}><option value="">— Select —</option>{US_STATES.map(s=><option key={s} value={s}>{s}</option>)}</select></Field>
     </div>}
-    {passed===true&&<Field label="First Day of Training"><input style={IS} type="date" value={firstDay} onChange={e=>setFirstDay(e.target.value)}/></Field>}
+    {passed===true&&<div className="form-grid-2">
+      <Field label="First Day of Training"><input style={IS} type="date" value={firstDay} onChange={e=>setFirstDay(e.target.value)}/></Field>
+      <Field label="Vehicle Unit Number"><input style={IS} value={vehicleUnit} onChange={e=>setVehicleUnit(e.target.value)} placeholder="e.g. 4821"/></Field>
+    </div>}
     <Field label="Manager Feedback"><textarea style={{...IS,height:80,resize:"vertical"}} value={feedback} onChange={e=>setFeedback(e.target.value)} placeholder="Observations..."/></Field>
     <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:10}}>
       <button style={B("ghost")} onClick={onClose}>Cancel</button>

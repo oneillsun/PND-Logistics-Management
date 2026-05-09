@@ -65,6 +65,24 @@ export async function generateRoadTestPDF(test, terminalData, adminUser) {
     page.drawText(String(text), { x, y, size, font, color: rgb(0, 0, 0) });
   };
 
+  const splitDateValues = dateStr => {
+    if (!dateStr) return ["", "", ""];
+    const parts = dateStr.split("/");
+    if (parts.length === 3) {
+      const [m, d, y] = parts;
+      return [m || "", d || "", y || ""];
+    }
+    return ["", "", ""];
+  };
+
+  const drawDateParts = (dateStr, xMonth, xDay, xYear, y, size = 8) => {
+    const [month, day, year] = splitDateValues(dateStr);
+    console.log(`Drawing date parts: ${month}/${day}/${year} at positions: ${xMonth}, ${xDay}, ${xYear}`);
+    if (month) draw(month, xMonth, y, size);
+    if (day) draw(day, xDay, y, size);
+    if (year) draw(year, xYear, y, size);
+  };
+
   // ── Check box helper — draws a solid 5x5 square inside the checkbox outline ─
   // Checkbox baseline y from PDF stream; box glyph is ~8pt tall, drawn 1pt inside.
   const check = (x, y) => {
@@ -78,30 +96,16 @@ export async function generateRoadTestPDF(test, terminalData, adminUser) {
   };
 
   // ── Section 1 ──────────────────────────────────────────────────────────────
-  draw(dateStr, 72, 612);                        // Date
+  drawDateParts(dateStr, 60, 82, 100, 614, 8);     // Date (MM/DD/YYYY)
   draw(test.candidateName || "", 110, 594);       // Driver Name
   draw(test.fedexId || "", 500, 594);             // Driver FedEx ID
   draw(adminUser?.name || "", 175, 576);           // Road Test Administrator Name
   draw(adminUser?.fedex_id || "", 500, 576);       // Road Test Administrator FedEx ID
 
-  // ── Section 2 — Employer fields from pdf-general-fields.json ──────────────
-  // These fields have no underline rects in this PDF revision; text is placed
-  // in the three blank strips between Section 1/2 separator and signature line.
-  // y=557: between thick separator (y=563) and "SECTION 2:" header (y=554)
-  // y=537: between "(LEAVE BLANK)" note (y=544) and cert text (y=529)
-  // y=512: between cert text line 2 (y=520) and signature underline (y=501)
-  const gf = generalFields[test.terminal] || {};
-  const getField = key => gf[key] || gf[key.replace("'", "’")] || gf[key.replace("’", "'")] || "";
-  draw(getField("Road Test Administrator Employer's Name"), 36, 557, 8);
-  draw(getField("Road Test Administrator Employer's Business Address"), 36, 537, 8);
-  draw(getField("City"), 36, 512, 8);
-  draw(getField("State"), 210, 512, 8);
-  draw(getField("ZIP Code"), 320, 512, 8);
-
   // ── Section 3 ──────────────────────────────────────────────────────────────
-  draw(startTime, 414, 436, 8);                      // Test Time From
-  draw(endTime, 463, 436, 8);                        // Test Time To
-  draw(dateStr, 514, 436, 8);                        // Date
+  draw(startTime, 420, 437, 8);                      // Test Time From
+  draw(endTime, 463, 437, 8);                        // Test Time To
+  drawDateParts(dateStr, 520, 540, 557, 437, 8);     // Date (MM/DD/YYYY)
 
   // ── Section 3 — Satisfactory checkboxes ───────────────────────────────────
   // 8 evaluation items: 4 rows x 2 columns. Left col x:41, right col x:320.
@@ -111,12 +115,29 @@ export async function generateRoadTestPDF(test, terminalData, adminUser) {
   satisfactoryY.forEach(y => check(41.0, y));
   satisfactoryYR.forEach(y => check(320.0, y));
 
+  // ── Section 4 — Employer fields from pdf-general-fields.json ──────────────
+  const gf = generalFields[test.terminal] || {};
+  const normalizeFieldKey = key => String(key).replace(/[’']/g, "").replace(/\s+/g, " ").trim().toLowerCase();
+  const getField = key => {
+    if (key in gf) return gf[key] || "";
+    const normalizedKey = normalizeFieldKey(key);
+    const match = Object.keys(gf).find(k => normalizeFieldKey(k) === normalizedKey);
+    return match ? gf[match] || "" : "";
+  };
+  draw(getField("Road Test Administrator Employer's Name"), 240, 103, 8);
+  draw(getField("Road Test Administrator Employer's Business Address"), 240, 83, 8);
+  draw(getField("City"), 370, 83, 8);
+  draw(getField("State"), 470, 83, 8);
+  draw(getField("ZIP Code"), 540, 83, 8);
+
   // ── Section 4 ──────────────────────────────────────────────────────────────
-  draw(test.candidateName || "", 112, 227);       // Driver Name
+  draw(test.candidateName || "", 113, 227);       // Driver Name
   draw(test.fedexId || "", 500, 227);             // Driver FedEx ID
   draw(test.dln || "", 128, 210);                 // Driver's License Number
   draw(test.dlnState || "", 478, 210);            // DLN State
-  draw(dateStr, 404, 154);                        // Certification date
+  const vehicleUnitNumber = test.vehicleUnit || "";
+  draw(vehicleUnitNumber, 320, 174);                // Vehicle/Unit Number
+  drawDateParts(dateStr, 408, 428, 443, 156, 8);     // Certification date (MM/DD/YYYY)
 
   // ── Type of Power Unit: P-1000 (x:351.1, y:191.9) ─────────────────────────
   check(351.1, 191.9);

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { dbLoad, dbSave } from "./src/lib/db.js";
 import { login, logout, getSession, fetchUsers, createUser, updateUser } from "./src/lib/auth.js";
 import { sendRoadTestOutcomeEmail } from "./src/lib/email.js";
+import { generateRoadTestPDF } from "./src/lib/pdfRecord.js";
 
 const TERMINAL_DATA = {
 "Fort Worth Terminal - 761":      { address: "4901 Village Creek Rd, Fort Worth TX 76119",        manager: "Alexis Rodriguez", phone: "+1 (787) 672-8847" },
@@ -19,6 +20,7 @@ const TOP_SIZES     = ["XS","S","M","L","XL","2XL","3XL","4XL"];
 const getSizes = t => BOTTOM_TYPES.includes(t) ? BOTTOM_SIZES : TOP_SIZES;
 const defSize  = t => BOTTOM_TYPES.includes(t) ? "32" : "M";
 const BODY_PARTS = ["Head / Skull","Face","Eye(s)","Ear(s)","Neck","Shoulder(s)","Upper Arm","Elbow","Forearm","Wrist","Hand / Fingers","Upper Back","Lower Back","Chest / Ribs","Abdomen","Hip","Thigh","Knee","Lower Leg / Shin","Ankle","Foot / Toes","Multiple Areas","Other"];
+const US_STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
 const SK = { rt:"pnd_rt_v5", uni:"pnd_uni_v5", tr:"pnd_tr_v5", inj:"pnd_inj_v5" };
 const SC = { Scheduled:{bg:"#0d2240",text:"#4db8ff",border:"#1a4a80"}, Passed:{bg:"#0a2a18",text:"#00ee77",border:"#1a6a3a"}, Failed:{bg:"#2a0d0d",text:"#ff5555",border:"#7a2020"}, Pending:{bg:"#1e1800",text:"#ffcc44",border:"#5a4800"}, Completed:{bg:"#1a0d2a",text:"#bb88ff",border:"#4a2a7a"} };
 const EC = { expired:{bg:"#2a0d0d",text:"#ff6666",border:"#7a2020"}, warning:{bg:"#2a1a00",text:"#ffaa00",border:"#7a4400"}, ok:{bg:"#0a1a0a",text:"#00cc66",border:"#1a5a2a"}, none:{bg:"#141428",text:"#6868a0",border:"#252548"} };
@@ -104,11 +106,11 @@ function Field({label,children,span}) {
 
 // ─── CSV export ───────────────────────────────────────────────────────────────
 const CSV_COLS = {
-  rt:    ["id","candidateName","phone","fedexId","terminal","date","time","duration","status","manager","notes","feedback","firstDay","completedAt","createdAt"],
+  rt:    ["id","candidateName","phone","fedexId","dln","dlnState","terminal","date","time","duration","status","manager","notes","feedback","firstDay","completedAt","createdAt"],
   uni:   ["id","terminal","requestedBy","status","notes","items","createdAt","fulfilledAt"],
   fleet: ["id","terminal","truckNumber","licensePlate","regState","regExpiry","inspExpiry","vin","notes","createdAt","updatedAt"],
   inj:   ["id","terminal","employeeName","injuryDate","injuryTime","injuryAddress","description","bodyPart","medicalAttention","medicalProvider","missedWork","missedDays","witnesses","reportedBy","createdAt"],
-  users: ["id","name","username","role","terminal","phone","email","status","createdAt"],
+  users: ["id","name","username","role","terminal","phone","email","fedex_id","status","created_at"],
 };
 
 function toCSV(rows, cols) {
@@ -207,7 +209,7 @@ function SmsModal({test,onClose}) {
 // ─── Road Test Form ───────────────────────────────────────────────────────────
 function RTForm({onSave,onClose,existing}) {
   const now=new Date(); const pad=n=>String(n).padStart(2,"0");
-  const [form,setForm]=useState(existing||{candidateName:"",phone:"",fedexId:"",terminal:TERMINALS[0],date:`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`,time:`${pad(now.getHours())}:${pad(now.getMinutes())}`,duration:"60",notes:""});
+  const [form,setForm]=useState(existing||{candidateName:"",phone:"",fedexId:"",dln:"",dlnState:"",terminal:TERMINALS[0],date:`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`,time:`${pad(now.getHours())}:${pad(now.getMinutes())}`,duration:"60",notes:""});
   const [prev,setPrev]=useState(false);
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const doSave=withSms=>{
@@ -219,6 +221,8 @@ function RTForm({onSave,onClose,existing}) {
       <Field label="Candidate Full Name *"><input style={IS} value={form.candidateName} onChange={e=>set("candidateName",e.target.value)} placeholder="Jane Smith"/></Field>
       <Field label="Candidate Phone *"><input style={IS} value={form.phone} onChange={e=>set("phone",e.target.value)} placeholder="+1 (555) 000-0000"/></Field>
       <Field label="FedEx ID *"><input style={IS} value={form.fedexId} onChange={e=>set("fedexId",e.target.value)} placeholder="FX-000000"/></Field>
+      <Field label="Candidate License Number"><input style={IS} value={form.dln||""} onChange={e=>set("dln",e.target.value)} placeholder="DLN-000000"/></Field>
+      <Field label="DLN State"><select style={IS} value={form.dlnState||""} onChange={e=>set("dlnState",e.target.value)}><option value="">— Select —</option>{US_STATES.map(s=><option key={s} value={s}>{s}</option>)}</select></Field>
       <Field label="Terminal Location"><select style={IS} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>{TERMINALS.map(t=><option key={t} value={t}>{t}</option>)}</select></Field>
     </div>
     <TInfo tk={form.terminal}/>
@@ -242,7 +246,14 @@ function OutcomeForm({test,onSave,onClose}) {
   const [passed,setPassed]=useState(null);
   const [firstDay,setFirstDay]=useState("");
   const [feedback,setFeedback]=useState(test.feedback||"");
-  const save=()=>{if(passed===null)return alert("Select Pass or Fail.");onSave({...test,status:passed?"Passed":"Failed",firstDay:passed?firstDay:null,feedback,completedAt:new Date().toISOString()});};
+  const [dln,setDln]=useState(test.dln||"");
+  const [dlnState,setDlnState]=useState(test.dlnState||"");
+  const save=()=>{
+    if(passed===null)return alert("Select Pass or Fail.");
+    if(passed&&!dln.trim())return alert("Candidate Driver License Number is required for a Passed outcome.");
+    if(passed&&!dlnState)return alert("Candidate Driver License State is required for a Passed outcome.");
+    onSave({...test,status:passed?"Passed":"Failed",firstDay:passed?firstDay:null,feedback,dln:passed?dln.trim():test.dln,dlnState:passed?dlnState:test.dlnState,completedAt:new Date().toISOString()});
+  };
   return <>
     <div style={{background:"#131326",border:"1px solid #2a2a48",borderRadius:8,padding:14,marginBottom:14}}>
       <div style={{fontSize:10,color:"#7070a0",fontFamily:"'DM Mono',monospace",textTransform:"uppercase",letterSpacing:1}}>Candidate</div>
@@ -256,7 +267,11 @@ function OutcomeForm({test,onSave,onClose}) {
         <button onClick={()=>setPassed(false)} style={{...B(passed===false?"danger":"ghost"),flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}><Ico n="x" s={14}/>FAILED</button>
       </div>
     </Field>
-    {passed&&<Field label="First Day of Training"><input style={IS} type="date" value={firstDay} onChange={e=>setFirstDay(e.target.value)}/></Field>}
+    {passed===true&&<div className="form-grid-2">
+      <Field label="Candidate Driver License Number *"><input style={IS} value={dln} onChange={e=>setDln(e.target.value)} placeholder="DLN-000000"/></Field>
+      <Field label="Candidate Driver License State *"><select style={IS} value={dlnState} onChange={e=>setDlnState(e.target.value)}><option value="">— Select —</option>{US_STATES.map(s=><option key={s} value={s}>{s}</option>)}</select></Field>
+    </div>}
+    {passed===true&&<Field label="First Day of Training"><input style={IS} type="date" value={firstDay} onChange={e=>setFirstDay(e.target.value)}/></Field>}
     <Field label="Manager Feedback"><textarea style={{...IS,height:80,resize:"vertical"}} value={feedback} onChange={e=>setFeedback(e.target.value)} placeholder="Observations..."/></Field>
     <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:10}}>
       <button style={B("ghost")} onClick={onClose}>Cancel</button>
@@ -266,18 +281,28 @@ function OutcomeForm({test,onSave,onClose}) {
 }
 
 // ─── Road Test Card ───────────────────────────────────────────────────────────
-function RTCard({test,onEdit,onOutcome,onDelete,onSms}) {
+function RTCard({test,onEdit,onOutcome,onDelete,onSms,users=[]}) {
   const start=new Date(`${test.date}T${test.time}`);
   const end=new Date(start.getTime()+parseInt(test.duration||60)*60000);
   const needsOutcome=new Date()>=end&&test.status==="Scheduled";
   const t=TERMINAL_DATA[test.terminal]||{};
+  const [downloading,setDownloading]=useState(false);
+  const handleDownload=async()=>{
+    setDownloading(true);
+    try{
+      const adminUser=users.find(u=>u.terminal===test.terminal&&u.status==="active")||null;
+      await generateRoadTestPDF(test,TERMINAL_DATA,adminUser);
+    }
+    catch(e){alert("Failed to generate PDF: "+e.message);}
+    finally{setDownloading(false);}
+  };
   return (
     <div className="card" style={{background:"#0d0d20",border:`1px solid ${needsOutcome?"#ff6200":"#262642"}`,borderRadius:12,padding:18,boxShadow:needsOutcome?"0 0 0 1px #ff6200,0 0 24px rgba(255,98,0,.12)":"0 2px 12px rgba(0,0,0,0.4)"}}>
       {needsOutcome&&<div style={{background:"#2a1200",border:"1px solid #ff6200",borderRadius:7,padding:"7px 11px",marginBottom:12,display:"flex",alignItems:"center",gap:6,animation:"pulse 2s infinite"}}><Ico n="bell" s={13}/><span style={{fontSize:12,color:"#ffaa55",fontFamily:"'DM Mono',monospace",fontWeight:500}}>Road test ended — awaiting outcome</span></div>}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
         <div>
           <div style={{fontSize:18,fontWeight:700,color:"#eeeeff",fontFamily:"'Barlow Condensed',sans-serif"}}>{test.candidateName}</div>
-          <div style={{fontSize:11,color:"#7070a8",fontFamily:"'DM Mono',monospace",marginTop:2}}>FX ID: {test.fedexId}</div>
+          <div style={{fontSize:11,color:"#7070a8",fontFamily:"'DM Mono',monospace",marginTop:2}}>FX ID: {test.fedexId}{test.dln&&<span style={{marginLeft:10}}>DLN: {test.dln}{test.dlnState&&` (${test.dlnState})`}</span>}</div>
         </div>
         <Badge status={test.status}/>
       </div>
@@ -297,6 +322,7 @@ function RTCard({test,onEdit,onOutcome,onDelete,onSms}) {
           <button onClick={()=>onSms(test)} style={{background:"none",border:"1px solid #1e5a1e",color:"#44dd77",cursor:"pointer",padding:"5px 10px",borderRadius:5,fontSize:12,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:600,display:"flex",alignItems:"center",gap:4}}><Ico n="sms" s={12}/>SMS</button>
           {needsOutcome&&<button onClick={()=>onOutcome(test)} style={{...B("primary"),padding:"5px 12px",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Ico n="clip" s={12}/>Enter Outcome</button>}
         </>}
+        {test.status==="Passed"&&<button onClick={handleDownload} disabled={downloading} style={{...B("success"),padding:"5px 12px",fontSize:12,display:"flex",alignItems:"center",gap:5,opacity:downloading?.6:1}}><Ico n="dl" s={12}/>{downloading?"Generating...":"Download Record"}</button>}
         <button onClick={()=>onDelete(test.id)} style={{...B("ghost"),padding:"5px 8px",marginLeft:"auto",color:"#ff5555"}}><Ico n="trash" s={13}/></button>
       </div>
     </div>
@@ -664,18 +690,28 @@ function AuthModal({ onLogin }) {
 }
 
 // ─── User Form (admin) ────────────────────────────────────────────────────────
-function UserForm({ onSave, onClose, existing }) {
+function UserForm({ onSave, onClose, existing, allUsers }) {
   const isAdminUser = existing?.username === "admin";
   const [form, setForm] = useState(existing ? {
     name: existing.name, username: existing.username, password: "",
     role: existing.role, terminal: existing.terminal||"",
-    phone: existing.phone||"", email: existing.email||"", status: existing.status,
-  } : { name:"", username:"", password:"", role:"user", terminal:"", phone:"", email:"", status:"active" });
+    phone: existing.phone||"", email: existing.email||"",
+    fedexId: existing.fedex_id||"", status: existing.status,
+  } : { name:"", username:"", password:"", role:"user", terminal:"", phone:"", email:"", fedexId:"", status:"active" });
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
 
   const doSave = () => {
     if (!form.name||!form.username) return alert("Name and username are required.");
     if (!existing && !form.password) return alert("Password is required for new users.");
+    // Enforce one active user per terminal
+    if (form.status === "active" && form.terminal) {
+      const conflict = (allUsers||[]).find(u =>
+        u.terminal === form.terminal &&
+        u.status === "active" &&
+        u.id !== existing?.id
+      );
+      if (conflict) return alert(`Terminal already has an active user: ${conflict.name}.\nDeactivate that user before assigning another one to this terminal.`);
+    }
     onSave(form);
   };
 
@@ -686,16 +722,22 @@ function UserForm({ onSave, onClose, existing }) {
       <Field label={existing?"New Password (blank = keep current)":"Password *"}>
         <input style={IS} type="password" value={form.password} onChange={e=>set("password",e.target.value)} placeholder={existing?"Leave blank to keep current":"Set a password"}/>
       </Field>
-      <Field label="Role">
-        <select style={IS} value={form.role} onChange={e=>set("role",e.target.value)} disabled={isAdminUser}>
-          <option value="user">User</option>
-          <option value="admin">Admin</option>
-        </select>
+      <Field label="FedEx ID">
+        <input style={IS} value={form.fedexId} onChange={e=>set("fedexId",e.target.value)} placeholder="FX-000000"/>
       </Field>
       <Field label="Terminal Location">
         <select style={IS} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>
           <option value="">— Not assigned —</option>
-          {TERMINALS.map(t=><option key={t} value={t}>{t}</option>)}
+          {TERMINALS.map(t=>{
+            const occupied = (allUsers||[]).find(u => u.terminal===t && u.status==="active" && u.id!==existing?.id);
+            return <option key={t} value={t}>{t}{occupied ? " (active: "+occupied.name+")" : ""}</option>;
+          })}
+        </select>
+      </Field>
+      <Field label="Role">
+        <select style={IS} value={form.role} onChange={e=>set("role",e.target.value)} disabled={isAdminUser}>
+          <option value="user">User</option>
+          <option value="admin">Admin</option>
         </select>
       </Field>
       <Field label="Status">
@@ -759,6 +801,7 @@ function UserCard({ user, onEdit, isSelf }) {
           <CopyBtn value={user.password||""}/>
         </div>
         {user.terminal&&<div style={{color:"#5599cc"}}>📍 {user.terminal}</div>}
+        {user.fedex_id&&<div style={{color:"#9090b8"}}>🪪 FedEx ID: {user.fedex_id}</div>}
         {user.email&&<div>✉️ {user.email}</div>}
         {user.phone&&<div>📞 {user.phone}</div>}
         {isSelf&&<div style={{color:"#ffaa55",marginTop:2}}>👤 Currently logged in</div>}
@@ -981,7 +1024,7 @@ export default function App() {
         ) : tab==="rt" ? (
           fRts.length===0
             ?<div style={{textAlign:"center",padding:80,color:"#5a5a9a",fontFamily:"'DM Mono',monospace",fontSize:13}}>No road tests yet. Click "Schedule Road Test" to begin.</div>
-            :<div className="cards-grid">{fRts.map(t=><RTCard key={t.id} test={t} onEdit={t=>setModal({type:"editRT",data:t})} onOutcome={t=>setModal({type:"outcome",data:t})} onDelete={delRT} onSms={t=>setModal({type:"sms",data:t})}/>)}</div>
+            :<div className="cards-grid">{fRts.map(t=><RTCard key={t.id} test={t} onEdit={t=>setModal({type:"editRT",data:t})} onOutcome={t=>setModal({type:"outcome",data:t})} onDelete={delRT} onSms={t=>setModal({type:"sms",data:t})} users={users}/>)}</div>
         ) : tab==="uni" ? (
           fUnis.length===0
             ?<div style={{textAlign:"center",padding:80,color:"#5a5a9a",fontFamily:"'DM Mono',monospace",fontSize:13}}>No uniform requests yet.</div>
@@ -1014,8 +1057,8 @@ export default function App() {
       {modal?.type==="newInj"    && <Modal title="File Work Injury Report"   onClose={()=>setModal(null)} wide><InjuryForm onSave={saveInj}     onClose={()=>setModal(null)}/></Modal>}
       {modal?.type==="editInj"   && <Modal title="Edit Injury Report"        onClose={()=>setModal(null)} wide><InjuryForm onSave={saveInj}     onClose={()=>setModal(null)} existing={modal.data}/></Modal>}
       {modal?.type==="viewInj"   && <InjuryDetail report={modal.data} onClose={()=>setModal(null)}/>}
-      {modal?.type==="newUser"   && <Modal title="Create User"         onClose={()=>setModal(null)} wide><UserForm onSave={handleSaveUser} onClose={()=>setModal(null)}/></Modal>}
-      {modal?.type==="editUser"  && <Modal title="Edit User"           onClose={()=>setModal(null)} wide><UserForm onSave={handleSaveUser} onClose={()=>setModal(null)} existing={modal.data}/></Modal>}
+      {modal?.type==="newUser"   && <Modal title="Create User"         onClose={()=>setModal(null)} wide><UserForm onSave={handleSaveUser} onClose={()=>setModal(null)} allUsers={users}/></Modal>}
+      {modal?.type==="editUser"  && <Modal title="Edit User"           onClose={()=>setModal(null)} wide><UserForm onSave={handleSaveUser} onClose={()=>setModal(null)} existing={modal.data} allUsers={users}/></Modal>}
 
       <Toast toasts={toasts}/>
     </div>

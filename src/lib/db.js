@@ -6,6 +6,9 @@ const TABLE = {
   pnd_uni_v5: 'uniform_orders',
   pnd_tr_v5:  'trucks',
   pnd_inj_v5: 'injury_reports',
+  pnd_acc_v2: 'accidents',
+  pnd_hir_v1: 'hiring_requests',
+  pnd_ins_v1: 'insurance_requests',
 }
 
 // Load all records from a table. Returns an array matching the app's expected shape.

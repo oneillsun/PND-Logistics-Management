@@ -18,7 +18,7 @@ export function logout() {
 export async function login(username, password) {
   const { data, error } = await supabase
     .from('users')
-    .select('id, name, username, role, terminal, phone, email, status')
+    .select('id, name, username, role, terminal, phone, email, fedex_id, status')
     .eq('username', username.trim())
     .eq('password', password)
     .eq('status', 'active')
@@ -33,7 +33,7 @@ export async function login(username, password) {
 export async function fetchUsers() {
   const { data } = await supabase
     .from('users')
-    .select('id, name, username, password, role, terminal, phone, email, status, created_at')
+    .select('id, name, username, password, role, terminal, phone, email, fedex_id, status, created_at')
     .order('created_at', { ascending: true })
   return data || []
 }
@@ -47,6 +47,7 @@ export async function createUser(user) {
     terminal: user.terminal || null,
     phone:    user.phone    || null,
     email:    user.email    || null,
+    fedex_id: user.fedexId  || null,
     status:   user.status,
   })
   return error
@@ -59,6 +60,7 @@ export async function updateUser(id, updates) {
     terminal: updates.terminal || null,
     phone:    updates.phone    || null,
     email:    updates.email    || null,
+    fedex_id: updates.fedexId  || null,
     status:   updates.status,
   }
   // Only update password if a new one was provided

@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { dbLoad, dbSave } from "./src/lib/db.js";
 import { login, logout, getSession, fetchUsers, createUser, updateUser } from "./src/lib/auth.js";
 import { fetchTerminals, createTerminal, updateTerminal } from "./src/lib/terminals.js";
-import { sendRoadTestOutcomeEmail } from "./src/lib/email.js";
+import { sendModuleEmail } from "./src/lib/email.js";
+import { fetchEmailSettings, saveEmailSettings, DEFAULT_SETTINGS } from "./src/lib/settings.js";
 import { generateRoadTestPDF } from "./src/lib/pdfRecord.js";
 
 const TERMINAL_DATA = {
@@ -63,6 +64,7 @@ function Ico({n,s=16}){
   if(n==="warn")    return <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>;
   if(n==="dl")      return <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>;
   if(n==="attach")  return <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>;
+  if(n==="gear")    return <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>;
   if(n==="eye")     return <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>;
   return null;
 }
@@ -823,27 +825,27 @@ function UserCard({ user, onEdit, isSelf }) {
 // ─── Terminal Form (admin) ────────────────────────────────────────────────────
 function TerminalForm({onSave,onClose,existing}) {
   const [form,setForm]=useState(existing?{
-    name:existing.name,code:existing.code,fulladdress:existing.fulladdress||"",
-    address:existing.address||"",city:existing.city||"",state:existing.state||"",
-    zipcode:existing.zipcode||"",status:existing.status||"Active",rt_employer_name:existing.rt_employer_name||"",
-  }:{name:"",code:"",fulladdress:"",address:"",city:"",state:"",zipcode:"",status:"Active",rt_employer_name:""});
+    name:existing.name||"",code:existing.code||"",address:existing.address||"",
+    city:existing.city||"",state:existing.state||"",
+    zip:existing.zip||existing.zipcode||"",
+    status:existing.status||"Active",rt_employer_name:existing.rt_employer_name||"",
+  }:{name:"",code:"",address:"",city:"",state:"",zip:"",status:"Active",rt_employer_name:""});
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const doSave=()=>{
-    if(!form.name.trim()||!form.code.trim()) return alert("Terminal Name and Code are required.");
+    if(!form.name.trim()) return alert("Terminal Name is required.");
     onSave(form);
   };
   return <>
     <div className="form-grid-2">
       <Field label="Terminal Name *"><input style={IS} value={form.name} onChange={e=>set("name",e.target.value)} placeholder="Fort Worth Terminal"/></Field>
-      <Field label="Code *"><input style={IS} value={form.code} onChange={e=>set("code",e.target.value)} placeholder="761"/></Field>
-      <Field label="Street Address"><input style={IS} value={form.address} onChange={e=>set("address",e.target.value)} placeholder="4901 Village Creek Rd"/></Field>
+      <Field label="Terminal Code"><input style={IS} value={form.code} onChange={e=>set("code",e.target.value)} placeholder="761"/></Field>
+      <Field label="Status"><select style={IS} value={form.status} onChange={e=>set("status",e.target.value)}><option value="Active">Active</option><option value="Inactive">Inactive</option></select></Field>
+      <Field label="Address"><input style={IS} value={form.address} onChange={e=>set("address",e.target.value)} placeholder="4901 Village Creek Rd, Fort Worth TX 76119"/></Field>
       <Field label="City"><input style={IS} value={form.city} onChange={e=>set("city",e.target.value)} placeholder="Fort Worth"/></Field>
       <Field label="State"><select style={IS} value={form.state} onChange={e=>set("state",e.target.value)}><option value="">— Select —</option>{US_STATES.map(s=><option key={s} value={s}>{s}</option>)}</select></Field>
-      <Field label="ZIP Code"><input style={IS} value={form.zipcode} onChange={e=>set("zipcode",e.target.value)} placeholder="76119"/></Field>
-      <Field label="Status"><select style={IS} value={form.status} onChange={e=>set("status",e.target.value)}><option value="Active">Active</option><option value="Inactive">Inactive</option></select></Field>
-      <Field label="Road Test Employer Name"><input style={IS} value={form.rt_employer_name} onChange={e=>set("rt_employer_name",e.target.value)} placeholder="Company LLC"/></Field>
+      <Field label="ZIP Code"><input style={IS} value={form.zip} onChange={e=>set("zip",e.target.value)} placeholder="76119"/></Field>
     </div>
-    <Field label="Full Address (as printed)" span><input style={IS} value={form.fulladdress} onChange={e=>set("fulladdress",e.target.value)} placeholder="4901 Village Creek Rd, Fort Worth TX 76119"/></Field>
+    <Field label="Road Test Employer Name" span><input style={IS} value={form.rt_employer_name} onChange={e=>set("rt_employer_name",e.target.value)} placeholder="Company LLC"/></Field>
     <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:10}}>
       <button style={B("ghost")} onClick={onClose}>Cancel</button>
       <button style={B("primary")} onClick={doSave}>{existing?"Update Terminal":"Add Terminal"}</button>
@@ -853,27 +855,58 @@ function TerminalForm({onSave,onClose,existing}) {
 
 // ─── Terminal Card (admin) ────────────────────────────────────────────────────
 function TerminalCard({terminal,onEdit}) {
-  const isActive=terminal.status==="Active";
+  const status=terminal.status||"Active";
+  const isActive=status==="Active";
+  const zip=terminal.zip||terminal.zipcode||"";
   return (
     <div className="card" style={{background:"#0d0d20",border:`1px solid ${isActive?"#1e3a5a":"#3a1a1a"}`,borderRadius:12,padding:18,boxShadow:"0 2px 12px rgba(0,0,0,0.4)"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
-        <div>
+        <div style={{flex:1,minWidth:0}}>
           <div style={{fontSize:18,fontWeight:700,color:"#eeeeff",fontFamily:"'Barlow Condensed',sans-serif"}}>{terminal.name}</div>
-          <div style={{fontSize:12,color:"#ff6200",fontFamily:"'DM Mono',monospace",marginTop:2,fontWeight:600}}>Code: {terminal.code}</div>
+          {terminal.code&&<div style={{fontSize:11,color:"#ff6200",fontFamily:"'DM Mono',monospace",marginTop:2,fontWeight:600}}>Station: {terminal.code}</div>}
         </div>
-        <span style={{background:isActive?"#0a2a18":"#2a0d0d",color:isActive?"#00ee77":"#ff5555",border:`1px solid ${isActive?"#1a6a3a":"#7a2020"}`,padding:"2px 10px",borderRadius:99,fontSize:11,fontFamily:"'DM Mono',monospace",fontWeight:500}}>
-          {terminal.status}
+        <span style={{background:isActive?"#0a2a18":"#2a0d0d",color:isActive?"#00ee77":"#ff5555",border:`1px solid ${isActive?"#1a6a3a":"#7a2020"}`,padding:"2px 10px",borderRadius:99,fontSize:11,fontFamily:"'DM Mono',monospace",fontWeight:500,flexShrink:0,marginLeft:10}}>
+          {status}
         </span>
       </div>
       <div style={{fontSize:12,color:"#7878a8",fontFamily:"'DM Mono',monospace",display:"flex",flexDirection:"column",gap:4,marginBottom:14}}>
         {terminal.address&&<div style={{color:"#8888cc"}}>📍 {terminal.address}</div>}
-        {(terminal.city||terminal.state||terminal.zipcode)&&<div style={{paddingLeft:18,color:"#6060a0"}}>{[terminal.city,terminal.state,terminal.zipcode].filter(Boolean).join(", ")}</div>}
-        {terminal.fulladdress&&terminal.fulladdress!==`${terminal.address}, ${terminal.city}, ${terminal.state} ${terminal.zipcode}`&&<div style={{color:"#4a4a70",fontSize:11,paddingLeft:18}}>{terminal.fulladdress}</div>}
-        {terminal.rt_employer_name&&<div style={{color:"#9090b8",marginTop:4}}>🏢 {terminal.rt_employer_name}</div>}
+        {(terminal.city||terminal.state||zip)&&<div style={{paddingLeft:18,color:"#6060a0"}}>{[terminal.city,terminal.state,zip].filter(Boolean).join(", ")}</div>}
+        {terminal.rt_employer_name&&<div style={{color:"#9090b8",marginTop:2}}>🏢 {terminal.rt_employer_name}</div>}
       </div>
       <div style={{display:"flex",gap:6}}>
         <button onClick={()=>onEdit(terminal)} style={{...B("ghost"),padding:"5px 12px",fontSize:12}}>Edit</button>
       </div>
+    </div>
+  );
+}
+
+// ─── Email Settings Form (admin) ──────────────────────────────────────────────
+function EmailSettingsForm({moduleKey,label,placeholders,config,onChange}) {
+  const set=(k,v)=>onChange(moduleKey,{...config,[k]:v});
+  const isOn=config?.enabled||false;
+  return (
+    <div style={{background:"#0d0d20",border:`1px solid ${isOn?"#1e3a5a":"#262642"}`,borderRadius:10,padding:18,marginBottom:14}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:isOn?14:0}}>
+        <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:16,color:"#eeeeff"}}>{label}</span>
+        <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",userSelect:"none"}}>
+          <div onClick={()=>set("enabled",!isOn)} style={{width:36,height:20,borderRadius:10,background:isOn?"#ff6200":"#2a2a48",border:`1px solid ${isOn?"#cc4e00":"#3a3a6a"}`,position:"relative",transition:"background .2s",cursor:"pointer"}}>
+            <div style={{position:"absolute",top:2,left:isOn?17:2,width:14,height:14,borderRadius:"50%",background:"#fff",transition:"left .2s"}}/>
+          </div>
+          <span style={{fontSize:12,color:isOn?"#00ee77":"#5a5a9a",fontFamily:"'DM Mono',monospace"}}>{isOn?"Enabled":"Disabled"}</span>
+        </label>
+      </div>
+      {isOn&&<>
+        <div className="form-grid-2">
+          <Field label="To (comma-separated)"><input style={IS} value={config.to||""} onChange={e=>set("to",e.target.value)} placeholder="hr@company.com, ops@company.com"/></Field>
+          <Field label="CC (optional)"><input style={IS} value={config.cc||""} onChange={e=>set("cc",e.target.value)} placeholder="manager@company.com"/></Field>
+        </div>
+        <Field label="Subject" span><input style={IS} value={config.subject||""} onChange={e=>set("subject",e.target.value)}/></Field>
+        <Field label="Body (leave blank for auto-generated)" span><textarea style={{...IS,height:90,resize:"vertical"}} value={config.body||""} onChange={e=>set("body",e.target.value)} placeholder="Leave blank to use the default branded layout."/></Field>
+        <div style={{fontSize:11,color:"#4a4a70",fontFamily:"'DM Mono',monospace",marginTop:4}}>
+          Available placeholders: {placeholders.map(p=><span key={p} style={{marginRight:6,color:"#5a5a88"}}>{"{{"+p+"}}"}</span>)}
+        </div>
+      </>}
     </div>
   );
 }
@@ -901,7 +934,12 @@ export default function App() {
     setTerminals(data);
   },[]);
 
-  useEffect(()=>{ if(currentUser?.role==="admin"){ loadUsers(); loadTerminals(); } },[currentUser,loadUsers,loadTerminals]);
+  const [emailSettings,setEmailSettings]=useState(DEFAULT_SETTINGS);
+  const loadSettings=useCallback(async()=>{
+    setEmailSettings(await fetchEmailSettings());
+  },[]);
+
+  useEffect(()=>{ if(currentUser?.role==="admin"){ loadUsers(); loadTerminals(); loadSettings(); } },[currentUser,loadUsers,loadTerminals,loadSettings]);
 
   // ── Data ────────────────────────────────────────────────────────────────────
   const [tab,setTab]=useState("rt");
@@ -914,6 +952,7 @@ export default function App() {
   const [toasts,setToasts]=useState([]);
   const [fTerm,setFTerm]=useState("All");
   const [fStatus,setFStatus]=useState("All");
+  const [fTerminalStatus,setFTerminalStatus]=useState("Active");
   const [lastSync,setLastSync]=useState(null);
   const [syncing,setSyncing]=useState(false);
 
@@ -957,9 +996,16 @@ export default function App() {
     toast(test.status==="Passed"?"✅ Passed!":"❌ Outcome recorded.",test.status==="Passed"?"success":"warn");
     setModal(null);
     dbSave(SK.rt,upd);
-    const result=await sendRoadTestOutcomeEmail(test);
-    if(result?.ok) toast("📧 Outcome email sent to "+test.createdBy.name+".","success");
-    else if(result?.error) toast("Email failed to send. Check console.","warn");
+    if(test.status==="Passed"){
+      const result=await sendModuleEmail("roadTestOutcome",{
+        candidateName:test.candidateName,fedexId:test.fedexId,phone:test.phone,
+        terminal:test.terminal,date:test.date,time:test.time,
+        status:test.status,feedback:test.feedback||"",firstDay:test.firstDay||"",
+        vehicleUnit:test.vehicleUnit||"",completedAt:test.completedAt,
+      },emailSettings);
+      if(result?.ok) toast("📧 Notification email sent.","success");
+      else if(result?.error) toast("📧 Email failed to send — check console.","warn");
+    }
   };
 
   const saveUni=async req=>{const isNew=!unis.some(u=>u.id===req.id);const upd=isNew?[...unis,req]:unis.map(u=>u.id===req.id?req:u);setUnis(upd);toast("Uniform order saved!","success");setModal(null);dbSave(SK.uni,upd);};
@@ -975,7 +1021,8 @@ export default function App() {
   const pendingOut=rts.filter(r=>{const e=new Date(`${r.date}T${r.time}`);e.setMinutes(e.getMinutes()+parseInt(r.duration||60));return new Date()>=e&&r.status==="Scheduled";}).length;
   const truckAlerts=trucks.filter(t=>(expStatus(t.regExpiry)!=="ok"&&expStatus(t.regExpiry)!=="none")||(expStatus(t.inspExpiry)!=="ok"&&expStatus(t.inspExpiry)!=="none")).length;
 
-  const fRts   =rts.filter(r=>(fTerm==="All"||r.terminal===fTerm)&&(fStatus==="All"||r.status===fStatus)).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  const fRts       =rts.filter(r=>(fTerm==="All"||r.terminal===fTerm)&&(fStatus==="All"||r.status===fStatus)).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  const fTerminals =terminals.filter(t=>fTerminalStatus==="All"||(t.status||"Active")===fTerminalStatus).sort((a,b)=>a.name?.localeCompare(b.name));
   const fUnis  =unis.filter(u=>fTerm==="All"||u.terminal===fTerm).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
   const fTrucks=trucks.filter(t=>fTerm==="All"||t.terminal===fTerm).sort((a,b)=>{const u=x=>{const r=expStatus(x.regExpiry),i=expStatus(x.inspExpiry);if(r==="expired"||i==="expired")return 0;if(r==="warning"||i==="warning")return 1;return 2;};return u(a)-u(b);});
   const fInjs  =injs.filter(r=>fTerm==="All"||r.terminal===fTerm).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
@@ -988,11 +1035,12 @@ export default function App() {
     ...(currentUser?.role==="admin"?[
       {key:"users",     icon:"user",  label:"Users",     count:0,badgeColor:"#ff6200"},
       {key:"terminals", icon:"fleet", label:"Terminals", count:0,badgeColor:"#ff6200"},
+      {key:"settings",  icon:"gear",  label:"Settings",  count:0,badgeColor:"#ff6200"},
     ]:[]),
   ];
 
-  const addLabel={rt:"Schedule Road Test",uni:"New Uniform Request",fleet:"Add Truck",inj:"File Injury Report",users:"Add User",terminals:"Add Terminal"};
-  const addType ={rt:"newRT",uni:"newUni",fleet:"newTruck",inj:"newInj",users:"newUser",terminals:"newTerminal"};
+  const addLabel={rt:"Schedule Road Test",uni:"New Uniform Request",fleet:"Add Truck",inj:"File Injury Report",users:"Add User",terminals:"Add Terminal",settings:""};
+  const addType ={rt:"newRT",uni:"newUni",fleet:"newTruck",inj:"newInj",users:"newUser",terminals:"newTerminal",settings:null};
 
   const STATS=[
     {l:"Total Tests",    v:rts.length,                                    c:"#7070a8"},
@@ -1018,6 +1066,16 @@ export default function App() {
     toast(modal?.data ? "User updated." : "User created.", "success");
     setModal(null);
   }, [modal, loadUsers, toast]);
+
+  const handleSettingsChange=useCallback((moduleKey,cfg)=>{
+    setEmailSettings(prev=>({...prev,[moduleKey]:cfg}));
+  },[]);
+
+  const handleSaveSettings=useCallback(async()=>{
+    const error=await saveEmailSettings(emailSettings);
+    if(error) toast("Failed to save settings.","warn");
+    else toast("Email settings saved.","success");
+  },[emailSettings,toast]);
 
   const handleSaveTerminal=useCallback(async form=>{
     let error;
@@ -1093,17 +1151,18 @@ export default function App() {
       {/* ── MAIN ───────────────────────────────────────────── */}
       <div className="main-wrap">
         <div className="filter-bar">
-          {tab!=="users"&&tab!=="terminals"&&<select style={{...IS,width:"auto",minWidth:200}} value={fTerm} onChange={e=>setFTerm(e.target.value)}>
+          {tab!=="users"&&tab!=="terminals"&&tab!=="settings"&&<select style={{...IS,width:"auto",minWidth:200}} value={fTerm} onChange={e=>setFTerm(e.target.value)}>
             <option value="All">All Terminals</option>
             {TERMINALS.map(t=><option key={t} value={t}>{t}</option>)}
           </select>}
           {tab==="rt"&&<select style={{...IS,width:"auto"}} value={fStatus} onChange={e=>setFStatus(e.target.value)}>{["All","Scheduled","Passed","Failed"].map(s=><option key={s} value={s}>{s}</option>)}</select>}
+          {tab==="terminals"&&<select style={{...IS,width:"auto"}} value={fTerminalStatus} onChange={e=>setFTerminalStatus(e.target.value)}>{["Active","Inactive","All"].map(s=><option key={s} value={s}>{s}</option>)}</select>}
           <button onClick={()=>downloadCSV(tab,{rt:rts,uni:unis,fleet:trucks,inj:injs,users,terminals}[tab])} style={{...B("ghost"),display:"flex",alignItems:"center",gap:6,marginLeft:"auto",padding:"6px 14px",fontSize:12}}>
             <Ico n="dl" s={14}/><span className="sync-label">Download CSV</span>
           </button>
-          <button className="add-btn" onClick={()=>setModal({type:addType[tab]})} style={{...B(tab==="inj"?"danger":"primary"),display:"flex",alignItems:"center",gap:6}}>
+          {tab!=="settings"&&<button className="add-btn" onClick={()=>setModal({type:addType[tab]})} style={{...B(tab==="inj"?"danger":"primary"),display:"flex",alignItems:"center",gap:6}}>
             <Ico n="plus" s={14}/>{addLabel[tab]}
-          </button>
+          </button>}
         </div>
 
         {loading ? (
@@ -1126,9 +1185,23 @@ export default function App() {
             ?<div style={{textAlign:"center",padding:80,color:"#5a5a9a",fontFamily:"'DM Mono',monospace",fontSize:13}}>No users yet. Click "Add User" to create one.</div>
             :<div className="cards-grid-wide">{users.map(u=><UserCard key={u.id} user={u} onEdit={u=>setModal({type:"editUser",data:u})} isSelf={u.id===currentUser?.id}/>)}</div>
         ) : tab==="terminals" ? (
-          terminals.length===0
-            ?<div style={{textAlign:"center",padding:80,color:"#5a5a9a",fontFamily:"'DM Mono',monospace",fontSize:13}}>No terminals yet. Click "Add Terminal" to create one.</div>
-            :<div className="cards-grid-wide">{terminals.map(t=><TerminalCard key={t.id} terminal={t} onEdit={t=>setModal({type:"editTerminal",data:t})}/>)}</div>
+          fTerminals.length===0
+            ?<div style={{textAlign:"center",padding:80,color:"#5a5a9a",fontFamily:"'DM Mono',monospace",fontSize:13}}>{terminals.length===0?"No terminals yet. Click \"Add Terminal\" to create one.":"No terminals match the selected filter."}</div>
+            :<div className="cards-grid-wide">{fTerminals.map(t=><TerminalCard key={t.id} terminal={t} onEdit={t=>setModal({type:"editTerminal",data:t})}/>)}</div>
+        ) : tab==="settings" ? (
+          <div style={{maxWidth:640,margin:"0 auto"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+              <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:22,color:"#eeeeff"}}>Email Notifications</span>
+              <button style={B("primary")} onClick={handleSaveSettings}>Save Settings</button>
+            </div>
+            <EmailSettingsForm
+              moduleKey="roadTestOutcome"
+              label="Road Test Outcome (Pass / Fail)"
+              placeholders={["candidateName","fedexId","phone","terminal","date","time","status","feedback","firstDay","vehicleUnit","completedAt"]}
+              config={emailSettings.roadTestOutcome}
+              onChange={handleSettingsChange}
+            />
+          </div>
         ) : (
           fInjs.length===0
             ?<div style={{textAlign:"center",padding:80,color:"#5a5a9a",fontFamily:"'DM Mono',monospace",fontSize:13}}>No injury reports filed yet. Click "File Injury Report" to begin.</div>

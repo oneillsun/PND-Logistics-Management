@@ -9,6 +9,7 @@ const TABLE = {
   pnd_acc_v2: 'accidents',
   pnd_hir_v1: 'hiring_requests',
   pnd_ins_v1: 'insurance_requests',
+  pnd_term_v1: 'terminals',
 }
 
 // Load all records from a table. Returns an array matching the app's expected shape.

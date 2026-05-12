@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { dbLoad, dbSave } from "./src/lib/db.js";
 import { login, logout, getSession, fetchUsers, createUser, updateUser } from "./src/lib/auth.js";
-import { fetchTerminals, createTerminal, updateTerminal } from "./src/lib/terminals.js";
+import { fetchTerminals, createTerminal, updateTerminal, uploadTerminalPdf } from "./src/lib/terminals.js";
 import { sendModuleEmail } from "./src/lib/email.js";
 import { fetchEmailSettings, saveEmailSettings, DEFAULT_SETTINGS } from "./src/lib/settings.js";
 import { generateRoadTestPDF } from "./src/lib/pdfRecord.js";
@@ -213,7 +213,7 @@ function SmsModal({test,onClose}) {
 // ─── Road Test Form ───────────────────────────────────────────────────────────
 function RTForm({onSave,onClose,existing}) {
   const now=new Date(); const pad=n=>String(n).padStart(2,"0");
-  const [form,setForm]=useState(existing||{candidateName:"",phone:"",fedexId:"",dln:"",dlnState:"",vehicleUnit:"",terminal:TERMINALS[0],date:`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`,time:`${pad(now.getHours())}:${pad(now.getMinutes())}`,duration:"60",notes:""});
+  const [form,setForm]=useState(existing||{candidateName:"",phone:"",fedexId:"",dln:"",dlnState:"",terminal:TERMINALS[0],date:`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`,time:`${pad(now.getHours())}:${pad(now.getMinutes())}`,duration:"60",notes:""});
   const [prev,setPrev]=useState(false);
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const doSave=withSms=>{
@@ -227,7 +227,6 @@ function RTForm({onSave,onClose,existing}) {
       <Field label="FedEx ID *"><input style={IS} value={form.fedexId} onChange={e=>set("fedexId",e.target.value)} placeholder="FX-000000"/></Field>
       <Field label="Candidate License Number"><input style={IS} value={form.dln||""} onChange={e=>set("dln",e.target.value)} placeholder="DLN-000000"/></Field>
       <Field label="DLN State"><select style={IS} value={form.dlnState||""} onChange={e=>set("dlnState",e.target.value)}><option value="">— Select —</option>{US_STATES.map(s=><option key={s} value={s}>{s}</option>)}</select></Field>
-      <Field label="Vehicle Unit Number"><input style={IS} value={form.vehicleUnit||""} onChange={e=>set("vehicleUnit",e.target.value)} placeholder="e.g. 4821"/></Field>
       <Field label="Terminal Location"><select style={IS} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>{TERMINALS.map(t=><option key={t} value={t}>{t}</option>)}</select></Field>
     </div>
     <TInfo tk={form.terminal}/>
@@ -253,12 +252,11 @@ function OutcomeForm({test,onSave,onClose}) {
   const [feedback,setFeedback]=useState(test.feedback||"");
   const [dln,setDln]=useState(test.dln||"");
   const [dlnState,setDlnState]=useState(test.dlnState||"");
-  const [vehicleUnit,setVehicleUnit]=useState(test.vehicleUnit||"");
   const save=()=>{
     if(passed===null)return alert("Select Pass or Fail.");
     if(passed&&!dln.trim())return alert("Candidate Driver License Number is required for a Passed outcome.");
     if(passed&&!dlnState)return alert("Candidate Driver License State is required for a Passed outcome.");
-    onSave({...test,status:passed?"Passed":"Failed",firstDay:passed?firstDay:null,feedback,dln:passed?dln.trim():test.dln,dlnState:passed?dlnState:test.dlnState,vehicleUnit:passed?vehicleUnit:test.vehicleUnit,completedAt:new Date().toISOString()});
+    onSave({...test,status:passed?"Passed":"Failed",firstDay:passed?firstDay:null,feedback,dln:passed?dln.trim():test.dln,dlnState:passed?dlnState:test.dlnState,completedAt:new Date().toISOString()});
   };
   return <>
     <div style={{background:"#131326",border:"1px solid #2a2a48",borderRadius:8,padding:14,marginBottom:14}}>
@@ -277,10 +275,7 @@ function OutcomeForm({test,onSave,onClose}) {
       <Field label="Candidate Driver License Number *"><input style={IS} value={dln} onChange={e=>setDln(e.target.value)} placeholder="DLN-000000"/></Field>
       <Field label="Candidate Driver License State *"><select style={IS} value={dlnState} onChange={e=>setDlnState(e.target.value)}><option value="">— Select —</option>{US_STATES.map(s=><option key={s} value={s}>{s}</option>)}</select></Field>
     </div>}
-    {passed===true&&<div className="form-grid-2">
-      <Field label="First Day of Training"><input style={IS} type="date" value={firstDay} onChange={e=>setFirstDay(e.target.value)}/></Field>
-      <Field label="Vehicle Unit Number"><input style={IS} value={vehicleUnit} onChange={e=>setVehicleUnit(e.target.value)} placeholder="e.g. 4821"/></Field>
-    </div>}
+    {passed===true&&<Field label="First Day of Training" span><input style={IS} type="date" value={firstDay} onChange={e=>setFirstDay(e.target.value)}/></Field>}
     <Field label="Manager Feedback"><textarea style={{...IS,height:80,resize:"vertical"}} value={feedback} onChange={e=>setFeedback(e.target.value)} placeholder="Observations..."/></Field>
     <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:10}}>
       <button style={B("ghost")} onClick={onClose}>Cancel</button>
@@ -290,7 +285,7 @@ function OutcomeForm({test,onSave,onClose}) {
 }
 
 // ─── Road Test Card ───────────────────────────────────────────────────────────
-function RTCard({test,onEdit,onOutcome,onDelete,onSms,users=[]}) {
+function RTCard({test,onEdit,onOutcome,onDelete,onSms,users=[],terminals=[]}) {
   const start=new Date(`${test.date}T${test.time}`);
   const end=new Date(start.getTime()+parseInt(test.duration||60)*60000);
   const needsOutcome=new Date()>=end&&test.status==="Scheduled";
@@ -300,7 +295,8 @@ function RTCard({test,onEdit,onOutcome,onDelete,onSms,users=[]}) {
     setDownloading(true);
     try{
       const adminUser=users.find(u=>u.terminal===test.terminal&&u.status==="active")||null;
-      await generateRoadTestPDF(test,TERMINAL_DATA,adminUser);
+      const termRec=terminals.find(t=>`${t.name} - ${t.code}`===test.terminal||t.name===test.terminal)||{};
+      await generateRoadTestPDF({...test,default_unit_number:termRec.default_unit_number||""},TERMINAL_DATA,adminUser,termRec.pdf_url||null);
     }
     catch(e){alert("Failed to generate PDF: "+e.message);}
     finally{setDownloading(false);}
@@ -829,7 +825,8 @@ function TerminalForm({onSave,onClose,existing}) {
     city:existing.city||"",state:existing.state||"",
     zip:existing.zip||existing.zipcode||"",
     status:existing.status||"Active",rt_employer_name:existing.rt_employer_name||"",
-  }:{name:"",code:"",address:"",city:"",state:"",zip:"",status:"Active",rt_employer_name:""});
+    default_unit_number:existing.default_unit_number||"",
+  }:{name:"",code:"",address:"",city:"",state:"",zip:"",status:"Active",rt_employer_name:"",default_unit_number:""});
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const doSave=()=>{
     if(!form.name.trim()) return alert("Terminal Name is required.");
@@ -846,6 +843,7 @@ function TerminalForm({onSave,onClose,existing}) {
       <Field label="ZIP Code"><input style={IS} value={form.zip} onChange={e=>set("zip",e.target.value)} placeholder="76119"/></Field>
     </div>
     <Field label="Road Test Employer Name" span><input style={IS} value={form.rt_employer_name} onChange={e=>set("rt_employer_name",e.target.value)} placeholder="Company LLC"/></Field>
+    <Field label="Default Road Test Unit Number" span><input style={IS} value={form.default_unit_number} onChange={e=>set("default_unit_number",e.target.value)} placeholder="e.g. 4821"/></Field>
     <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:10}}>
       <button style={B("ghost")} onClick={onClose}>Cancel</button>
       <button style={B("primary")} onClick={doSave}>{existing?"Update Terminal":"Add Terminal"}</button>
@@ -854,10 +852,21 @@ function TerminalForm({onSave,onClose,existing}) {
 }
 
 // ─── Terminal Card (admin) ────────────────────────────────────────────────────
-function TerminalCard({terminal,onEdit}) {
+function TerminalCard({terminal,onEdit,onUploadPdf}) {
   const status=terminal.status||"Active";
   const isActive=status==="Active";
   const zip=terminal.zip||terminal.zipcode||"";
+  const [uploading,setUploading]=useState(false);
+  const fileRef=useRef(null);
+  const handleFile=async e=>{
+    const file=e.target.files?.[0];
+    if(!file) return;
+    if(file.type!=="application/pdf") return alert("Please select a PDF file.");
+    setUploading(true);
+    await onUploadPdf(terminal,file);
+    setUploading(false);
+    e.target.value="";
+  };
   return (
     <div className="card" style={{background:"#0d0d20",border:`1px solid ${isActive?"#1e3a5a":"#3a1a1a"}`,borderRadius:12,padding:18,boxShadow:"0 2px 12px rgba(0,0,0,0.4)"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
@@ -873,9 +882,17 @@ function TerminalCard({terminal,onEdit}) {
         {terminal.address&&<div style={{color:"#8888cc"}}>📍 {terminal.address}</div>}
         {(terminal.city||terminal.state||zip)&&<div style={{paddingLeft:18,color:"#6060a0"}}>{[terminal.city,terminal.state,zip].filter(Boolean).join(", ")}</div>}
         {terminal.rt_employer_name&&<div style={{color:"#9090b8",marginTop:2}}>🏢 {terminal.rt_employer_name}</div>}
+        <div style={{marginTop:4,display:"flex",alignItems:"center",gap:6}}>
+          <span style={{color:terminal.pdf_url?"#00ee77":"#5a5a9a"}}>⬜ PDF Template:</span>
+          <span style={{color:terminal.pdf_url?"#00ee77":"#5a5a9a",fontWeight:600}}>{terminal.pdf_url?terminal.pdf_url.split("/").pop():"Not set"}</span>
+        </div>
       </div>
-      <div style={{display:"flex",gap:6}}>
+      <input ref={fileRef} type="file" accept="application/pdf" style={{display:"none"}} onChange={handleFile}/>
+      <div style={{display:"flex",flexDirection:"column",gap:6,alignItems:"flex-start"}}>
         <button onClick={()=>onEdit(terminal)} style={{...B("ghost"),padding:"5px 12px",fontSize:12}}>Edit</button>
+        <button onClick={()=>fileRef.current?.click()} disabled={uploading} style={{...B("ghost"),padding:"5px 12px",fontSize:12,color:"#ff6200",borderColor:"#ff6200",opacity:uploading?0.6:1}}>
+          {uploading?"Uploading…":terminal.pdf_url?"Re-upload Record of Road Test PDF":"Upload Record of Road Test PDF"}
+        </button>
       </div>
     </div>
   );
@@ -1001,7 +1018,7 @@ export default function App() {
         candidateName:test.candidateName,fedexId:test.fedexId,phone:test.phone,
         terminal:test.terminal,date:test.date,time:test.time,
         status:test.status,feedback:test.feedback||"",firstDay:test.firstDay||"",
-        vehicleUnit:test.vehicleUnit||"",completedAt:test.completedAt,
+        completedAt:test.completedAt,
       },emailSettings);
       if(result?.ok) toast("📧 Notification email sent.","success");
       else if(result?.error) toast("📧 Email failed to send — check console.","warn");
@@ -1090,6 +1107,14 @@ export default function App() {
     setModal(null);
   },[modal,loadTerminals,toast]);
 
+  const handleUploadTerminalPdf=useCallback(async(terminal,file)=>{
+    const {url,error}=await uploadTerminalPdf(terminal.id,file);
+    if(error) return toast("PDF upload failed: "+error,"warn");
+    await updateTerminal(terminal.id,{...terminal,pdf_url:url});
+    await loadTerminals();
+    toast("PDF template uploaded.","success");
+  },[loadTerminals,toast]);
+
   if (!authChecked) return (
     <div style={{minHeight:"100vh",background:"#080812",display:"flex",alignItems:"center",justifyContent:"center"}}>
       <span style={{color:"#5050a0",fontFamily:"'DM Mono',monospace",fontSize:13}}>Loading…</span>
@@ -1170,7 +1195,7 @@ export default function App() {
         ) : tab==="rt" ? (
           fRts.length===0
             ?<div style={{textAlign:"center",padding:80,color:"#5a5a9a",fontFamily:"'DM Mono',monospace",fontSize:13}}>No road tests yet. Click "Schedule Road Test" to begin.</div>
-            :<div className="cards-grid">{fRts.map(t=><RTCard key={t.id} test={t} onEdit={t=>setModal({type:"editRT",data:t})} onOutcome={t=>setModal({type:"outcome",data:t})} onDelete={delRT} onSms={t=>setModal({type:"sms",data:t})} users={users}/>)}</div>
+            :<div className="cards-grid">{fRts.map(t=><RTCard key={t.id} test={t} onEdit={t=>setModal({type:"editRT",data:t})} onOutcome={t=>setModal({type:"outcome",data:t})} onDelete={delRT} onSms={t=>setModal({type:"sms",data:t})} users={users} terminals={terminals}/>)}</div>
         ) : tab==="uni" ? (
           fUnis.length===0
             ?<div style={{textAlign:"center",padding:80,color:"#5a5a9a",fontFamily:"'DM Mono',monospace",fontSize:13}}>No uniform requests yet.</div>
@@ -1187,7 +1212,7 @@ export default function App() {
         ) : tab==="terminals" ? (
           fTerminals.length===0
             ?<div style={{textAlign:"center",padding:80,color:"#5a5a9a",fontFamily:"'DM Mono',monospace",fontSize:13}}>{terminals.length===0?"No terminals yet. Click \"Add Terminal\" to create one.":"No terminals match the selected filter."}</div>
-            :<div className="cards-grid-wide">{fTerminals.map(t=><TerminalCard key={t.id} terminal={t} onEdit={t=>setModal({type:"editTerminal",data:t})}/>)}</div>
+            :<div className="cards-grid-wide">{fTerminals.map(t=><TerminalCard key={t.id} terminal={t} onEdit={t=>setModal({type:"editTerminal",data:t})} onUploadPdf={handleUploadTerminalPdf}/>)}</div>
         ) : tab==="settings" ? (
           <div style={{maxWidth:640,margin:"0 auto"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
@@ -1197,7 +1222,7 @@ export default function App() {
             <EmailSettingsForm
               moduleKey="roadTestOutcome"
               label="Road Test Outcome (Pass / Fail)"
-              placeholders={["candidateName","fedexId","phone","terminal","date","time","status","feedback","firstDay","vehicleUnit","completedAt"]}
+              placeholders={["candidateName","fedexId","phone","terminal","date","time","status","feedback","firstDay","completedAt"]}
               config={emailSettings.roadTestOutcome}
               onChange={handleSettingsChange}
             />

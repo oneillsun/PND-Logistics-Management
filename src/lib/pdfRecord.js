@@ -46,9 +46,10 @@ function addMinutes(timeStr, minutes) {
   return formatTime12(`${eh}:${em < 10 ? "0" : ""}${em}`);
 }
 
-export async function generateRoadTestPDF(test, terminalData, adminUser) {
-  const response = await fetch("/docs/OP104PDrev111320.pdf");
-  if (!response.ok) throw new Error("Could not load PDF template.");
+export async function generateRoadTestPDF(test, terminalData, adminUser, terminalPdfUrl) {
+  const pdfSrc = terminalPdfUrl || "/docs/OP104PDrev111320.pdf";
+  const response = await fetch(pdfSrc);
+  if (!response.ok) throw new Error("Could not load PDF template for this terminal.");
   const existingPdfBytes = await response.arrayBuffer();
 
   const pdfDoc = await PDFDocument.load(existingPdfBytes);
@@ -58,6 +59,9 @@ export async function generateRoadTestPDF(test, terminalData, adminUser) {
   const dateStr = formatDate(test.date);
   const startTime = formatTime12(test.time);
   const endTime = addMinutes(test.time, test.duration);
+
+  const now = new Date();
+  const todayStr = `${String(now.getMonth() + 1).padStart(2, "0")}/${String(now.getDate()).padStart(2, "0")}/${now.getFullYear()}`;
 
   // ── Draw text helper ────────────────────────────────────────────────────────
   const draw = (text, x, y, size = 10) => {
@@ -96,14 +100,17 @@ export async function generateRoadTestPDF(test, terminalData, adminUser) {
   };
 
   // ── Section 1 ──────────────────────────────────────────────────────────────
-  drawDateParts(dateStr, 60, 82, 100, 614, 8);     // Date (MM/DD/YYYY)
-  draw(test.candidateName || "", 110, 594);       // Driver Name
-  draw(test.fedexId || "", 500, 594);             // Driver FedEx ID
-  draw(adminUser?.name || "", 175, 576);           // Road Test Administrator Name
-  draw(adminUser?.fedex_id || "", 500, 576);       // Road Test Administrator FedEx ID
+  drawDateParts(dateStr, 61, 82, 100, 614, 10);     // Date (MM/DD/YYYY)
+  draw(test.candidateName || "", 110, 596);       // Driver Name
+  draw(test.fedexId || "", 500, 596);             // Driver FedEx ID
+  draw(adminUser?.name || "", 175, 578);           // Road Test Administrator Name
+  draw(adminUser?.fedex_id || "", 500, 578);       // Road Test Administrator FedEx ID
+
+  // ── Section 2 ──────────────────────────────────────────────────────────────
+  drawDateParts(dateStr, 480, 500, 520, 502, 8);     // Date (MM/DD/YYYY)
 
   // ── Section 3 ──────────────────────────────────────────────────────────────
-  draw(startTime, 420, 437, 8);                      // Test Time From
+  draw(startTime, 422, 437, 8);                      // Test Time From
   draw(endTime, 463, 437, 8);                        // Test Time To
   drawDateParts(dateStr, 520, 540, 557, 437, 8);     // Date (MM/DD/YYYY)
 
@@ -131,12 +138,13 @@ export async function generateRoadTestPDF(test, terminalData, adminUser) {
   draw(getField("ZIP Code"), 540, 83, 8);
 
   // ── Section 4 ──────────────────────────────────────────────────────────────
-  draw(test.candidateName || "", 113, 227);       // Driver Name
-  draw(test.fedexId || "", 500, 227);             // Driver FedEx ID
-  draw(test.dln || "", 128, 210);                 // Driver's License Number
+  draw("22", 45, 146, 8);                        // Route length (approximately ___ miles)
+  draw(test.candidateName || "", 115, 229);       // Driver Name
+  draw(test.fedexId || "", 500, 229);             // Driver FedEx ID
+  draw(test.dln || "", 129, 210);                 // Driver's License Number
   draw(test.dlnState || "", 478, 210);            // DLN State
-  const vehicleUnitNumber = test.vehicleUnit || "";
-  draw(vehicleUnitNumber, 320, 174);                // Vehicle/Unit Number
+  draw(adminUser?.fedex_id || "", 478, 120);      // Road Test Administrator FedEx ID
+  draw(test.default_unit_number || "", 320, 174);   // Vehicle/Unit Number (from terminal default)
   drawDateParts(dateStr, 408, 428, 443, 156, 8);     // Certification date (MM/DD/YYYY)
 
   // ── Type of Power Unit: P-1000 (x:351.1, y:191.9) ─────────────────────────

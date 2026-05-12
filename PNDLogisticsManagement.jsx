@@ -23,13 +23,58 @@ const getSizes = t => BOTTOM_TYPES.includes(t) ? BOTTOM_SIZES : TOP_SIZES;
 const defSize  = t => BOTTOM_TYPES.includes(t) ? "32" : "M";
 const BODY_PARTS = ["Head / Skull","Face","Eye(s)","Ear(s)","Neck","Shoulder(s)","Upper Arm","Elbow","Forearm","Wrist","Hand / Fingers","Upper Back","Lower Back","Chest / Ribs","Abdomen","Hip","Thigh","Knee","Lower Leg / Shin","Ankle","Foot / Toes","Multiple Areas","Other"];
 const US_STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
-const SK = { rt:"pnd_rt_v5", uni:"pnd_uni_v5", tr:"pnd_tr_v5", inj:"pnd_inj_v5" };
-const SC = { Scheduled:{bg:"#0d2240",text:"#4db8ff",border:"#1a4a80"}, Passed:{bg:"#0a2a18",text:"#00ee77",border:"#1a6a3a"}, Failed:{bg:"#2a0d0d",text:"#ff5555",border:"#7a2020"}, Pending:{bg:"#1e1800",text:"#ffcc44",border:"#5a4800"}, Completed:{bg:"#1a0d2a",text:"#bb88ff",border:"#4a2a7a"} };
-const EC = { expired:{bg:"#2a0d0d",text:"#ff6666",border:"#7a2020"}, warning:{bg:"#2a1a00",text:"#ffaa00",border:"#7a4400"}, ok:{bg:"#0a1a0a",text:"#00cc66",border:"#1a5a2a"}, none:{bg:"#141428",text:"#6868a0",border:"#252548"} };
+const SK = { rt:"pnd_rt_v5", uni:"pnd_uni_v5", tr:"pnd_tr_v5", inj:"pnd_inj_v5", acc:"pnd_acc_v2", hir:"pnd_hir_v1", ins:"pnd_ins_v1" };
+const FC = {
+  rt:    { h:"#2563eb", bg:"#eff6ff", bd:"#bfdbfe", tx:"#1e40af", ring:"#93c5fd", soft:"#dbeafe" },
+  uni:   { h:"#7c3aed", bg:"#f5f3ff", bd:"#ddd6fe", tx:"#5b21b6", ring:"#c4b5fd", soft:"#ede9fe" },
+  fleet: { h:"#0891b2", bg:"#ecfeff", bd:"#a5f3fc", tx:"#164e63", ring:"#67e8f9", soft:"#cffafe" },
+  inj:   { h:"#dc2626", bg:"#fef2f2", bd:"#fecaca", tx:"#7f1d1d", ring:"#fca5a5", soft:"#fee2e2" },
+  acc:   { h:"#ea580c", bg:"#fff7ed", bd:"#fed7aa", tx:"#7c2d12", ring:"#fdba74", soft:"#ffedd5" },
+  hir:   { h:"#059669", bg:"#ecfdf5", bd:"#a7f3d0", tx:"#064e3b", ring:"#6ee7b7", soft:"#d1fae5" },
+  ins:   { h:"#0369a1", bg:"#f0f9ff", bd:"#bae6fd", tx:"#0c4a6e", ring:"#7dd3fc", soft:"#e0f2fe" },
+};
+const STC = {
+  Scheduled:{ bg:"#eff6ff", tx:"#1e40af", bd:"#bfdbfe" },
+  Passed:   { bg:"#f0fdf4", tx:"#166534", bd:"#bbf7d0" },
+  Failed:   { bg:"#fef2f2", tx:"#991b1b", bd:"#fecaca" },
+  Pending:  { bg:"#fefce8", tx:"#854d0e", bd:"#fde68a" },
+  Completed:{ bg:"#f5f3ff", tx:"#5b21b6", bd:"#ddd6fe" },
+  Active:   { bg:"#f0fdf4", tx:"#166534", bd:"#bbf7d0" },
+  Paused:   { bg:"#fef2f2", tx:"#991b1b", bd:"#fecaca" },
+};
+const EXP = {
+  expired:{ bg:"#fef2f2", tx:"#dc2626", bd:"#fecaca" },
+  warning:{ bg:"#fefce8", tx:"#b45309", bd:"#fde68a" },
+  ok:     { bg:"#f0fdf4", tx:"#16a34a", bd:"#bbf7d0" },
+  none:   { bg:"#f9fafb", tx:"#9ca3af", bd:"#e5e7eb" },
+};
+const URGENCY = [
+  { v:"low",    label:"Low",    sub:"Within 30 days", hex:"#16a34a", bg:"#f0fdf4", bd:"#bbf7d0" },
+  { v:"medium", label:"Medium", sub:"Within 2 weeks", hex:"#ca8a04", bg:"#fefce8", bd:"#fde68a" },
+  { v:"high",   label:"High",   sub:"Within 1 week",  hex:"#ea580c", bg:"#fff7ed", bd:"#fed7aa" },
+  { v:"urgent", label:"Urgent", sub:"ASAP",            hex:"#dc2626", bg:"#fef2f2", bd:"#fecaca" },
+];
 
 // ─── Shared style helpers ──────────────────────────────────────────────────────
-const IS = { width:"100%", background:"#111124", border:"1px solid #2e2e4a", borderRadius:6, padding:"9px 12px", color:"#eeeeff", fontSize:14, fontFamily:"'DM Mono',monospace", outline:"none", boxSizing:"border-box" };
-const B  = (v="primary") => ({ padding:"9px 18px", borderRadius:6, border:"none", cursor:"pointer", fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700, fontSize:14, letterSpacing:.5, background:v==="primary"?"#ff6200":v==="success"?"#00a050":v==="danger"?"#cc2000":"#1c1c32", color:v==="ghost"?"#9090b8":"#fff" });
+const INP = {width:"100%",background:"#fff",border:"1px solid #e5e7eb",borderRadius:8,padding:"9px 12px",color:"#111827",fontSize:14,fontFamily:"inherit",outline:"none",boxSizing:"border-box"};
+// Keep IS as alias for backward compat with forms not yet migrated
+const IS = INP;
+function Btn(v,col){
+  col=col||"#2563eb";
+  if(v==="primary") return {padding:"9px 20px",borderRadius:9,border:"none",cursor:"pointer",fontWeight:600,fontSize:13,fontFamily:"inherit",background:col,color:"#fff"};
+  if(v==="outline") return {padding:"8px 16px",borderRadius:9,border:"1.5px solid "+col,cursor:"pointer",fontWeight:600,fontSize:13,fontFamily:"inherit",background:"#fff",color:col};
+  if(v==="ghost")   return {padding:"8px 14px",borderRadius:9,border:"1.5px solid #e5e7eb",cursor:"pointer",fontWeight:600,fontSize:13,fontFamily:"inherit",background:"#fff",color:"#6b7280"};
+  if(v==="danger")  return {padding:"9px 20px",borderRadius:9,border:"none",cursor:"pointer",fontWeight:600,fontSize:13,fontFamily:"inherit",background:"#dc2626",color:"#fff"};
+  if(v==="success") return {padding:"9px 20px",borderRadius:9,border:"none",cursor:"pointer",fontWeight:600,fontSize:13,fontFamily:"inherit",background:"#16a34a",color:"#fff"};
+  return {};
+}
+// Legacy B() shim used by older components
+const B = (v="primary") => {
+  if(v==="primary") return Btn("primary","#2563eb");
+  if(v==="success") return Btn("success");
+  if(v==="danger")  return Btn("danger");
+  return Btn("ghost");
+};
 
 // ─── Utility ──────────────────────────────────────────────────────────────────
 function daysUntil(d){ if(!d) return null; return Math.ceil((new Date(d+"T12:00:00")-new Date())/86400000); }
@@ -39,7 +84,33 @@ function expLabel(d) { const n=daysUntil(d); if(n===null)return"-"; if(n<0)retur
 function buildSms(f) {
   const t=TERMINAL_DATA[f.terminal]||{};
   const d=f.date?new Date(f.date+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",year:"numeric",month:"long",day:"numeric"}):"[date]";
-  return `Hello ${f.candidateName||"[Candidate]"},\n\nYour road test has been scheduled:\n\n📍 ${f.terminal}\n   ${t.address||""}\n\n📅 ${d}\n⏰ ${f.time||""}\n\nManager: ${t.manager||""}\n📞 ${t.phone||""}\n\nPlease arrive 10 min early with a valid driver's license.\n\nGood luck!\n- PND Logistics HR Team`;
+  return "Hello "+(f.candidateName||"[Candidate]")+",\n\nYour road test has been scheduled:\n\nTerminal: "+f.terminal+"\n"+(t.address||"")+"\n\nDate: "+d+"\nTime: "+(f.time||"")+"\n\nManager: "+(t.manager||"")+"\nPhone: "+(t.phone||"")+"\n\nPlease arrive 10 min early with a valid driver's license.\n\nBRING TO YOUR ROAD TEST:\n- Driver License\n- Birth Certificate OR Social Security Card\n- Permanent Resident Card (if applicable)\n- Work Permit (if applicable)\n\nGood luck!\n- PND Logistics HR Team";
+}
+function buildHiringSMS(f) {
+  const t=TERMINAL_DATA[f.terminal]||{};
+  const u=URGENCY.find(x=>x.v===f.urgency)||URGENCY[1];
+  const action=f.action==="start"?"START HIRING REQUEST":"PAUSE HIRING REQUEST";
+  return action+"\n\nTerminal: "+f.terminal+"\n"+(t.address||"")
+    +"\n\nRequested by: "+f.requestedBy
+    +(f.action==="start"?"\nDrivers needed: "+f.driversNeeded+"\nUrgency: "+u.label+" ("+u.sub+")":"")
+    +(f.reason?"\n\nReason:\n"+f.reason:"")
+    +"\n\n- PND Logistics System";
+}
+function buildInsuranceEmail(f) {
+  const t=TERMINAL_DATA[f.terminal]||{};
+  const date=new Date(f.createdAt||new Date()).toLocaleDateString("en-US",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
+  const line="------------------";
+  const eligible=f.has30Days==="yes"?"YES - Employee meets the eligibility requirement":"NO - Employee has not yet reached 30 days";
+  const notes=f.notes?"ADDITIONAL NOTES\n"+line+"\n"+f.notes+"\n\n":"";
+  const body="Dear Health Insurance Agent,\n\n"
+    +"I am writing to request health insurance enrollment for one of our employees at PND Logistics.\n\n"
+    +"EMPLOYEE INFORMATION\n"+line+"\n"
+    +"Name: "+f.employeeName+"\nPhone: "+f.employeePhone+"\nTerminal: "+f.terminal
+    +"\nLocation: "+(t.address||"")+"\nManager: "+(t.manager||f.requestedBy)+"\n\n"
+    +"ELIGIBILITY\n"+line+"\n30 Days Completed: "+eligible+"\n\n"
+    +notes+"REQUEST DATE\n"+line+"\n"+date+"\n\n"
+    +"Please process this enrollment at your earliest convenience.\n\nBest regards,\n"+f.requestedBy;
+  return { body, subject:"Health Insurance Enrollment Request - "+f.employeeName };
 }
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
@@ -71,13 +142,10 @@ function Ico({n,s=16}){
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 function Toast({toasts}) {
+  const colors={success:{bg:"#f0fdf4",bd:"#bbf7d0",tx:"#166534"},warn:{bg:"#fefce8",bd:"#fde68a",tx:"#854d0e"},default:{bg:"#eff6ff",bd:"#bfdbfe",tx:"#1e40af"}};
   return (
-    <div style={{position:"fixed",bottom:20,right:20,zIndex:9999,display:"flex",flexDirection:"column",gap:8,maxWidth:"calc(100vw - 40px)"}}>
-      {toasts.map(t=>(
-        <div key={t.id} style={{background:t.type==="success"?"#0a2a18":t.type==="warn"?"#2a1e00":"#14142e",border:`1px solid ${t.type==="success"?"#00aa55":t.type==="warn"?"#aa8800":"#3a3a7a"}`,color:t.type==="success"?"#00ee77":t.type==="warn"?"#ffcc44":"#aaaaff",padding:"10px 16px",borderRadius:10,fontSize:13,fontFamily:"'DM Mono',monospace",maxWidth:340,animation:"slideIn .2s ease",boxShadow:"0 4px 20px rgba(0,0,0,0.6)"}}>
-          {t.message}
-        </div>
-      ))}
+    <div style={{position:"fixed",bottom:24,right:24,zIndex:9999,display:"flex",flexDirection:"column",gap:8,pointerEvents:"none"}}>
+      {toasts.map(t=>{const c=colors[t.type]||colors.default;return <div key={t.id} style={{background:c.bg,border:"1px solid "+c.bd,color:c.tx,padding:"10px 16px",borderRadius:10,fontSize:13,maxWidth:340,boxShadow:"0 4px 16px rgba(0,0,0,.1)",fontFamily:"inherit"}}>{t.message||t.msg}</div>;})}
     </div>
   );
 }
@@ -85,11 +153,11 @@ function Toast({toasts}) {
 // ─── Modal ────────────────────────────────────────────────────────────────────
 function Modal({title,onClose,children,wide}) {
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className={`modal-box ${wide?"wide":"narrow"}`} onClick={e=>e.stopPropagation()}>
-        <div className="modal-header">
-          <h2 style={{margin:0,fontSize:19,color:"#eeeeff",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1,fontWeight:700}}>{title}</h2>
-          <button onClick={onClose} style={{background:"none",border:"none",color:"#7070a0",cursor:"pointer",padding:4,display:"flex"}}><Ico n="x" s={17}/></button>
+    <div style={{position:"fixed",inset:0,background:"rgba(15,23,42,.38)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16,backdropFilter:"blur(4px)"}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div style={{background:"#fff",borderRadius:16,padding:28,width:"100%",maxWidth:wide?760:560,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 24px 80px rgba(0,0,0,.15)"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22}}>
+          <span style={{fontSize:19,color:"#111827",fontWeight:700,fontFamily:"inherit"}}>{title}</span>
+          <button onClick={onClose} style={{background:"#f3f4f6",border:"none",borderRadius:8,color:"#6b7280",width:32,height:32,cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>x</button>
         </div>
         {children}
       </div>
@@ -101,11 +169,13 @@ function Modal({title,onClose,children,wide}) {
 function Field({label,children,span}) {
   return (
     <div style={{marginBottom:14,gridColumn:span?"1/-1":undefined}}>
-      <label style={{display:"block",fontSize:10,color:"#7878a8",fontFamily:"'DM Mono',monospace",letterSpacing:1.2,marginBottom:5,textTransform:"uppercase",fontWeight:500}}>{label}</label>
+      <label style={{display:"block",fontSize:11,color:"#6b7280",fontWeight:600,letterSpacing:.5,marginBottom:5,textTransform:"uppercase"}}>{label}</label>
       {children}
     </div>
   );
 }
+// Alias used by new components
+const Fld = Field;
 
 // ─── CSV export ───────────────────────────────────────────────────────────────
 const CSV_COLS = {
@@ -146,64 +216,61 @@ function downloadCSV(tab, data) {
 
 // ─── Badge ────────────────────────────────────────────────────────────────────
 function Badge({status}) {
-  const c=SC[status]||{bg:"#1a1a2a",text:"#8888aa",border:"#333355"};
-  return <span style={{background:c.bg,color:c.text,border:`1px solid ${c.border}`,padding:"3px 11px",borderRadius:99,fontSize:11,fontFamily:"'DM Mono',monospace",whiteSpace:"nowrap",fontWeight:500}}>{status}</span>;
+  const c=STC[status]||{bg:"#f3f4f6",tx:"#6b7280",bd:"#e5e7eb"};
+  return <span style={{background:c.bg,color:c.tx,border:"1px solid "+c.bd,padding:"3px 10px",borderRadius:99,fontSize:11,fontWeight:600,whiteSpace:"nowrap"}}>{status}</span>;
 }
+// Alias for new components
+const Bdg = Badge;
 
 // ─── Terminal Info ────────────────────────────────────────────────────────────
-function TInfo({tk}) {
+function TInfo({tk,col}) {
   const t=TERMINAL_DATA[tk]; if(!t) return null;
   return (
-    <div style={{background:"#0a1828",border:"1px solid #1e4060",borderRadius:8,padding:"10px 14px",marginBottom:14}}>
-      <div style={{display:"flex",alignItems:"flex-start",gap:7,marginBottom:6}}>
-        <span style={{color:"#5599ff",flexShrink:0,marginTop:1}}><Ico n="pin" s={12}/></span>
-        <span style={{fontSize:12,color:"#7ab8dd",fontFamily:"'DM Mono',monospace",lineHeight:1.6}}>{t.address}</span>
-      </div>
-      <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
-        <div style={{display:"flex",alignItems:"center",gap:5}}><span style={{color:"#5599ff"}}><Ico n="user" s={11}/></span><span style={{fontSize:12,color:"#7ab8dd",fontFamily:"'DM Mono',monospace"}}>{t.manager}</span></div>
-        <div style={{display:"flex",alignItems:"center",gap:5}}><span style={{color:"#5599ff"}}><Ico n="phone" s={11}/></span><span style={{fontSize:12,color:"#7ab8dd",fontFamily:"'DM Mono',monospace"}}>{t.phone}</span></div>
-      </div>
+    <div style={{background:"#f8fafc",border:"1px solid #e5e7eb",borderRadius:8,padding:"10px 14px",marginBottom:14,fontSize:12,color:"#374151",fontFamily:"inherit"}}>
+      <div style={{fontWeight:600,color:"#111827",marginBottom:2}}>{tk}</div>
+      <div>{t.address}</div>
+      <div style={{marginTop:4,color:"#6b7280"}}>{t.manager} · {t.phone}</div>
     </div>
   );
 }
 
+// ─── Grid / Empty helpers ─────────────────────────────────────────────────────
+function Grid({children}){return <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(330px,1fr))",gap:14}}>{children}</div>;}
+function Empty({msg}){return <div style={{textAlign:"center",padding:80,color:"#9ca3af",fontSize:14}}>{msg}</div>;}
+
 // ─── SMS Modal ────────────────────────────────────────────────────────────────
 function SmsModal({test,onClose}) {
+  const cc=FC.rt;
   const [copied,setCopied]=useState(false);
   const [sent,setSent]=useState(false);
   const msg=buildSms(test);
   const digits=(test.phone||"").replace(/\D/g,"");
-  const openSms=()=>{window.location.href=`sms:${digits}?body=${encodeURIComponent(msg)}`;setSent(true);};
-  const openWa=()=>{window.open(`https://wa.me/${digits}?text=${encodeURIComponent(msg)}`,"_blank");setSent(true);};
+  const openSms=()=>{window.location.href="sms:"+digits+"?body="+encodeURIComponent(msg);setSent(true);};
+  const openWa=()=>{window.open("https://wa.me/"+digits+"?text="+encodeURIComponent(msg),"_blank");setSent(true);};
   const copy=()=>{
     navigator.clipboard.writeText(msg).catch(()=>{const el=document.createElement("textarea");el.value=msg;document.body.appendChild(el);el.select();document.execCommand("copy");document.body.removeChild(el);});
     setCopied(true);setTimeout(()=>setCopied(false),3000);
   };
   return (
     <Modal title="Send Candidate Notification" onClose={onClose} wide>
-      <div style={{background:"#070f07",border:"1px solid #1e5a1e",borderRadius:10,padding:18}}>
-        <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:16,background:"#0a1a0a",border:"1px solid #1e4a1e",borderRadius:8,padding:"10px 14px"}}>
-          <div style={{background:"#00aa55",borderRadius:"50%",width:38,height:38,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><Ico n="user" s={18}/></div>
-          <div>
-            <div style={{fontSize:17,color:"#eeeeff",fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>{test.candidateName}</div>
-            <div style={{fontSize:13,color:"#00cc66",fontFamily:"'DM Mono',monospace"}}>{test.phone}</div>
-          </div>
-          {sent&&<div style={{marginLeft:"auto",background:"#0a2a18",border:"1px solid #00aa55",borderRadius:6,padding:"4px 10px",fontSize:12,color:"#00ee77",fontFamily:"'DM Mono',monospace"}}>✅ Sent!</div>}
+      <div style={{background:cc.bg,border:"1px solid "+cc.bd,borderRadius:12,padding:18}}>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16,background:"#fff",border:"1px solid "+cc.bd,borderRadius:10,padding:"10px 14px"}}>
+          <div style={{width:40,height:40,borderRadius:"50%",background:cc.h,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0,color:"#fff",fontWeight:700}}>{test.candidateName?.charAt(0)||"?"}</div>
+          <div><div style={{fontSize:16,color:"#111827",fontWeight:700}}>{test.candidateName}</div><div style={{fontSize:13,color:cc.h}}>{test.phone}</div></div>
+          {sent&&<span style={{marginLeft:"auto",background:FC.hir.bg,border:"1px solid "+FC.hir.bd,borderRadius:6,padding:"3px 10px",fontSize:11,color:FC.hir.tx,fontWeight:600}}>Sent!</span>}
         </div>
-        <div className="sms-btn-grid">
-          <button onClick={openSms} style={{background:"linear-gradient(135deg,#00aa55,#007733)",border:"none",borderRadius:10,padding:"16px 12px",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:6}}>
-            <Ico n="sms" s={26}/><span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:16,color:"#fff"}}>TEXT MESSAGE</span><span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:"rgba(255,255,255,.65)"}}>Opens Messages app</span>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+          <button onClick={openSms} style={{background:cc.h,border:"none",borderRadius:10,padding:"14px",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:6}}>
+            <span style={{fontSize:24}}>{"💬"}</span><span style={{fontWeight:700,fontSize:14,color:"#fff"}}>Text Message</span><span style={{fontSize:11,color:"rgba(255,255,255,.7)"}}>Opens Messages app</span>
           </button>
-          <button onClick={openWa} style={{background:"linear-gradient(135deg,#1a5c2a,#0d3318)",border:"1px solid #1a6a2a",borderRadius:10,padding:"16px 12px",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:6}}>
-            <span style={{fontSize:26}}>💬</span><span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:16,color:"#44ee88"}}>WHATSAPP</span><span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:"rgba(68,238,136,.55)"}}>Opens WhatsApp</span>
+          <button onClick={openWa} style={{background:"#25d366",border:"none",borderRadius:10,padding:"14px",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:6}}>
+            <span style={{fontSize:24}}>{"📱"}</span><span style={{fontWeight:700,fontSize:14,color:"#fff"}}>WhatsApp</span><span style={{fontSize:11,color:"rgba(255,255,255,.7)"}}>Opens WhatsApp</span>
           </button>
         </div>
-        <pre style={{margin:0,fontFamily:"'DM Mono',monospace",fontSize:12,color:"#77bb88",lineHeight:1.75,whiteSpace:"pre-wrap",wordBreak:"break-word",background:"#030a03",border:"1px solid #152a15",borderRadius:8,padding:14,maxHeight:200,overflowY:"auto"}}>{msg}</pre>
-        <div style={{display:"flex",gap:8,marginTop:12,alignItems:"center",flexWrap:"wrap"}}>
-          <button onClick={copy} style={{background:copied?"#0a2a18":"#1c1c32",border:`1px solid ${copied?"#00aa55":"#2e2e4a"}`,color:copied?"#00ee77":"#9090b8",padding:"8px 14px",borderRadius:6,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:600,fontSize:13,display:"flex",alignItems:"center",gap:5}}>
-            <Ico n="copy" s={13}/>{copied?"✅ Copied!":"Copy Text"}
-          </button>
-          <button onClick={onClose} style={{marginLeft:"auto",background:"none",border:"none",color:"#7070a0",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:600,fontSize:13}}>Done</button>
+        <pre style={{margin:0,fontSize:12,color:"#374151",lineHeight:1.75,whiteSpace:"pre-wrap",background:"#fff",border:"1px solid "+cc.bd,borderRadius:8,padding:14,maxHeight:200,overflowY:"auto",fontFamily:"monospace"}}>{msg}</pre>
+        <div style={{display:"flex",gap:8,marginTop:12,alignItems:"center"}}>
+          <button onClick={copy} style={{...Btn(copied?"primary":"outline",cc.h),display:"flex",alignItems:"center",gap:5}}><Ico n="copy" s={13}/>{copied?"Copied!":"Copy Text"}</button>
+          <button onClick={onClose} style={{marginLeft:"auto",...Btn("ghost")}}>Done</button>
         </div>
       </div>
     </Modal>
@@ -212,6 +279,7 @@ function SmsModal({test,onClose}) {
 
 // ─── Road Test Form ───────────────────────────────────────────────────────────
 function RTForm({onSave,onClose,existing}) {
+  const cc=FC.rt;
   const now=new Date(); const pad=n=>String(n).padStart(2,"0");
   const [form,setForm]=useState(existing||{candidateName:"",phone:"",fedexId:"",dln:"",dlnState:"",terminal:TERMINALS[0],date:`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`,time:`${pad(now.getHours())}:${pad(now.getMinutes())}`,duration:"60",notes:""});
   const [prev,setPrev]=useState(false);
@@ -221,32 +289,33 @@ function RTForm({onSave,onClose,existing}) {
     onSave({...form,id:existing?.id||Date.now().toString(),status:existing?.status||"Scheduled",createdAt:existing?.createdAt||new Date().toISOString(),_sms:withSms});
   };
   return <>
-    <div className="form-grid-2">
-      <Field label="Candidate Full Name *"><input style={IS} value={form.candidateName} onChange={e=>set("candidateName",e.target.value)} placeholder="Jane Smith"/></Field>
-      <Field label="Candidate Phone *"><input style={IS} value={form.phone} onChange={e=>set("phone",e.target.value)} placeholder="+1 (555) 000-0000"/></Field>
-      <Field label="FedEx ID *"><input style={IS} value={form.fedexId} onChange={e=>set("fedexId",e.target.value)} placeholder="FX-000000"/></Field>
-      <Field label="Candidate License Number"><input style={IS} value={form.dln||""} onChange={e=>set("dln",e.target.value)} placeholder="DLN-000000"/></Field>
-      <Field label="DLN State"><select style={IS} value={form.dlnState||""} onChange={e=>set("dlnState",e.target.value)}><option value="">— Select —</option>{US_STATES.map(s=><option key={s} value={s}>{s}</option>)}</select></Field>
-      <Field label="Terminal Location"><select style={IS} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>{TERMINALS.map(t=><option key={t} value={t}>{t}</option>)}</select></Field>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
+      <Field label="Candidate Full Name *"><input style={INP} value={form.candidateName} onChange={e=>set("candidateName",e.target.value)} placeholder="Jane Smith"/></Field>
+      <Field label="Candidate Phone *"><input style={INP} value={form.phone} onChange={e=>set("phone",e.target.value)} placeholder="+1 (555) 000-0000"/></Field>
+      <Field label="FedEx ID *"><input style={INP} value={form.fedexId} onChange={e=>set("fedexId",e.target.value)} placeholder="FX-000000"/></Field>
+      <Field label="Candidate License Number"><input style={INP} value={form.dln||""} onChange={e=>set("dln",e.target.value)} placeholder="DLN-000000"/></Field>
+      <Field label="DLN State"><select style={INP} value={form.dlnState||""} onChange={e=>set("dlnState",e.target.value)}><option value="">— Select —</option>{US_STATES.map(s=><option key={s} value={s}>{s}</option>)}</select></Field>
+      <Field label="Terminal Location"><select style={INP} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>{TERMINALS.map(t=><option key={t} value={t}>{t}</option>)}</select></Field>
     </div>
     <TInfo tk={form.terminal}/>
-    <div className="form-grid-3">
-      <Field label="Test Date"><input style={IS} type="date" value={form.date} onChange={e=>set("date",e.target.value)}/></Field>
-      <Field label="Start Time"><input style={IS} type="time" value={form.time} onChange={e=>set("time",e.target.value)}/></Field>
-      <Field label="Duration (min)"><input style={IS} type="number" min="15" max="240" value={form.duration} onChange={e=>set("duration",e.target.value)}/></Field>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0 14px"}}>
+      <Field label="Test Date"><input style={INP} type="date" value={form.date} onChange={e=>set("date",e.target.value)}/></Field>
+      <Field label="Start Time"><input style={INP} type="time" value={form.time} onChange={e=>set("time",e.target.value)}/></Field>
+      <Field label="Duration (min)"><input style={INP} type="number" min="15" max="240" value={form.duration} onChange={e=>set("duration",e.target.value)}/></Field>
     </div>
-    <Field label="Notes" span><textarea style={{...IS,height:58,resize:"vertical"}} value={form.notes} onChange={e=>set("notes",e.target.value)} placeholder="Additional notes..."/></Field>
-    {prev&&<div style={{background:"#030a03",border:"1px solid #1a5a1a",borderRadius:8,padding:14,marginBottom:14}}><div style={{fontSize:10,color:"#3a9a3a",fontFamily:"'DM Mono',monospace",marginBottom:8,letterSpacing:1,textTransform:"uppercase"}}>SMS Preview</div><pre style={{margin:0,fontFamily:"'DM Mono',monospace",fontSize:11,color:"#77bb88",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{buildSms(form)}</pre></div>}
+    <Field label="Notes" span><textarea style={{...INP,height:58,resize:"vertical"}} value={form.notes} onChange={e=>set("notes",e.target.value)} placeholder="Additional notes..."/></Field>
+    {prev&&<div style={{background:cc.bg,border:"1px solid "+cc.bd,borderRadius:8,padding:14,marginBottom:14}}><div style={{fontSize:11,color:cc.tx,fontWeight:600,marginBottom:8}}>SMS Preview</div><pre style={{margin:0,fontSize:12,color:"#374151",lineHeight:1.75,whiteSpace:"pre-wrap",fontFamily:"monospace"}}>{buildSms(form)}</pre></div>}
     <div style={{display:"flex",gap:8,justifyContent:"flex-end",flexWrap:"wrap",marginTop:10}}>
-      <button style={B("ghost")} onClick={onClose}>Cancel</button>
-      {!existing&&<button style={{background:"none",border:"1px solid #1e5a1e",color:"#44dd77",padding:"8px 14px",borderRadius:6,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:13,display:"flex",alignItems:"center",gap:5}} onClick={()=>setPrev(p=>!p)}><Ico n="sms" s={13}/>{prev?"Hide":"Preview SMS"}</button>}
-      <button style={B("primary")} onClick={()=>doSave(!existing)}>{existing?"Update Test":"Schedule & Send SMS"}</button>
+      <button style={Btn("ghost")} onClick={onClose}>Cancel</button>
+      {!existing&&<button style={Btn("outline",cc.h)} onClick={()=>setPrev(p=>!p)}>{prev?"Hide SMS":"Preview SMS"}</button>}
+      <button style={Btn("primary",cc.h)} onClick={()=>doSave(!existing)}>{existing?"Update Test":"Schedule & Send SMS"}</button>
     </div>
   </>;
 }
 
 // ─── Outcome Form ─────────────────────────────────────────────────────────────
 function OutcomeForm({test,onSave,onClose}) {
+  const cc=FC.rt;
   const [passed,setPassed]=useState(null);
   const [firstDay,setFirstDay]=useState("");
   const [feedback,setFeedback]=useState(test.feedback||"");
@@ -259,33 +328,34 @@ function OutcomeForm({test,onSave,onClose}) {
     onSave({...test,status:passed?"Passed":"Failed",firstDay:passed?firstDay:null,feedback,dln:passed?dln.trim():test.dln,dlnState:passed?dlnState:test.dlnState,completedAt:new Date().toISOString()});
   };
   return <>
-    <div style={{background:"#131326",border:"1px solid #2a2a48",borderRadius:8,padding:14,marginBottom:14}}>
-      <div style={{fontSize:10,color:"#7070a0",fontFamily:"'DM Mono',monospace",textTransform:"uppercase",letterSpacing:1}}>Candidate</div>
-      <div style={{fontSize:20,color:"#eeeeff",fontWeight:700,marginTop:4,fontFamily:"'Barlow Condensed',sans-serif"}}>{test.candidateName}</div>
-      <div style={{fontSize:12,color:"#7878a8",marginTop:2,fontFamily:"'DM Mono',monospace"}}>{test.fedexId} · {test.phone}</div>
+    <div style={{background:cc.bg,border:"1px solid "+cc.bd,borderRadius:10,padding:14,marginBottom:14}}>
+      <div style={{fontSize:11,color:"#9ca3af",fontWeight:600,textTransform:"uppercase",letterSpacing:.5}}>Candidate</div>
+      <div style={{fontSize:19,color:"#111827",fontWeight:700,marginTop:4}}>{test.candidateName}</div>
+      <div style={{fontSize:12,color:"#9ca3af",marginTop:2}}>{test.fedexId} · {test.phone}</div>
     </div>
     <TInfo tk={test.terminal}/>
     <Field label="Road Test Result *">
       <div style={{display:"flex",gap:10}}>
-        <button onClick={()=>setPassed(true)}  style={{...B(passed===true?"success":"ghost"),flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}><Ico n="check" s={14}/>PASSED</button>
-        <button onClick={()=>setPassed(false)} style={{...B(passed===false?"danger":"ghost"),flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}><Ico n="x" s={14}/>FAILED</button>
+        <button onClick={()=>setPassed(true)}  style={{...Btn(passed===true?"primary":"ghost","#16a34a"),flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}><Ico n="check" s={14}/>PASSED</button>
+        <button onClick={()=>setPassed(false)} style={{...Btn(passed===false?"danger":"ghost"),flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}><Ico n="x" s={14}/>FAILED</button>
       </div>
     </Field>
-    {passed===true&&<div className="form-grid-2">
-      <Field label="Candidate Driver License Number *"><input style={IS} value={dln} onChange={e=>setDln(e.target.value)} placeholder="DLN-000000"/></Field>
-      <Field label="Candidate Driver License State *"><select style={IS} value={dlnState} onChange={e=>setDlnState(e.target.value)}><option value="">— Select —</option>{US_STATES.map(s=><option key={s} value={s}>{s}</option>)}</select></Field>
+    {passed===true&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
+      <Field label="Candidate Driver License Number *"><input style={INP} value={dln} onChange={e=>setDln(e.target.value)} placeholder="DLN-000000"/></Field>
+      <Field label="Candidate Driver License State *"><select style={INP} value={dlnState} onChange={e=>setDlnState(e.target.value)}><option value="">— Select —</option>{US_STATES.map(s=><option key={s} value={s}>{s}</option>)}</select></Field>
     </div>}
-    {passed===true&&<Field label="First Day of Training" span><input style={IS} type="date" value={firstDay} onChange={e=>setFirstDay(e.target.value)}/></Field>}
-    <Field label="Manager Feedback"><textarea style={{...IS,height:80,resize:"vertical"}} value={feedback} onChange={e=>setFeedback(e.target.value)} placeholder="Observations..."/></Field>
+    {passed===true&&<Field label="First Day of Training" span><input style={INP} type="date" value={firstDay} onChange={e=>setFirstDay(e.target.value)}/></Field>}
+    <Field label="Manager Feedback"><textarea style={{...INP,height:80,resize:"vertical"}} value={feedback} onChange={e=>setFeedback(e.target.value)} placeholder="Observations..."/></Field>
     <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:10}}>
-      <button style={B("ghost")} onClick={onClose}>Cancel</button>
-      <button style={B(passed===false?"danger":"primary")} onClick={save}>Submit Outcome</button>
+      <button style={Btn("ghost")} onClick={onClose}>Cancel</button>
+      <button style={Btn(passed===false?"danger":"primary",passed===false?"#dc2626":cc.h)} onClick={save}>Submit Outcome</button>
     </div>
   </>;
 }
 
 // ─── Road Test Card ───────────────────────────────────────────────────────────
 function RTCard({test,onEdit,onOutcome,onDelete,onSms,users=[],terminals=[]}) {
+  const cc=FC.rt;
   const start=new Date(`${test.date}T${test.time}`);
   const end=new Date(start.getTime()+parseInt(test.duration||60)*60000);
   const needsOutcome=new Date()>=end&&test.status==="Scheduled";
@@ -302,33 +372,33 @@ function RTCard({test,onEdit,onOutcome,onDelete,onSms,users=[],terminals=[]}) {
     finally{setDownloading(false);}
   };
   return (
-    <div className="card" style={{background:"#0d0d20",border:`1px solid ${needsOutcome?"#ff6200":"#262642"}`,borderRadius:12,padding:18,boxShadow:needsOutcome?"0 0 0 1px #ff6200,0 0 24px rgba(255,98,0,.12)":"0 2px 12px rgba(0,0,0,0.4)"}}>
-      {needsOutcome&&<div style={{background:"#2a1200",border:"1px solid #ff6200",borderRadius:7,padding:"7px 11px",marginBottom:12,display:"flex",alignItems:"center",gap:6,animation:"pulse 2s infinite"}}><Ico n="bell" s={13}/><span style={{fontSize:12,color:"#ffaa55",fontFamily:"'DM Mono',monospace",fontWeight:500}}>Road test ended — awaiting outcome</span></div>}
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
+    <div style={{background:"#fff",border:"1.5px solid "+(needsOutcome?cc.h:cc.bd),borderLeft:"4px solid "+(needsOutcome?cc.h:cc.h),borderRadius:14,padding:18,boxShadow:"0 1px 6px rgba(0,0,0,.06)"}}>
+      {needsOutcome&&<div style={{background:cc.soft,border:"1px solid "+cc.bd,borderRadius:7,padding:"7px 11px",marginBottom:12,display:"flex",alignItems:"center",gap:6}}><Ico n="bell" s={13}/><span style={{fontSize:12,color:cc.tx,fontWeight:600}}>Road test ended — awaiting outcome</span></div>}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
         <div>
-          <div style={{fontSize:18,fontWeight:700,color:"#eeeeff",fontFamily:"'Barlow Condensed',sans-serif"}}>{test.candidateName}</div>
-          <div style={{fontSize:11,color:"#7070a8",fontFamily:"'DM Mono',monospace",marginTop:2}}>FX ID: {test.fedexId}{test.dln&&<span style={{marginLeft:10}}>DLN: {test.dln}{test.dlnState&&` (${test.dlnState})`}</span>}</div>
+          <div style={{fontSize:17,fontWeight:700,color:"#111827"}}>{test.candidateName}</div>
+          <div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>FX ID: {test.fedexId}{test.dln&&<span style={{marginLeft:10}}>DLN: {test.dln}{test.dlnState&&" ("+test.dlnState+")"}</span>}</div>
         </div>
         <Badge status={test.status}/>
       </div>
-      <div style={{fontSize:12,color:"#8888aa",fontFamily:"'DM Mono',monospace",display:"flex",flexDirection:"column",gap:4,marginBottom:12}}>
-        <div>📞 {test.phone}</div>
-        <div style={{color:"#5599cc"}}>📍 {test.terminal}</div>
-        <div style={{color:"#4a7090",paddingLeft:18}}>{t.address}</div>
-        <div style={{color:"#9090aa"}}>📅 {new Date(test.date+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"})} · ⏰ {test.time}</div>
-        <div style={{color:"#6080a0"}}>👤 {t.manager} · {t.phone}</div>
-        {test.createdBy&&<div style={{color:"#4a4a70",marginTop:2}}>🗂 Scheduled by {test.createdBy.name}</div>}
+      <div style={{fontSize:12,color:"#6b7280",display:"flex",flexDirection:"column",gap:3,marginBottom:10}}>
+        <div>{test.phone}</div>
+        <div style={{color:cc.h,fontWeight:500}}>{test.terminal}</div>
+        <div style={{color:"#9ca3af",paddingLeft:12}}>{t.address}</div>
+        <div>{new Date(test.date+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"})} · {test.time}</div>
+        <div>{t.manager} · {t.phone}</div>
+        {test.createdBy&&<div style={{color:"#9ca3af",marginTop:2}}>Scheduled by {test.createdBy.name}</div>}
       </div>
-      {test.status==="Passed"&&<div style={{background:"#071a0f",border:"1px solid #1a5a2a",borderRadius:7,padding:"7px 11px",marginBottom:12,fontSize:12,color:"#00dd66",fontFamily:"'DM Mono',monospace"}}>✅ PASSED{test.firstDay?` · Training: ${new Date(test.firstDay+"T12:00:00").toLocaleDateString()}`:""}</div>}
-      {test.status==="Failed"&&<div style={{background:"#1a0707",border:"1px solid #6a1a1a",borderRadius:7,padding:"7px 11px",marginBottom:12,fontSize:12,color:"#ff6666",fontFamily:"'DM Mono',monospace"}}>❌ FAILED{test.feedback?` · ${test.feedback.slice(0,70)}`:""}</div>}
-      <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+      {test.status==="Passed"&&<div style={{background:FC.hir.bg,border:"1px solid "+FC.hir.bd,borderRadius:7,padding:"7px 11px",marginBottom:10,fontSize:12,color:FC.hir.tx,fontWeight:600}}>PASSED{test.firstDay?" · Training: "+new Date(test.firstDay+"T12:00:00").toLocaleDateString():""}</div>}
+      {test.status==="Failed"&&<div style={{background:FC.inj.bg,border:"1px solid "+FC.inj.bd,borderRadius:7,padding:"7px 11px",marginBottom:10,fontSize:12,color:FC.inj.tx,fontWeight:600}}>FAILED{test.feedback?" · "+test.feedback.slice(0,70):""}</div>}
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",paddingTop:10,borderTop:"1px solid #f3f4f6"}}>
         {(test.status==="Scheduled"||test.status==="In Progress")&&<>
-          <button onClick={()=>onEdit(test)} style={{...B("ghost"),padding:"5px 12px",fontSize:12}}>Edit</button>
-          <button onClick={()=>onSms(test)} style={{background:"none",border:"1px solid #1e5a1e",color:"#44dd77",cursor:"pointer",padding:"5px 10px",borderRadius:5,fontSize:12,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:600,display:"flex",alignItems:"center",gap:4}}><Ico n="sms" s={12}/>SMS</button>
-          {needsOutcome&&<button onClick={()=>onOutcome(test)} style={{...B("primary"),padding:"5px 12px",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Ico n="clip" s={12}/>Enter Outcome</button>}
+          <button onClick={()=>onEdit(test)} style={Btn("ghost")}>Edit</button>
+          <button onClick={()=>onSms(test)} style={Btn("outline",cc.h)}>SMS</button>
+          {needsOutcome&&<button onClick={()=>onOutcome(test)} style={{...Btn("primary",cc.h),display:"flex",alignItems:"center",gap:5}}><Ico n="clip" s={12}/>Enter Outcome</button>}
         </>}
-        {test.status==="Passed"&&<button onClick={handleDownload} disabled={downloading} style={{...B("success"),padding:"5px 12px",fontSize:12,display:"flex",alignItems:"center",gap:5,opacity:downloading?.6:1}}><Ico n="dl" s={12}/>{downloading?"Generating...":"Download Record"}</button>}
-        <button onClick={()=>onDelete(test.id)} style={{...B("ghost"),padding:"5px 8px",marginLeft:"auto",color:"#ff5555"}}><Ico n="trash" s={13}/></button>
+        {test.status==="Passed"&&<button onClick={handleDownload} disabled={downloading} style={{...Btn("success"),display:"flex",alignItems:"center",gap:5,opacity:downloading?.6:1}}><Ico n="dl" s={12}/>{downloading?"Generating...":"Download Record"}</button>}
+        <button onClick={()=>onDelete(test.id)} style={{...Btn("ghost"),marginLeft:"auto",color:"#dc2626",borderColor:"#fecaca"}}><Ico n="trash" s={13}/></button>
       </div>
     </div>
   );
@@ -336,79 +406,91 @@ function RTCard({test,onEdit,onOutcome,onDelete,onSms,users=[],terminals=[]}) {
 
 // ─── Uniform Form ─────────────────────────────────────────────────────────────
 function UniForm({onSave,onClose,existing}) {
-  const [form,setForm]=useState(existing||{terminal:TERMINALS[0],requestedBy:"",items:[{type:UNIFORM_TYPES[0],size:defSize(UNIFORM_TYPES[0]),qty:1}],notes:""});
+  const cc=FC.uni;
+  const newDrv=()=>({id:Date.now().toString()+Math.random(),name:"",items:[{type:UNIFORM_TYPES[0],size:defSize(UNIFORM_TYPES[0])}]});
+  const [form,setForm]=useState(existing||{terminal:TERMINALS[0],requestedBy:"",drivers:[newDrv()],notes:""});
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
-  const addItem=()=>set("items",[...form.items,{type:UNIFORM_TYPES[0],size:defSize(UNIFORM_TYPES[0]),qty:1}]);
-  const remItem=i=>set("items",form.items.filter((_,idx)=>idx!==i));
-  const updItem=(i,k,v)=>set("items",form.items.map((item,idx)=>{if(idx!==i)return item;const n={...item,[k]:v};if(k==="type")n.size=defSize(v);return n;}));
-  const doSave=()=>{if(!form.requestedBy)return alert("Please enter the requester's name.");onSave({...form,id:existing?.id||Date.now().toString(),status:existing?.status||"Pending",createdAt:existing?.createdAt||new Date().toISOString()});};
+  const addDrv=()=>set("drivers",[...form.drivers,newDrv()]);
+  const remDrv=id=>set("drivers",form.drivers.filter(d=>d.id!==id));
+  const setName=(id,name)=>set("drivers",form.drivers.map(d=>d.id===id?{...d,name}:d));
+  const addItem=id=>set("drivers",form.drivers.map(d=>d.id===id?{...d,items:[...d.items,{type:UNIFORM_TYPES[0],size:defSize(UNIFORM_TYPES[0])}]}:d));
+  const remItem=(id,i)=>set("drivers",form.drivers.map(d=>d.id===id?{...d,items:d.items.filter((_,j)=>j!==i)}:d));
+  const setItem=(id,i,k,v)=>set("drivers",form.drivers.map(d=>{if(d.id!==id)return d;const items=d.items.map((item,j)=>{if(j!==i)return item;const n={...item,[k]:v};if(k==="type")n.size=defSize(v);return n;});return{...d,items};}));
+  const doSave=()=>{
+    if(!form.requestedBy)return alert("Please enter the requester's name.");
+    if(form.drivers.some(d=>!d.name.trim()))return alert("Fill in all driver names.");
+    onSave({...form,id:existing?.id||Date.now().toString(),status:existing?.status||"Pending",createdAt:existing?.createdAt||new Date().toISOString()});
+  };
   return <>
-    <div className="form-grid-2">
-      <Field label="Terminal Location"><select style={IS} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>{TERMINALS.map(t=><option key={t} value={t}>{t}</option>)}</select></Field>
-      <Field label="Requested By *"><input style={IS} value={form.requestedBy} onChange={e=>set("requestedBy",e.target.value)} placeholder="Manager name"/></Field>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
+      <Field label="Terminal Location"><select style={INP} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>{TERMINALS.map(t=><option key={t} value={t}>{t}</option>)}</select></Field>
+      <Field label="Requested By *"><input style={INP} value={form.requestedBy} onChange={e=>set("requestedBy",e.target.value)} placeholder="Manager name"/></Field>
     </div>
     <TInfo tk={form.terminal}/>
-    <div style={{marginBottom:14}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-        <label style={{fontSize:10,color:"#7878a8",fontFamily:"'DM Mono',monospace",letterSpacing:1.2,textTransform:"uppercase",fontWeight:500}}>Uniform Items</label>
-        <button onClick={addItem} style={{background:"none",border:"1px solid #2e2e4a",color:"#9090b8",cursor:"pointer",padding:"4px 10px",borderRadius:5,fontSize:12,display:"flex",alignItems:"center",gap:4,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:600}}><Ico n="plus" s={12}/>Add Item</button>
-      </div>
-      <div style={{background:"#0f0f22",borderRadius:8,padding:"10px 12px",border:"1px solid #1e1e38"}}>
-        <div className="uni-items-header">
-          {["Item Type","Size","Qty",""].map((h,i)=><span key={i} style={{fontSize:10,color:"#6060a0",fontFamily:"'DM Mono',monospace",letterSpacing:1,textTransform:"uppercase"}}>{h}</span>)}
-        </div>
-        {form.items.map((item,i)=>(
-          <div key={i} className="uni-items-row">
-            <select style={{...IS,padding:"7px 10px",fontSize:13}} value={item.type} onChange={e=>updItem(i,"type",e.target.value)}>{UNIFORM_TYPES.map(t=><option key={t} value={t}>{t}</option>)}</select>
-            <select style={{...IS,padding:"7px 10px",fontSize:13}} value={item.size} onChange={e=>updItem(i,"size",e.target.value)}>{getSizes(item.type).map(s=><option key={s} value={s}>{BOTTOM_TYPES.includes(item.type)?`W${s}`:s}</option>)}</select>
-            <input style={{...IS,padding:"7px 8px",fontSize:13}} type="number" min="1" max="200" value={item.qty} onChange={e=>updItem(i,"qty",parseInt(e.target.value)||1)}/>
-            {form.items.length>1?<button onClick={()=>remItem(i)} style={{background:"none",border:"none",color:"#ff5555",cursor:"pointer",padding:4,display:"flex"}}><Ico n="x" s={13}/></button>:<span/>}
-          </div>
-        ))}
-      </div>
-      <div style={{fontSize:11,color:"#5a5a88",fontFamily:"'DM Mono',monospace",marginTop:6}}>Pants & Shorts: waist sizes W24–W48. All others: XS–4XL.</div>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+      <label style={{fontSize:11,color:"#6b7280",fontWeight:600,textTransform:"uppercase",letterSpacing:.5}}>Drivers and Items</label>
+      <button onClick={addDrv} style={{...Btn("outline",cc.h),padding:"5px 12px",fontSize:12}}>+ Add Driver</button>
     </div>
-    <Field label="Notes / Employee Names"><textarea style={{...IS,height:58,resize:"vertical"}} value={form.notes} onChange={e=>set("notes",e.target.value)} placeholder="Employee names, special requirements..."/></Field>
+    <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:14}}>
+      {form.drivers.map((drv,di)=>(
+        <div key={drv.id} style={{background:cc.bg,border:"1px solid "+cc.bd,borderRadius:10,padding:"12px 14px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+            <div style={{background:cc.h,borderRadius:"50%",width:22,height:22,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#fff",flexShrink:0}}>{di+1}</div>
+            <input style={{...INP,flex:1}} value={drv.name} onChange={e=>setName(drv.id,e.target.value)} placeholder="Driver full name *"/>
+            {form.drivers.length>1&&<button onClick={()=>remDrv(drv.id)} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",fontSize:14,padding:4}}>X</button>}
+          </div>
+          {drv.items.map((item,ii)=>(
+            <div key={ii} style={{display:"grid",gridTemplateColumns:"2fr 1fr auto",gap:6,alignItems:"center",marginBottom:6}}>
+              <select style={{...INP,fontSize:13}} value={item.type} onChange={e=>setItem(drv.id,ii,"type",e.target.value)}>{UNIFORM_TYPES.map(t=><option key={t} value={t}>{t}</option>)}</select>
+              <select style={{...INP,fontSize:13}} value={item.size} onChange={e=>setItem(drv.id,ii,"size",e.target.value)}>{getSizes(item.type).map(s=><option key={s} value={s}>{BOTTOM_TYPES.includes(item.type)?"W"+s:s}</option>)}</select>
+              {drv.items.length>1?<button onClick={()=>remItem(drv.id,ii)} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",fontSize:16,padding:2}}>-</button>:<span/>}
+            </div>
+          ))}
+          <button onClick={()=>addItem(drv.id)} style={{marginTop:4,background:"none",border:"1px dashed "+cc.bd,color:cc.h,cursor:"pointer",padding:"5px 10px",borderRadius:6,fontSize:11,display:"flex",alignItems:"center",gap:4,width:"100%",justifyContent:"center",fontWeight:600}}>
+            + Add Item for {drv.name||"Driver "+(di+1)}
+          </button>
+        </div>
+      ))}
+    </div>
+    <div style={{fontSize:11,color:"#9ca3af",marginBottom:14}}>Pants and Shorts: waist sizes W24-W48. All others: XS-4XL</div>
+    <Field label="Notes / Employee Names"><textarea style={{...INP,height:58,resize:"vertical"}} value={form.notes} onChange={e=>set("notes",e.target.value)} placeholder="Employee names, special requirements..."/></Field>
     <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:10}}>
-      <button style={B("ghost")} onClick={onClose}>Cancel</button>
-      <button style={B("primary")} onClick={doSave}>{existing?"Update Request":"Submit Order"}</button>
+      <button style={Btn("ghost")} onClick={onClose}>Cancel</button>
+      <button style={Btn("primary",cc.h)} onClick={doSave}>{existing?"Update Request":"Submit Order"}</button>
     </div>
   </>;
 }
 
 // ─── Uniform Card ─────────────────────────────────────────────────────────────
-function UniCard({req,onEdit,onDelete,onFulfill}) {
-  const total=req.items.reduce((s,i)=>s+i.qty,0);
+function UniCard({req,onEdit,onDelete,onFulfill,onView}) {
+  const cc=FC.uni;
+  const drivers=req.drivers||[];
+  const totalItems=drivers.reduce((s,d)=>s+(d.items?.length||0),0);
   const t=TERMINAL_DATA[req.terminal]||{};
   return (
-    <div className="card" style={{background:"#0d0d20",border:"1px solid #262642",borderRadius:12,padding:18,boxShadow:"0 2px 12px rgba(0,0,0,0.4)"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
-        <div>
-          <div style={{fontSize:16,fontWeight:700,color:"#eeeeff",fontFamily:"'Barlow Condensed',sans-serif"}}>{req.terminal}</div>
-          <div style={{fontSize:11,color:"#7070a8",fontFamily:"'DM Mono',monospace",marginTop:2}}>By: {req.requestedBy}</div>
-        </div>
+    <div style={{background:"#fff",border:"1.5px solid "+cc.bd,borderLeft:"4px solid "+cc.h,borderRadius:14,padding:18,boxShadow:"0 1px 6px rgba(0,0,0,.06)"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
+        <div><div style={{fontSize:15,fontWeight:700,color:"#111827"}}>{req.terminal}</div><div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>By: {req.requestedBy}</div></div>
         <Badge status={req.status}/>
       </div>
-      {t.address&&<div style={{fontSize:11,color:"#4a6a80",fontFamily:"'DM Mono',monospace",marginBottom:10}}>📍 {t.address}</div>}
-      <div style={{background:"#0a0a1e",borderRadius:7,padding:"8px 10px",marginBottom:10,border:"1px solid #1e1e38"}}>
-        {req.items.map((item,i)=>(
-          <div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:12,color:"#aaaacc",fontFamily:"'DM Mono',monospace",padding:"4px 0",borderBottom:i<req.items.length-1?"1px solid #1e1e38":"none"}}>
-            <span>{item.type}</span>
-            <span style={{color:"#7878a8"}}>{BOTTOM_TYPES.includes(item.type)?`W${item.size}`:item.size} × {item.qty}</span>
+      {t.address&&<div style={{fontSize:11,color:"#9ca3af",marginBottom:10}}>{t.address}</div>}
+      <div style={{background:cc.bg,borderRadius:8,padding:"10px 12px",marginBottom:10}}>
+        {drivers.slice(0,3).map((drv,di)=>(
+          <div key={di} style={{marginBottom:di<Math.min(drivers.length,3)-1?10:0,paddingBottom:di<Math.min(drivers.length,3)-1?10:0,borderBottom:di<Math.min(drivers.length,3)-1?"1px solid "+cc.bd:"none"}}>
+            <div style={{fontSize:13,fontWeight:700,color:"#111827",marginBottom:3}}>{drv.name}</div>
+            {drv.items?.map((item,ii)=><div key={ii} style={{fontSize:12,color:"#6b7280",paddingLeft:8,lineHeight:1.8}}>{item.type} <span style={{color:cc.h,fontWeight:600}}>{BOTTOM_TYPES.includes(item.type)?"W"+item.size:item.size}</span></div>)}
           </div>
         ))}
-        <div style={{marginTop:6,paddingTop:6,borderTop:"1px solid #252548",display:"flex",justifyContent:"space-between",fontSize:11,color:"#6060a0",fontFamily:"'DM Mono',monospace"}}>
-          <span>TOTAL PIECES</span><span style={{color:"#9090b8",fontWeight:600}}>{total}</span>
+        {drivers.length>3&&<div style={{fontSize:11,color:cc.h,fontWeight:600,marginTop:8}}>+{drivers.length-3} more drivers</div>}
+        <div style={{marginTop:8,paddingTop:8,borderTop:"1px solid "+cc.bd,display:"flex",justifyContent:"space-between",fontSize:11,color:"#9ca3af"}}>
+          <span>{drivers.length} driver{drivers.length!==1?"s":""}</span><span>{totalItems} items</span>
         </div>
       </div>
-      {req.notes&&<div style={{fontSize:11,color:"#607080",fontFamily:"'DM Mono',monospace",marginBottom:8,fontStyle:"italic"}}>{req.notes}</div>}
-      <div style={{fontSize:11,color:"#505080",fontFamily:"'DM Mono',monospace",marginBottom:12}}>Submitted {new Date(req.createdAt).toLocaleDateString()}</div>
-      <div style={{display:"flex",gap:6}}>
-        {req.status==="Pending"&&<>
-          <button onClick={()=>onEdit(req)} style={{...B("ghost"),padding:"5px 12px",fontSize:12}}>Edit</button>
-          <button onClick={()=>onFulfill(req.id)} style={{...B("success"),padding:"5px 12px",fontSize:12,display:"flex",alignItems:"center",gap:5}}><Ico n="check" s={12}/>Mark Fulfilled</button>
-        </>}
-        <button onClick={()=>onDelete(req.id)} style={{...B("ghost"),padding:"5px 8px",marginLeft:"auto",color:"#ff5555"}}><Ico n="trash" s={13}/></button>
+      <div style={{fontSize:10,color:"#9ca3af",marginBottom:8}}>Submitted {new Date(req.createdAt).toLocaleDateString()}</div>
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",paddingTop:10,borderTop:"1px solid #f3f4f6"}}>
+        {req.status==="Pending"&&<><button onClick={()=>onEdit(req)} style={Btn("ghost")}>Edit</button><button onClick={()=>onFulfill(req.id)} style={Btn("primary","#16a34a")}>Fulfilled</button></>}
+        {onView&&<button onClick={()=>onView(req)} style={Btn("outline",cc.h)}>View Order</button>}
+        <button onClick={()=>onDelete(req.id)} style={{...Btn("ghost"),marginLeft:"auto",color:"#dc2626",borderColor:"#fecaca"}}><Ico n="trash" s={13}/></button>
       </div>
     </div>
   );
@@ -416,66 +498,61 @@ function UniCard({req,onEdit,onDelete,onFulfill}) {
 
 // ─── Expiry Pill ──────────────────────────────────────────────────────────────
 function ExpPill({label,dateStr}) {
-  const s=expStatus(dateStr); const c=EC[s];
+  const s=expStatus(dateStr); const c=EXP[s];
   return (
-    <div style={{background:c.bg,border:`1px solid ${c.border}`,borderRadius:8,padding:"9px 12px",flex:1}}>
-      <div style={{fontSize:10,color:c.text,fontFamily:"'DM Mono',monospace",textTransform:"uppercase",opacity:.75,marginBottom:3,letterSpacing:.8}}>{label}</div>
-      <div style={{fontSize:12,color:"#eeeeff",fontFamily:"'DM Mono',monospace",marginBottom:3}}>{dateStr?new Date(dateStr+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}):"Not set"}</div>
-      <div style={{fontSize:11,color:c.text,fontFamily:"'DM Mono',monospace",display:"flex",alignItems:"center",gap:4}}>{(s==="expired"||s==="warning")&&<Ico n="warn" s={11}/>}{expLabel(dateStr)}</div>
+    <div style={{background:c.bg,border:"1px solid "+c.bd,borderRadius:8,padding:"8px 12px",flex:1}}>
+      <div style={{fontSize:10,color:c.tx,fontWeight:600,textTransform:"uppercase",opacity:.9,marginBottom:3}}>{label}</div>
+      <div style={{fontSize:12,color:"#111827",marginBottom:2}}>{dateStr?new Date(dateStr+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}):"Not set"}</div>
+      <div style={{fontSize:11,color:c.tx,fontWeight:600}}>{expLabel(dateStr)}</div>
     </div>
   );
 }
 
 // ─── Truck Form ───────────────────────────────────────────────────────────────
 function TruckForm({onSave,onClose,existing}) {
+  const cc=FC.fleet;
   const [form,setForm]=useState(existing||{terminal:TERMINALS[0],truckNumber:"",licensePlate:"",regState:"",regExpiry:"",inspExpiry:"",vin:"",notes:""});
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const doSave=()=>{if(!form.truckNumber||!form.licensePlate)return alert("Please fill in Truck # and License Plate.");onSave({...form,id:existing?.id||Date.now().toString(),createdAt:existing?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()});};
   return <>
-    <div className="form-grid-2">
-      <Field label="Terminal Location"><select style={IS} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>{TERMINALS.map(t=><option key={t} value={t}>{t}</option>)}</select></Field>
-      <Field label="Truck / Unit # *"><input style={IS} value={form.truckNumber} onChange={e=>set("truckNumber",e.target.value)} placeholder="e.g. T-101"/></Field>
-      <Field label="License Plate *"><input style={IS} value={form.licensePlate} onChange={e=>set("licensePlate",e.target.value)} placeholder="e.g. ABC-1234"/></Field>
-      <Field label="Registration State"><input style={IS} value={form.regState} onChange={e=>set("regState",e.target.value)} placeholder="TX, KY, GA..." maxLength={2}/></Field>
-      <Field label="Registration Expiration"><input style={IS} type="date" value={form.regExpiry} onChange={e=>set("regExpiry",e.target.value)}/></Field>
-      <Field label="State Inspection Expiration"><input style={IS} type="date" value={form.inspExpiry} onChange={e=>set("inspExpiry",e.target.value)}/></Field>
-      <Field label="VIN (optional)"><input style={IS} value={form.vin} onChange={e=>set("vin",e.target.value)} placeholder="Vehicle Identification Number"/></Field>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
+      <Field label="Terminal Location"><select style={INP} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>{TERMINALS.map(t=><option key={t} value={t}>{t}</option>)}</select></Field>
+      <Field label="Truck / Unit # *"><input style={INP} value={form.truckNumber} onChange={e=>set("truckNumber",e.target.value)} placeholder="e.g. T-101"/></Field>
+      <Field label="License Plate *"><input style={INP} value={form.licensePlate} onChange={e=>set("licensePlate",e.target.value)} placeholder="e.g. ABC-1234"/></Field>
+      <Field label="Registration State"><input style={INP} value={form.regState} onChange={e=>set("regState",e.target.value)} placeholder="TX, KY, GA..." maxLength={2}/></Field>
+      <Field label="Registration Expiration"><input style={INP} type="date" value={form.regExpiry} onChange={e=>set("regExpiry",e.target.value)}/></Field>
+      <Field label="State Inspection Expiration"><input style={INP} type="date" value={form.inspExpiry} onChange={e=>set("inspExpiry",e.target.value)}/></Field>
+      <Field label="VIN (optional)"><input style={INP} value={form.vin} onChange={e=>set("vin",e.target.value)} placeholder="Vehicle Identification Number"/></Field>
     </div>
-    <Field label="Notes"><textarea style={{...IS,height:58,resize:"vertical"}} value={form.notes} onChange={e=>set("notes",e.target.value)} placeholder="Any additional info..."/></Field>
+    <Field label="Notes"><textarea style={{...INP,height:58,resize:"vertical"}} value={form.notes} onChange={e=>set("notes",e.target.value)} placeholder="Any additional info..."/></Field>
     <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:10}}>
-      <button style={B("ghost")} onClick={onClose}>Cancel</button>
-      <button style={B("primary")} onClick={doSave}>{existing?"Update Truck":"Add Truck"}</button>
+      <button style={Btn("ghost")} onClick={onClose}>Cancel</button>
+      <button style={Btn("primary",cc.h)} onClick={doSave}>{existing?"Update Truck":"Add Truck"}</button>
     </div>
   </>;
 }
 
 // ─── Truck Card ───────────────────────────────────────────────────────────────
 function TruckCard({truck,onEdit,onDelete}) {
+  const cc=FC.fleet;
   const rs=expStatus(truck.regExpiry),is=expStatus(truck.inspExpiry);
   const hasAlert=rs==="expired"||rs==="warning"||is==="expired"||is==="warning";
   const isExp=rs==="expired"||is==="expired";
   const t=TERMINAL_DATA[truck.terminal]||{};
   return (
-    <div className="card" style={{background:"#0d0d20",border:`1px solid ${hasAlert?(isExp?"#7a2020":"#7a4400"):"#262642"}`,borderRadius:12,padding:18,boxShadow:"0 2px 12px rgba(0,0,0,0.4)"}}>
-      {hasAlert&&<div style={{background:isExp?"#2a0d0d":"#2a1a00",border:`1px solid ${isExp?"#ff5555":"#ffaa00"}`,borderRadius:7,padding:"7px 11px",marginBottom:12,display:"flex",alignItems:"center",gap:6,animation:"pulse 2s infinite"}}><Ico n="warn" s={13}/><span style={{fontSize:12,color:isExp?"#ff8888":"#ffcc44",fontFamily:"'DM Mono',monospace",fontWeight:500}}>{isExp?"EXPIRED — action required":"Expiring within 30 days — renewal needed"}</span></div>}
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
-        <div>
-          <div style={{fontSize:21,fontWeight:800,color:"#eeeeff",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>🚚 {truck.truckNumber}</div>
-          <div style={{fontSize:12,color:"#5599cc",fontFamily:"'DM Mono',monospace",marginTop:2}}>{truck.terminal}</div>
-          <div style={{fontSize:11,color:"#4a6a80",fontFamily:"'DM Mono',monospace"}}>{t.address}</div>
-        </div>
-        <div style={{textAlign:"right"}}>
-          <div style={{fontSize:15,color:"#eeeeff",fontFamily:"'DM Mono',monospace",fontWeight:700}}>{truck.licensePlate}</div>
-          {truck.regState&&<div style={{fontSize:11,color:"#7070a8",fontFamily:"'DM Mono',monospace",marginTop:2}}>State: {truck.regState.toUpperCase()}</div>}
-        </div>
+    <div style={{background:"#fff",border:"1.5px solid "+(hasAlert?(isExp?EXP.expired.bd:EXP.warning.bd):cc.bd),borderRadius:14,padding:18,boxShadow:"0 1px 6px rgba(0,0,0,.06)"}}>
+      {hasAlert&&<div style={{background:isExp?EXP.expired.bg:EXP.warning.bg,border:"1px solid "+(isExp?EXP.expired.bd:EXP.warning.bd),borderRadius:8,padding:"7px 11px",marginBottom:12,fontSize:12,color:isExp?EXP.expired.tx:EXP.warning.tx,fontWeight:600}}>{isExp?"EXPIRED - action required":"Expiring within 30 days"}</div>}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+        <div><div style={{fontSize:18,fontWeight:800,color:"#111827"}}>Truck {truck.truckNumber}</div><div style={{fontSize:12,color:cc.h,marginTop:2}}>{truck.terminal}</div><div style={{fontSize:11,color:"#9ca3af"}}>{t.address}</div></div>
+        <div style={{textAlign:"right"}}><div style={{fontSize:15,color:"#111827",fontWeight:700}}>{truck.licensePlate}</div>{truck.regState&&<div style={{fontSize:11,color:"#9ca3af"}}>State: {truck.regState.toUpperCase()}</div>}</div>
       </div>
-      {truck.vin&&<div style={{fontSize:11,color:"#6060a0",fontFamily:"'DM Mono',monospace",marginBottom:10}}>VIN: {truck.vin}</div>}
-      <div style={{display:"flex",gap:8,marginBottom:12}}><ExpPill label="Registration" dateStr={truck.regExpiry}/><ExpPill label="State Inspection" dateStr={truck.inspExpiry}/></div>
-      <div style={{fontSize:11,color:"#6080a0",fontFamily:"'DM Mono',monospace",marginBottom:10}}>👤 {t.manager} · {t.phone}</div>
-      {truck.notes&&<div style={{fontSize:11,color:"#607080",fontFamily:"'DM Mono',monospace",marginBottom:10,fontStyle:"italic"}}>{truck.notes}</div>}
-      <div style={{display:"flex",gap:6}}>
-        <button onClick={()=>onEdit(truck)} style={{...B("ghost"),padding:"5px 12px",fontSize:12}}>Edit</button>
-        <button onClick={()=>onDelete(truck.id)} style={{...B("ghost"),padding:"5px 8px",marginLeft:"auto",color:"#ff5555"}}><Ico n="trash" s={13}/></button>
+      {truck.vin&&<div style={{fontSize:11,color:"#9ca3af",marginBottom:10}}>VIN: {truck.vin}</div>}
+      <div style={{display:"flex",gap:8,marginBottom:10}}><ExpPill label="Registration" dateStr={truck.regExpiry}/><ExpPill label="Inspection" dateStr={truck.inspExpiry}/></div>
+      <div style={{fontSize:11,color:"#9ca3af",marginBottom:8}}>{t.manager} · {t.phone}</div>
+      {truck.notes&&<div style={{fontSize:11,color:"#6b7280",marginBottom:8,fontStyle:"italic"}}>{truck.notes}</div>}
+      <div style={{display:"flex",gap:6,paddingTop:10,borderTop:"1px solid #f3f4f6"}}>
+        <button onClick={()=>onEdit(truck)} style={Btn("ghost")}>Edit</button>
+        <button onClick={()=>onDelete(truck.id)} style={{...Btn("ghost"),marginLeft:"auto",color:"#dc2626",borderColor:"#fecaca"}}><Ico n="trash" s={13}/></button>
       </div>
     </div>
   );
@@ -483,6 +560,7 @@ function TruckCard({truck,onEdit,onDelete}) {
 
 // ─── Injury Form ──────────────────────────────────────────────────────────────
 function InjuryForm({onSave,onClose,existing}) {
+  const cc=FC.inj;
   const now=new Date(); const pad=n=>String(n).padStart(2,"0");
   const [form,setForm]=useState(existing||{terminal:TERMINALS[0],employeeName:"",injuryDate:`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`,injuryTime:`${pad(now.getHours())}:${pad(now.getMinutes())}`,injuryAddress:"",description:"",bodyPart:BODY_PARTS[0],medicalAttention:"",medicalProvider:"",missedWork:"",missedDays:"",witnesses:"",reportedBy:""});
   const [attachments,setAttachments]=useState(existing?.attachments||[]);
@@ -491,99 +569,95 @@ function InjuryForm({onSave,onClose,existing}) {
   const handleFiles=e=>{Array.from(e.target.files).forEach(file=>{const r=new FileReader();r.onload=ev=>setAttachments(p=>[...p,{id:Date.now()+Math.random(),name:file.name,type:file.type,size:file.size,data:ev.target.result}]);r.readAsDataURL(file);});};
   const doSave=()=>{if(!form.employeeName)return alert("Please fill in Employee Name.");onSave({...form,attachments,id:existing?.id||Date.now().toString(),createdAt:existing?.createdAt||new Date().toISOString(),subject:`WORK RELATED INJURY - ${form.employeeName.toUpperCase()}`});};
   return <>
-    <div style={{background:"#1a0a0a",border:"1px solid #6a1a1a",borderRadius:8,padding:"10px 14px",marginBottom:16}}>
-      <div style={{fontSize:10,color:"#cc5555",fontFamily:"'DM Mono',monospace",letterSpacing:1,textTransform:"uppercase",marginBottom:4}}>Report Subject</div>
-      <div style={{fontSize:14,color:"#ff9999",fontFamily:"'DM Mono',monospace",fontWeight:700}}>WORK RELATED INJURY — {form.employeeName?form.employeeName.toUpperCase():"[EMPLOYEE NAME]"}</div>
+    <div style={{background:cc.bg,border:"1px solid "+cc.bd,borderRadius:10,padding:"10px 14px",marginBottom:16}}>
+      <div style={{fontSize:10,color:cc.tx,fontWeight:700,letterSpacing:.8,textTransform:"uppercase",marginBottom:2}}>Work Related Injury Report</div>
+      <div style={{fontSize:14,color:cc.tx,fontWeight:700}}>{"WORK RELATED INJURY - "+(form.employeeName?form.employeeName.toUpperCase():"[EMPLOYEE NAME]")}</div>
     </div>
-    <div className="form-grid-2">
-      <Field label="Terminal Location"><select style={IS} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>{TERMINALS.map(t=><option key={t} value={t}>{t}</option>)}</select></Field>
-      <Field label="Reported By (Manager)"><input style={IS} value={form.reportedBy} onChange={e=>set("reportedBy",e.target.value)} placeholder="Manager name"/></Field>
-      <Field label="Employee Full Name *"><input style={IS} value={form.employeeName} onChange={e=>set("employeeName",e.target.value)} placeholder="First and Last Name"/></Field>
-      <Field label="Body Part Injured"><select style={IS} value={form.bodyPart} onChange={e=>set("bodyPart",e.target.value)}>{BODY_PARTS.map(b=><option key={b} value={b}>{b}</option>)}</select></Field>
-      <Field label="Date of Injury"><input style={IS} type="date" value={form.injuryDate} onChange={e=>set("injuryDate",e.target.value)}/></Field>
-      <Field label="Time of Injury"><input style={IS} type="time" value={form.injuryTime} onChange={e=>set("injuryTime",e.target.value)}/></Field>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
+      <Field label="Terminal Location"><select style={INP} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>{TERMINALS.map(t=><option key={t} value={t}>{t}</option>)}</select></Field>
+      <Field label="Reported By (Manager)"><input style={INP} value={form.reportedBy} onChange={e=>set("reportedBy",e.target.value)} placeholder="Manager name"/></Field>
+      <Field label="Employee Full Name *"><input style={INP} value={form.employeeName} onChange={e=>set("employeeName",e.target.value)} placeholder="First and Last Name"/></Field>
+      <Field label="Body Part Injured"><select style={INP} value={form.bodyPart} onChange={e=>set("bodyPart",e.target.value)}>{BODY_PARTS.map(b=><option key={b} value={b}>{b}</option>)}</select></Field>
+      <Field label="Date of Injury"><input style={INP} type="date" value={form.injuryDate} onChange={e=>set("injuryDate",e.target.value)}/></Field>
+      <Field label="Time of Injury"><input style={INP} type="time" value={form.injuryTime} onChange={e=>set("injuryTime",e.target.value)}/></Field>
     </div>
-    <Field label="Address / Location of Injury" span><input style={IS} value={form.injuryAddress} onChange={e=>set("injuryAddress",e.target.value)} placeholder="Loading dock, Warehouse aisle 3, Parking lot..."/></Field>
-    <Field label="Description of What Happened" span><textarea style={{...IS,height:90,resize:"vertical"}} value={form.description} onChange={e=>set("description",e.target.value)} placeholder="Describe the incident in detail..."/></Field>
-    <div className="form-grid-2">
+    <Field label="Address / Location of Injury" span><input style={INP} value={form.injuryAddress} onChange={e=>set("injuryAddress",e.target.value)} placeholder="Loading dock, Warehouse aisle 3, Parking lot..."/></Field>
+    <Field label="Description of What Happened" span><textarea style={{...INP,height:90,resize:"vertical"}} value={form.description} onChange={e=>set("description",e.target.value)} placeholder="Describe the incident in detail..."/></Field>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
       <Field label="Medical Attention Received?">
-        <select style={IS} value={form.medicalAttention} onChange={e=>set("medicalAttention",e.target.value)}>
+        <select style={INP} value={form.medicalAttention} onChange={e=>set("medicalAttention",e.target.value)}>
           <option value="">— Select —</option>
           <option>No</option>
-          <option value="Yes - On-site first aid">Yes — On-site first aid</option>
-          <option value="Yes - Urgent care clinic">Yes — Urgent care clinic</option>
-          <option value="Yes - Emergency room">Yes — Emergency room</option>
-          <option value="Yes - Personal doctor">Yes — Personal doctor</option>
-          <option value="Yes - Other">Yes — Other</option>
+          <option value="Yes - On-site first aid">Yes - On-site first aid</option>
+          <option value="Yes - Urgent care clinic">Yes - Urgent care clinic</option>
+          <option value="Yes - Emergency room">Yes - Emergency room</option>
+          <option value="Yes - Personal doctor">Yes - Personal doctor</option>
+          <option value="Yes - Other">Yes - Other</option>
         </select>
       </Field>
-      {form.medicalAttention&&form.medicalAttention!=="No"&&<Field label="Name / Location of Medical Provider"><input style={IS} value={form.medicalProvider} onChange={e=>set("medicalProvider",e.target.value)} placeholder="Clinic or doctor name and address"/></Field>}
+      {form.medicalAttention&&form.medicalAttention!=="No"&&<Field label="Name / Location of Medical Provider"><input style={INP} value={form.medicalProvider} onChange={e=>set("medicalProvider",e.target.value)} placeholder="Clinic or doctor name and address"/></Field>}
       <Field label="Will Employee Miss Work?">
-        <select style={IS} value={form.missedWork} onChange={e=>set("missedWork",e.target.value)}>
+        <select style={INP} value={form.missedWork} onChange={e=>set("missedWork",e.target.value)}>
           <option value="">— Select —</option>
-          <option value="No">No — returning same day</option>
-          <option value="Unknown">Unknown — to be determined</option>
-          <option value="Yes">Yes — missed or expected to miss work</option>
+          <option value="No">No - returning same day</option>
+          <option value="Unknown">Unknown - to be determined</option>
+          <option value="Yes">Yes - missed or expected to miss work</option>
         </select>
       </Field>
-      {form.missedWork==="Yes"&&<Field label="Days Missed (or Expected)"><input style={IS} type="number" min="1" value={form.missedDays} onChange={e=>set("missedDays",e.target.value)} placeholder="e.g. 3"/></Field>}
+      {form.missedWork==="Yes"&&<Field label="Days Missed (or Expected)"><input style={INP} type="number" min="1" value={form.missedDays} onChange={e=>set("missedDays",e.target.value)} placeholder="e.g. 3"/></Field>}
     </div>
-    <Field label="Witnesses (Names or None)" span><textarea style={{...IS,height:60,resize:"vertical"}} value={form.witnesses} onChange={e=>set("witnesses",e.target.value)} placeholder="List witness names, or write 'None'..."/></Field>
+    <Field label="Witnesses (Names or None)" span><textarea style={{...INP,height:60,resize:"vertical"}} value={form.witnesses} onChange={e=>set("witnesses",e.target.value)} placeholder="List witness names, or write 'None'..."/></Field>
     <div style={{marginBottom:14}}>
-      <div style={{fontSize:10,color:"#7878a8",fontFamily:"'DM Mono',monospace",letterSpacing:1.2,marginBottom:8,textTransform:"uppercase",fontWeight:500}}>Attach Photos, Videos, Medical Documents</div>
-      <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",background:"#111124",border:"2px dashed #2e2e4a",borderRadius:8,padding:"14px 16px",marginBottom:10}}>
-        <Ico n="attach" s={16}/><span style={{fontSize:13,color:"#7070a0",fontFamily:"'DM Mono',monospace"}}>Click to attach files (images, PDFs, videos)</span>
+      <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",background:"#f9fafb",border:"2px dashed #e5e7eb",borderRadius:8,padding:"12px 16px",marginBottom:8}}>
+        <Ico n="attach" s={16}/><span style={{fontSize:13,color:"#9ca3af"}}>Click to attach files (images, PDFs, videos)</span>
         <input type="file" multiple accept="image/*,video/*,.pdf,.doc,.docx" onChange={handleFiles} style={{display:"none"}}/>
       </label>
       {attachments.length>0&&<div style={{display:"flex",flexDirection:"column",gap:6}}>
         {attachments.map(a=>(
-          <div key={a.id} style={{display:"flex",alignItems:"center",gap:10,background:"#0f0f22",border:"1px solid #1e1e38",borderRadius:6,padding:"8px 12px"}}>
-            <span style={{fontSize:18}}>{a.type.startsWith("image")?"🖼️":a.type.startsWith("video")?"🎬":"📄"}</span>
+          <div key={a.id} style={{display:"flex",alignItems:"center",gap:10,background:"#f9fafb",border:"1px solid #e5e7eb",borderRadius:6,padding:"8px 12px"}}>
+            <span style={{fontSize:18}}>{a.type.startsWith("image")?"[img]":a.type.startsWith("video")?"[vid]":"[doc]"}</span>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:12,color:"#ccccee",fontFamily:"'DM Mono',monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.name}</div>
-              <div style={{fontSize:10,color:"#6060a0",fontFamily:"'DM Mono',monospace"}}>{fmtSize(a.size)}</div>
+              <div style={{fontSize:12,color:"#374151",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.name}</div>
+              <div style={{fontSize:10,color:"#9ca3af"}}>{fmtSize(a.size)}</div>
             </div>
-            {a.type.startsWith("image")&&<img src={a.data} alt={a.name} style={{width:40,height:40,objectFit:"cover",borderRadius:4,border:"1px solid #2a2a48"}}/>}
-            <button onClick={()=>setAttachments(p=>p.filter(x=>x.id!==a.id))} style={{background:"none",border:"none",color:"#ff5555",cursor:"pointer",padding:4,display:"flex"}}><Ico n="x" s={13}/></button>
+            {a.type.startsWith("image")&&<img src={a.data} alt={a.name} style={{width:40,height:40,objectFit:"cover",borderRadius:4,border:"1px solid #e5e7eb"}}/>}
+            <button onClick={()=>setAttachments(p=>p.filter(x=>x.id!==a.id))} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",padding:4,display:"flex"}}><Ico n="x" s={13}/></button>
           </div>
         ))}
       </div>}
     </div>
     <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:10}}>
-      <button style={B("ghost")} onClick={onClose}>Cancel</button>
-      <button style={{...B("danger"),display:"flex",alignItems:"center",gap:6}} onClick={doSave}><Ico n="medkit" s={14}/>{existing?"Update Report":"Submit Injury Report"}</button>
+      <button style={Btn("ghost")} onClick={onClose}>Cancel</button>
+      <button style={{...Btn("danger"),display:"flex",alignItems:"center",gap:6}} onClick={doSave}><Ico n="medkit" s={14}/>{existing?"Update Report":"Submit Injury Report"}</button>
     </div>
   </>;
 }
 
 // ─── Injury Card ──────────────────────────────────────────────────────────────
 function InjuryCard({report,onView,onEdit,onDelete}) {
-  const t=TERMINAL_DATA[report.terminal]||{};
+  const cc=FC.inj; const t=TERMINAL_DATA[report.terminal]||{};
   return (
-    <div className="card" style={{background:"#0d0d20",border:"1px solid #5a1a1a",borderRadius:12,padding:18,boxShadow:"0 2px 12px rgba(0,0,0,0.4)"}}>
-      <div style={{background:"#1a0707",border:"1px solid #6a1a1a",borderRadius:8,padding:"9px 13px",marginBottom:12}}>
-        <div style={{fontSize:10,color:"#cc5555",fontFamily:"'DM Mono',monospace",letterSpacing:1,textTransform:"uppercase",marginBottom:3}}>Work Related Injury Report</div>
-        <div style={{fontSize:16,fontWeight:800,color:"#ff9999",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>{report.employeeName}</div>
+    <div style={{background:"#fff",border:"1.5px solid "+cc.bd,borderLeft:"4px solid "+cc.h,borderRadius:14,padding:18,boxShadow:"0 1px 6px rgba(0,0,0,.06)"}}>
+      <div style={{background:cc.bg,border:"1px solid "+cc.bd,borderRadius:8,padding:"8px 12px",marginBottom:12}}>
+        <div style={{fontSize:10,color:cc.tx,fontWeight:700,letterSpacing:.8,textTransform:"uppercase",marginBottom:2}}>Work Related Injury</div>
+        <div style={{fontSize:15,fontWeight:700,color:cc.tx}}>{report.employeeName}</div>
       </div>
-      <div style={{fontSize:12,color:"#8888aa",fontFamily:"'DM Mono',monospace",display:"flex",flexDirection:"column",gap:4,marginBottom:12}}>
-        <div style={{color:"#5599cc"}}>📍 {report.terminal}</div>
-        <div style={{color:"#4a6a80",paddingLeft:18}}>{t.address}</div>
-        <div>📅 {report.injuryDate?new Date(report.injuryDate+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"}):""} · ⏰ {report.injuryTime}</div>
-        <div>🩹 <span style={{color:"#cc9999"}}>{report.bodyPart}</span></div>
-        {report.medicalAttention&&<div>🏥 {report.medicalAttention}{report.medicalProvider?` — ${report.medicalProvider}`:""}</div>}
-        {report.missedWork==="Yes"&&<div style={{color:"#ffaa44"}}>⚠️ Missed {report.missedDays||"?"} day(s)</div>}
-        {report.missedWork==="No"&&<div style={{color:"#44aa77"}}>✅ No missed days</div>}
+      <div style={{fontSize:12,color:"#6b7280",display:"flex",flexDirection:"column",gap:4,marginBottom:10}}>
+        <div style={{color:cc.h,fontWeight:500}}>{report.terminal}</div>
+        <div>{report.injuryDate?new Date(report.injuryDate+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"}):""}{report.injuryTime?" - "+report.injuryTime:""}</div>
+        <div>Body: <span style={{color:cc.h,fontWeight:600}}>{report.bodyPart}</span></div>
+        {report.medicalAttention&&<div>Medical: {report.medicalAttention}</div>}
+        {report.missedWork==="Yes"&&<span style={{background:"#fefce8",color:"#854d0e",border:"1px solid #fde68a",borderRadius:99,padding:"2px 9px",fontSize:11,fontWeight:600,alignSelf:"flex-start"}}>Missed {report.missedDays||"?"} day(s)</span>}
       </div>
-      {report.description&&<div style={{background:"#0a0a1e",borderRadius:7,padding:"8px 10px",marginBottom:10,fontSize:12,color:"#9090aa",fontFamily:"'DM Mono',monospace",lineHeight:1.65,border:"1px solid #1e1e38"}}>{report.description.length>120?report.description.slice(0,120)+"…":report.description}</div>}
+      {report.description&&<div style={{background:"#f9fafb",borderRadius:6,padding:"8px 10px",marginBottom:10,fontSize:12,color:"#6b7280",lineHeight:1.6}}>{report.description.length>120?report.description.slice(0,120)+"...":report.description}</div>}
       {report.attachments?.length>0&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
-        {report.attachments.slice(0,4).map((a,i)=>a.type.startsWith("image")?<img key={i} src={a.data} alt={a.name} style={{width:48,height:48,objectFit:"cover",borderRadius:5,border:"1px solid #2a2a48"}}/>:<div key={i} style={{width:48,height:48,background:"#14142a",border:"1px solid #2a2a48",borderRadius:5,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>{a.type.startsWith("video")?"🎬":"📄"}</div>)}
-        {report.attachments.length>4&&<div style={{width:48,height:48,background:"#14142a",border:"1px solid #2a2a48",borderRadius:5,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"#6060a0",fontFamily:"'DM Mono',monospace"}}>+{report.attachments.length-4}</div>}
+        {report.attachments.slice(0,4).map((a,i)=>a.type.startsWith("image")?<img key={i} src={a.data} alt={a.name} style={{width:48,height:48,objectFit:"cover",borderRadius:6,border:"1px solid #e5e7eb"}}/>:<div key={i} style={{width:48,height:48,background:"#f3f4f6",border:"1px solid #e5e7eb",borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:"#6b7280"}}>{a.type.startsWith("video")?"vid":"doc"}</div>)}
       </div>}
-      <div style={{fontSize:10,color:"#4a4a78",fontFamily:"'DM Mono',monospace",marginBottom:12}}>Filed {new Date(report.createdAt).toLocaleDateString()} · By: {report.reportedBy||t.manager}</div>
-      <div style={{display:"flex",gap:6}}>
-        <button onClick={()=>onView(report)} style={{...B("ghost"),padding:"5px 12px",fontSize:12,display:"flex",alignItems:"center",gap:4}}><Ico n="eye" s={12}/>View Full</button>
-        <button onClick={()=>onEdit(report)} style={{...B("ghost"),padding:"5px 12px",fontSize:12}}>Edit</button>
-        <button onClick={()=>onDelete(report.id)} style={{...B("ghost"),padding:"5px 8px",marginLeft:"auto",color:"#ff5555"}}><Ico n="trash" s={13}/></button>
+      <div style={{fontSize:10,color:"#9ca3af",marginBottom:8}}>Filed {new Date(report.createdAt).toLocaleDateString()} - {report.reportedBy||t.manager}</div>
+      <div style={{display:"flex",gap:6,paddingTop:10,borderTop:"1px solid #f3f4f6"}}>
+        <button onClick={()=>onView(report)} style={Btn("outline",cc.h)}>View Full</button>
+        <button onClick={()=>onEdit(report)} style={Btn("ghost")}>Edit</button>
+        <button onClick={()=>onDelete(report.id)} style={{...Btn("ghost"),marginLeft:"auto",color:"#dc2626",borderColor:"#fecaca"}}><Ico n="trash" s={13}/></button>
       </div>
     </div>
   );
@@ -591,61 +665,27 @@ function InjuryCard({report,onView,onEdit,onDelete}) {
 
 // ─── Injury Detail ────────────────────────────────────────────────────────────
 function InjuryDetail({report,onClose}) {
-  const t=TERMINAL_DATA[report.terminal]||{};
-  const [lb,setLb]=useState(null);
-  const R=({label,value})=>value?(
-    <div style={{marginBottom:14}}>
-      <div style={{fontSize:10,color:"#7878a8",fontFamily:"'DM Mono',monospace",letterSpacing:1.2,textTransform:"uppercase",marginBottom:4}}>{label}</div>
-      <div style={{fontSize:14,color:"#ccccee",fontFamily:"'DM Mono',monospace",lineHeight:1.65}}>{value}</div>
-    </div>
-  ):null;
+  const cc=FC.inj; const t=TERMINAL_DATA[report.terminal]||{}; const [lb,setLb]=useState(null);
+  const Row=({label,value})=>value?<div style={{marginBottom:12}}><div style={{fontSize:10,color:"#9ca3af",fontWeight:600,letterSpacing:.5,textTransform:"uppercase",marginBottom:3}}>{label}</div><div style={{fontSize:14,color:"#374151",lineHeight:1.6}}>{value}</div></div>:null;
   return (
     <Modal title="Full Injury Report" onClose={onClose} wide>
-      <div style={{background:"#1a0707",border:"1px solid #8a2020",borderRadius:8,padding:"12px 16px",marginBottom:18}}>
-        <div style={{fontSize:11,color:"#cc5555",fontFamily:"'DM Mono',monospace",letterSpacing:1.5,marginBottom:4}}>SUBJECT</div>
-        <div style={{fontSize:17,fontWeight:800,color:"#ff9999",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>WORK RELATED INJURY — {report.employeeName?.toUpperCase()}</div>
+      <div style={{background:cc.bg,border:"1px solid "+cc.bd,borderRadius:10,padding:"12px 16px",marginBottom:18}}><div style={{fontSize:10,color:cc.tx,fontWeight:700,textTransform:"uppercase",marginBottom:3}}>Work Related Injury</div><div style={{fontSize:17,fontWeight:700,color:cc.tx}}>{report.employeeName?.toUpperCase()}</div></div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 20px"}}>
+        <Row label="Terminal" value={report.terminal}/><Row label="Reported By" value={report.reportedBy||t.manager}/>
+        <Row label="Employee" value={report.employeeName}/><Row label="Body Part" value={report.bodyPart}/>
+        <Row label="Date" value={report.injuryDate?new Date(report.injuryDate+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"}):null}/><Row label="Time" value={report.injuryTime}/>
       </div>
-      <div className="inj-detail-grid">
-        <R label="Terminal"           value={report.terminal}/>
-        <R label="Reported By"        value={report.reportedBy||t.manager}/>
-        <R label="Employee Full Name" value={report.employeeName}/>
-        <R label="Body Part Injured"  value={report.bodyPart}/>
-        <R label="Date of Injury"     value={report.injuryDate?new Date(report.injuryDate+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"}):null}/>
-        <R label="Time of Injury"     value={report.injuryTime}/>
+      <Row label="Location" value={report.injuryAddress}/>
+      <div style={{marginBottom:16}}><div style={{fontSize:10,color:"#9ca3af",fontWeight:600,textTransform:"uppercase",marginBottom:6}}>Description</div><div style={{background:"#f9fafb",border:"1px solid #e5e7eb",borderRadius:8,padding:"10px 14px",fontSize:13,color:"#374151",lineHeight:1.75}}>{report.description||"--"}</div></div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 20px"}}>
+        <Row label="Medical Attention" value={report.medicalAttention||"Not specified"}/>
+        {report.medicalProvider&&<Row label="Medical Provider" value={report.medicalProvider}/>}
+        <Row label="Missed Work" value={report.missedWork||"Not specified"}/>
+        {report.missedDays&&<Row label="Days Missed" value={report.missedDays+" day(s)"}/>}
       </div>
-      <R label="Address / Location of Injury" value={report.injuryAddress}/>
-      <div style={{marginBottom:14}}>
-        <div style={{fontSize:10,color:"#7878a8",fontFamily:"'DM Mono',monospace",letterSpacing:1.2,textTransform:"uppercase",marginBottom:4}}>Description of What Happened</div>
-        <div style={{fontSize:13,color:"#ccccee",fontFamily:"'DM Mono',monospace",lineHeight:1.75,background:"#0a0a1e",border:"1px solid #1e1e38",borderRadius:7,padding:"10px 14px"}}>{report.description||"—"}</div>
-      </div>
-      <div className="inj-detail-grid">
-        <R label="Medical Attention" value={report.medicalAttention||"Not specified"}/>
-        {report.medicalProvider&&<R label="Medical Provider" value={report.medicalProvider}/>}
-        <R label="Missed Work"       value={report.missedWork||"Not specified"}/>
-        {report.missedDays&&<R label="Days Missed" value={`${report.missedDays} day(s)`}/>}
-      </div>
-      <R label="Witnesses" value={report.witnesses||"None reported"}/>
-      {report.attachments?.length>0&&(
-        <div style={{marginBottom:14}}>
-          <div style={{fontSize:10,color:"#7878a8",fontFamily:"'DM Mono',monospace",letterSpacing:1.2,textTransform:"uppercase",marginBottom:8}}>Attachments ({report.attachments.length})</div>
-          <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-            {report.attachments.map((a,i)=>(
-              <div key={i} onClick={()=>a.type.startsWith("image")&&setLb(a)} style={{cursor:a.type.startsWith("image")?"pointer":"default"}}>
-                {a.type.startsWith("image")
-                  ?<img src={a.data} alt={a.name} style={{width:80,height:80,objectFit:"cover",borderRadius:6,border:"1px solid #2a2a48"}}/>
-                  :<a href={a.data} download={a.name} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,background:"#111124",border:"1px solid #2a2a48",borderRadius:6,padding:"10px 14px",textDecoration:"none"}}><span style={{fontSize:28}}>{a.type.startsWith("video")?"🎬":"📄"}</span><span style={{fontSize:10,color:"#7070a0",fontFamily:"'DM Mono',monospace",maxWidth:80,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.name}</span></a>}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-      <div style={{fontSize:11,color:"#5050a0",fontFamily:"'DM Mono',monospace"}}>Filed: {new Date(report.createdAt).toLocaleString()}</div>
-      {lb&&(
-        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.96)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>setLb(null)}>
-          <img src={lb.data} alt={lb.name} style={{maxWidth:"90vw",maxHeight:"90vh",borderRadius:8,objectFit:"contain"}}/>
-          <button onClick={()=>setLb(null)} style={{position:"absolute",top:20,right:20,background:"none",border:"none",color:"#fff",cursor:"pointer",fontSize:28}}>✕</button>
-        </div>
-      )}
+      <Row label="Witnesses" value={report.witnesses||"None reported"}/>
+      {report.attachments?.length>0&&<div style={{marginTop:16}}><div style={{fontSize:10,color:"#9ca3af",fontWeight:600,textTransform:"uppercase",marginBottom:8}}>Attachments</div><div style={{display:"flex",flexWrap:"wrap",gap:8}}>{report.attachments.map((a,i)=>a.type.startsWith("image")?<img key={i} src={a.data} alt="" onClick={()=>setLb(a)} style={{width:80,height:80,objectFit:"cover",borderRadius:6,border:"1px solid #e5e7eb",cursor:"pointer"}}/>:<a key={i} href={a.data} download={a.name} style={{background:"#f3f4f6",border:"1px solid #e5e7eb",borderRadius:8,padding:"10px 14px",textDecoration:"none",fontSize:12,color:"#374151"}}>{a.name}</a>)}</div></div>}
+      {lb&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.85)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>setLb(null)}><img src={lb.data} alt="" style={{maxWidth:"90vw",maxHeight:"90vh",borderRadius:8}}/><button onClick={()=>setLb(null)} style={{position:"absolute",top:20,right:20,background:"none",border:"none",color:"#fff",cursor:"pointer",fontSize:28}}>x</button></div>}
     </Modal>
   );
 }
@@ -669,25 +709,24 @@ function AuthModal({ onLogin }) {
   const onKey = e => { if (e.key === "Enter") doLogin(); };
 
   return (
-    <div style={{position:"fixed",inset:0,zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(4,4,18,0.82)",backdropFilter:"blur(18px)",WebkitBackdropFilter:"blur(18px)"}}>
-      <div style={{background:"rgba(13,13,30,0.97)",border:"1px solid #28284a",borderRadius:18,padding:"40px 36px",width:"100%",maxWidth:400,boxShadow:"0 40px 100px rgba(0,0,0,0.85)",animation:"slideIn .25s ease"}}>
-        {/* Logo */}
+    <div style={{position:"fixed",inset:0,zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(15,23,42,0.6)",backdropFilter:"blur(8px)"}}>
+      <div style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:18,padding:"40px 36px",width:"100%",maxWidth:400,boxShadow:"0 24px 80px rgba(0,0,0,.15)"}}>
         <div style={{display:"flex",alignItems:"center",gap:13,marginBottom:32}}>
-          <div style={{background:"#ff6200",borderRadius:9,padding:"8px 11px",display:"flex",flexShrink:0}}><Ico n="truck" s={22}/></div>
+          <div style={{background:"#111827",borderRadius:12,width:44,height:44,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:800,fontSize:20,flexShrink:0}}>P</div>
           <div>
-            <div style={{fontSize:21,fontWeight:800,letterSpacing:1.2,color:"#eeeeff",fontFamily:"'Barlow Condensed',sans-serif",lineHeight:1}}>PND LOGISTICS</div>
-            <div style={{fontSize:10,color:"#6060a0",fontFamily:"'DM Mono',monospace",letterSpacing:1.4,marginTop:3}}>MANAGEMENT PORTAL</div>
+            <div style={{fontSize:20,fontWeight:800,color:"#111827",letterSpacing:-.3,lineHeight:1}}>PND Logistics</div>
+            <div style={{fontSize:11,color:"#9ca3af",marginTop:2,fontWeight:500}}>Management Portal</div>
           </div>
         </div>
         <Field label="Username">
-          <input style={IS} value={username} onChange={e=>setUsername(e.target.value)} onKeyDown={onKey} placeholder="Enter your username" autoFocus/>
+          <input style={INP} value={username} onChange={e=>setUsername(e.target.value)} onKeyDown={onKey} placeholder="Enter your username" autoFocus/>
         </Field>
         <Field label="Password">
-          <input style={IS} type="password" value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={onKey} placeholder="Enter your password"/>
+          <input style={INP} type="password" value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={onKey} placeholder="Enter your password"/>
         </Field>
-        {error&&<div style={{color:"#ff7777",fontSize:12,fontFamily:"'DM Mono',monospace",marginBottom:14,background:"#1a0707",border:"1px solid #4a1a1a",borderRadius:7,padding:"9px 12px"}}>{error}</div>}
-        <button onClick={doLogin} disabled={loading} style={{...B("primary"),width:"100%",marginTop:4,fontSize:16,padding:"12px 18px",letterSpacing:.8,opacity:loading?.65:1,transition:"opacity .2s"}}>
-          {loading?"Signing in…":"Sign In"}
+        {error&&<div style={{color:"#dc2626",fontSize:12,marginBottom:14,background:"#fef2f2",border:"1px solid #fecaca",borderRadius:7,padding:"9px 12px"}}>{error}</div>}
+        <button onClick={doLogin} disabled={loading} style={{...Btn("primary","#111827"),width:"100%",marginTop:4,fontSize:15,padding:"12px 18px",opacity:loading?.65:1}}>
+          {loading?"Signing in...":"Sign In"}
         </button>
       </div>
     </div>
@@ -708,30 +747,23 @@ function UserForm({ onSave, onClose, existing, allUsers }) {
   const doSave = () => {
     if (!form.name||!form.username) return alert("Name and username are required.");
     if (!existing && !form.password) return alert("Password is required for new users.");
-    // Enforce one active user per terminal
     if (form.status === "active" && form.terminal) {
-      const conflict = (allUsers||[]).find(u =>
-        u.terminal === form.terminal &&
-        u.status === "active" &&
-        u.id !== existing?.id
-      );
+      const conflict = (allUsers||[]).find(u => u.terminal===form.terminal && u.status==="active" && u.id!==existing?.id);
       if (conflict) return alert(`Terminal already has an active user: ${conflict.name}.\nDeactivate that user before assigning another one to this terminal.`);
     }
     onSave(form);
   };
 
   return <>
-    <div className="form-grid-2">
-      <Field label="Full Name *"><input style={IS} value={form.name} onChange={e=>set("name",e.target.value)} placeholder="Jane Smith"/></Field>
-      <Field label="Username *"><input style={IS} value={form.username} onChange={e=>set("username",e.target.value)} placeholder="jsmith" disabled={isAdminUser}/></Field>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
+      <Field label="Full Name *"><input style={INP} value={form.name} onChange={e=>set("name",e.target.value)} placeholder="Jane Smith"/></Field>
+      <Field label="Username *"><input style={INP} value={form.username} onChange={e=>set("username",e.target.value)} placeholder="jsmith" disabled={isAdminUser}/></Field>
       <Field label={existing?"New Password (blank = keep current)":"Password *"}>
-        <input style={IS} type="password" value={form.password} onChange={e=>set("password",e.target.value)} placeholder={existing?"Leave blank to keep current":"Set a password"}/>
+        <input style={INP} type="password" value={form.password} onChange={e=>set("password",e.target.value)} placeholder={existing?"Leave blank to keep current":"Set a password"}/>
       </Field>
-      <Field label="FedEx ID">
-        <input style={IS} value={form.fedexId} onChange={e=>set("fedexId",e.target.value)} placeholder="FX-000000"/>
-      </Field>
+      <Field label="FedEx ID"><input style={INP} value={form.fedexId} onChange={e=>set("fedexId",e.target.value)} placeholder="FX-000000"/></Field>
       <Field label="Terminal Location">
-        <select style={IS} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>
+        <select style={INP} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>
           <option value="">— Not assigned —</option>
           {TERMINALS.map(t=>{
             const occupied = (allUsers||[]).find(u => u.terminal===t && u.status==="active" && u.id!==existing?.id);
@@ -740,24 +772,24 @@ function UserForm({ onSave, onClose, existing, allUsers }) {
         </select>
       </Field>
       <Field label="Role">
-        <select style={IS} value={form.role} onChange={e=>set("role",e.target.value)} disabled={isAdminUser}>
+        <select style={INP} value={form.role} onChange={e=>set("role",e.target.value)} disabled={isAdminUser}>
           <option value="user">User</option>
           <option value="admin">Admin</option>
         </select>
       </Field>
       <Field label="Status">
-        <select style={IS} value={form.status} onChange={e=>set("status",e.target.value)} disabled={isAdminUser}>
+        <select style={INP} value={form.status} onChange={e=>set("status",e.target.value)} disabled={isAdminUser}>
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
         </select>
       </Field>
-      <Field label="Email"><input style={IS} type="email" value={form.email} onChange={e=>set("email",e.target.value)} placeholder="jane@example.com"/></Field>
-      <Field label="Phone Number"><input style={IS} value={form.phone} onChange={e=>set("phone",e.target.value)} placeholder="+1 (555) 000-0000"/></Field>
+      <Field label="Email"><input style={INP} type="email" value={form.email} onChange={e=>set("email",e.target.value)} placeholder="jane@example.com"/></Field>
+      <Field label="Phone Number"><input style={INP} value={form.phone} onChange={e=>set("phone",e.target.value)} placeholder="+1 (555) 000-0000"/></Field>
     </div>
-    {isAdminUser&&<div style={{fontSize:11,color:"#ffaa55",fontFamily:"'DM Mono',monospace",marginBottom:12,background:"#2a1a00",border:"1px solid #7a4400",borderRadius:6,padding:"8px 12px"}}>⚠️ Master admin account — username, role and status cannot be changed.</div>}
+    {isAdminUser&&<div style={{fontSize:11,color:"#854d0e",marginBottom:12,background:"#fefce8",border:"1px solid #fde68a",borderRadius:6,padding:"8px 12px"}}>Master admin account - username, role and status cannot be changed.</div>}
     <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:10}}>
-      <button style={B("ghost")} onClick={onClose}>Cancel</button>
-      <button style={B("primary")} onClick={doSave}>{existing?"Update User":"Create User"}</button>
+      <button style={Btn("ghost")} onClick={onClose}>Cancel</button>
+      <button style={Btn("primary")} onClick={doSave}>{existing?"Update User":"Create User"}</button>
     </div>
   </>;
 }
@@ -765,14 +797,9 @@ function UserForm({ onSave, onClose, existing, allUsers }) {
 // ─── User Card (admin) ────────────────────────────────────────────────────────
 function CopyBtn({ value }) {
   const [copied, setCopied] = useState(false);
-  const copy = () => {
-    navigator.clipboard.writeText(value).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  };
+  const copy = () => { navigator.clipboard.writeText(value).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }); };
   return (
-    <button onClick={copy} title="Copy" style={{background:"none",border:"none",padding:"0 4px",cursor:"pointer",color:copied?"#00ee77":"#5050a0",fontSize:11,fontFamily:"'DM Mono',monospace",lineHeight:1}}>
+    <button onClick={copy} title="Copy" style={{background:"none",border:"none",padding:"0 4px",cursor:"pointer",color:copied?"#16a34a":"#9ca3af",fontSize:11,lineHeight:1}}>
       {copied ? "✓" : "⎘"}
     </button>
   );
@@ -780,39 +807,31 @@ function CopyBtn({ value }) {
 
 function UserCard({ user, onEdit, isSelf }) {
   const isAdminUser = user.role === "admin";
+  const cc = isAdminUser ? FC.ins : FC.rt;
   return (
-    <div className="card" style={{background:"#0d0d20",border:`1px solid ${isAdminUser?"#3a2060":"#262642"}`,borderRadius:12,padding:18,boxShadow:"0 2px 12px rgba(0,0,0,0.4)"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
+    <div style={{background:"#fff",border:"1.5px solid "+cc.bd,borderLeft:"4px solid "+cc.h,borderRadius:14,padding:18,boxShadow:"0 1px 6px rgba(0,0,0,.06)"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
         <div>
-          <div style={{fontSize:18,fontWeight:700,color:"#eeeeff",fontFamily:"'Barlow Condensed',sans-serif"}}>{user.name}</div>
+          <div style={{fontSize:17,fontWeight:700,color:"#111827"}}>{user.name}</div>
           <div style={{display:"flex",alignItems:"center",gap:2,marginTop:2}}>
-            <span style={{fontSize:11,color:"#7070a8",fontFamily:"'DM Mono',monospace"}}>@{user.username}</span>
+            <span style={{fontSize:11,color:"#9ca3af"}}>@{user.username}</span>
             <CopyBtn value={user.username}/>
           </div>
         </div>
         <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5}}>
-          <span style={{background:isAdminUser?"#2a1a4a":"#141428",color:isAdminUser?"#bb88ff":"#7878a8",border:`1px solid ${isAdminUser?"#4a2a7a":"#252548"}`,padding:"2px 10px",borderRadius:99,fontSize:11,fontFamily:"'DM Mono',monospace",fontWeight:500}}>
-            {user.role.toUpperCase()}
-          </span>
-          <span style={{background:user.status==="active"?"#0a2a18":"#2a0d0d",color:user.status==="active"?"#00ee77":"#ff5555",border:`1px solid ${user.status==="active"?"#1a6a3a":"#7a2020"}`,padding:"2px 10px",borderRadius:99,fontSize:11,fontFamily:"'DM Mono',monospace",fontWeight:500}}>
-            {user.status}
-          </span>
+          <Badge status={isAdminUser?"Admin":"User"}/>
+          <Badge status={user.status==="active"?"Active":"Paused"}/>
         </div>
       </div>
-      <div style={{fontSize:12,color:"#7878a8",fontFamily:"'DM Mono',monospace",display:"flex",flexDirection:"column",gap:4,marginBottom:14}}>
-        <div style={{display:"flex",alignItems:"center",gap:2}}>
-          <span style={{color:"#5050a0"}}>🔑</span>
-          <span style={{letterSpacing:2}}>{"•".repeat(user.password?.length||6)}</span>
-          <CopyBtn value={user.password||""}/>
-        </div>
-        {user.terminal&&<div style={{color:"#5599cc"}}>📍 {user.terminal}</div>}
-        {user.fedex_id&&<div style={{color:"#9090b8"}}>🪪 FedEx ID: {user.fedex_id}</div>}
-        {user.email&&<div>✉️ {user.email}</div>}
-        {user.phone&&<div>📞 {user.phone}</div>}
-        {isSelf&&<div style={{color:"#ffaa55",marginTop:2}}>👤 Currently logged in</div>}
+      <div style={{fontSize:12,color:"#6b7280",display:"flex",flexDirection:"column",gap:4,marginBottom:12}}>
+        {user.terminal&&<div style={{color:cc.h}}>{user.terminal}</div>}
+        {user.fedex_id&&<div>FedEx ID: {user.fedex_id}</div>}
+        {user.email&&<div>{user.email}</div>}
+        {user.phone&&<div>{user.phone}</div>}
+        {isSelf&&<div style={{color:FC.hir.tx,marginTop:2,fontWeight:600}}>Currently logged in</div>}
       </div>
-      <div style={{display:"flex",gap:6}}>
-        <button onClick={()=>onEdit(user)} style={{...B("ghost"),padding:"5px 12px",fontSize:12}}>Edit</button>
+      <div style={{display:"flex",gap:6,paddingTop:10,borderTop:"1px solid #f3f4f6"}}>
+        <button onClick={()=>onEdit(user)} style={Btn("ghost")}>Edit</button>
       </div>
     </div>
   );
@@ -833,26 +852,27 @@ function TerminalForm({onSave,onClose,existing}) {
     onSave(form);
   };
   return <>
-    <div className="form-grid-2">
-      <Field label="Terminal Name *"><input style={IS} value={form.name} onChange={e=>set("name",e.target.value)} placeholder="Fort Worth Terminal"/></Field>
-      <Field label="Terminal Code"><input style={IS} value={form.code} onChange={e=>set("code",e.target.value)} placeholder="761"/></Field>
-      <Field label="Status"><select style={IS} value={form.status} onChange={e=>set("status",e.target.value)}><option value="Active">Active</option><option value="Inactive">Inactive</option></select></Field>
-      <Field label="Address"><input style={IS} value={form.address} onChange={e=>set("address",e.target.value)} placeholder="4901 Village Creek Rd, Fort Worth TX 76119"/></Field>
-      <Field label="City"><input style={IS} value={form.city} onChange={e=>set("city",e.target.value)} placeholder="Fort Worth"/></Field>
-      <Field label="State"><select style={IS} value={form.state} onChange={e=>set("state",e.target.value)}><option value="">— Select —</option>{US_STATES.map(s=><option key={s} value={s}>{s}</option>)}</select></Field>
-      <Field label="ZIP Code"><input style={IS} value={form.zip} onChange={e=>set("zip",e.target.value)} placeholder="76119"/></Field>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
+      <Field label="Terminal Name *"><input style={INP} value={form.name} onChange={e=>set("name",e.target.value)} placeholder="Fort Worth Terminal"/></Field>
+      <Field label="Terminal Code"><input style={INP} value={form.code} onChange={e=>set("code",e.target.value)} placeholder="761"/></Field>
+      <Field label="Status"><select style={INP} value={form.status} onChange={e=>set("status",e.target.value)}><option value="Active">Active</option><option value="Inactive">Inactive</option></select></Field>
+      <Field label="Address"><input style={INP} value={form.address} onChange={e=>set("address",e.target.value)} placeholder="4901 Village Creek Rd, Fort Worth TX 76119"/></Field>
+      <Field label="City"><input style={INP} value={form.city} onChange={e=>set("city",e.target.value)} placeholder="Fort Worth"/></Field>
+      <Field label="State"><select style={INP} value={form.state} onChange={e=>set("state",e.target.value)}><option value="">— Select —</option>{US_STATES.map(s=><option key={s} value={s}>{s}</option>)}</select></Field>
+      <Field label="ZIP Code"><input style={INP} value={form.zip} onChange={e=>set("zip",e.target.value)} placeholder="76119"/></Field>
     </div>
-    <Field label="Road Test Employer Name" span><input style={IS} value={form.rt_employer_name} onChange={e=>set("rt_employer_name",e.target.value)} placeholder="Company LLC"/></Field>
-    <Field label="Default Road Test Unit Number" span><input style={IS} value={form.default_unit_number} onChange={e=>set("default_unit_number",e.target.value)} placeholder="e.g. 4821"/></Field>
+    <Field label="Road Test Employer Name" span><input style={INP} value={form.rt_employer_name} onChange={e=>set("rt_employer_name",e.target.value)} placeholder="Company LLC"/></Field>
+    <Field label="Default Road Test Unit Number" span><input style={INP} value={form.default_unit_number} onChange={e=>set("default_unit_number",e.target.value)} placeholder="e.g. 4821"/></Field>
     <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:10}}>
-      <button style={B("ghost")} onClick={onClose}>Cancel</button>
-      <button style={B("primary")} onClick={doSave}>{existing?"Update Terminal":"Add Terminal"}</button>
+      <button style={Btn("ghost")} onClick={onClose}>Cancel</button>
+      <button style={Btn("primary")} onClick={doSave}>{existing?"Update Terminal":"Add Terminal"}</button>
     </div>
   </>;
 }
 
 // ─── Terminal Card (admin) ────────────────────────────────────────────────────
 function TerminalCard({terminal,onEdit,onUploadPdf}) {
+  const cc=FC.fleet;
   const status=terminal.status||"Active";
   const isActive=status==="Active";
   const zip=terminal.zip||terminal.zipcode||"";
@@ -868,30 +888,27 @@ function TerminalCard({terminal,onEdit,onUploadPdf}) {
     e.target.value="";
   };
   return (
-    <div className="card" style={{background:"#0d0d20",border:`1px solid ${isActive?"#1e3a5a":"#3a1a1a"}`,borderRadius:12,padding:18,boxShadow:"0 2px 12px rgba(0,0,0,0.4)"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
+    <div style={{background:"#fff",border:"1.5px solid "+(isActive?cc.bd:EXP.expired.bd),borderLeft:"4px solid "+(isActive?cc.h:EXP.expired.tx),borderRadius:14,padding:18,boxShadow:"0 1px 6px rgba(0,0,0,.06)"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
         <div style={{flex:1,minWidth:0}}>
-          <div style={{fontSize:18,fontWeight:700,color:"#eeeeff",fontFamily:"'Barlow Condensed',sans-serif"}}>{terminal.name}</div>
-          {terminal.code&&<div style={{fontSize:11,color:"#ff6200",fontFamily:"'DM Mono',monospace",marginTop:2,fontWeight:600}}>Station: {terminal.code}</div>}
+          <div style={{fontSize:17,fontWeight:700,color:"#111827"}}>{terminal.name}</div>
+          {terminal.code&&<div style={{fontSize:11,color:cc.h,marginTop:2,fontWeight:600}}>Station: {terminal.code}</div>}
         </div>
-        <span style={{background:isActive?"#0a2a18":"#2a0d0d",color:isActive?"#00ee77":"#ff5555",border:`1px solid ${isActive?"#1a6a3a":"#7a2020"}`,padding:"2px 10px",borderRadius:99,fontSize:11,fontFamily:"'DM Mono',monospace",fontWeight:500,flexShrink:0,marginLeft:10}}>
-          {status}
-        </span>
+        <Badge status={isActive?"Active":"Paused"}/>
       </div>
-      <div style={{fontSize:12,color:"#7878a8",fontFamily:"'DM Mono',monospace",display:"flex",flexDirection:"column",gap:4,marginBottom:14}}>
-        {terminal.address&&<div style={{color:"#8888cc"}}>📍 {terminal.address}</div>}
-        {(terminal.city||terminal.state||zip)&&<div style={{paddingLeft:18,color:"#6060a0"}}>{[terminal.city,terminal.state,zip].filter(Boolean).join(", ")}</div>}
-        {terminal.rt_employer_name&&<div style={{color:"#9090b8",marginTop:2}}>🏢 {terminal.rt_employer_name}</div>}
+      <div style={{fontSize:12,color:"#6b7280",display:"flex",flexDirection:"column",gap:4,marginBottom:12}}>
+        {terminal.address&&<div style={{color:"#374151"}}>{terminal.address}</div>}
+        {(terminal.city||terminal.state||zip)&&<div style={{color:"#9ca3af"}}>{[terminal.city,terminal.state,zip].filter(Boolean).join(", ")}</div>}
+        {terminal.rt_employer_name&&<div style={{color:"#9ca3af",marginTop:2}}>{terminal.rt_employer_name}</div>}
         <div style={{marginTop:4,display:"flex",alignItems:"center",gap:6}}>
-          <span style={{color:terminal.pdf_url?"#00ee77":"#5a5a9a"}}>⬜ PDF Template:</span>
-          <span style={{color:terminal.pdf_url?"#00ee77":"#5a5a9a",fontWeight:600}}>{terminal.pdf_url?terminal.pdf_url.split("/").pop():"Not set"}</span>
+          <span style={{color:terminal.pdf_url?FC.hir.tx:"#9ca3af",fontSize:11,fontWeight:600}}>PDF: {terminal.pdf_url?terminal.pdf_url.split("/").pop():"Not set"}</span>
         </div>
       </div>
       <input ref={fileRef} type="file" accept="application/pdf" style={{display:"none"}} onChange={handleFile}/>
-      <div style={{display:"flex",flexDirection:"column",gap:6,alignItems:"flex-start"}}>
-        <button onClick={()=>onEdit(terminal)} style={{...B("ghost"),padding:"5px 12px",fontSize:12}}>Edit</button>
-        <button onClick={()=>fileRef.current?.click()} disabled={uploading} style={{...B("ghost"),padding:"5px 12px",fontSize:12,color:"#ff6200",borderColor:"#ff6200",opacity:uploading?0.6:1}}>
-          {uploading?"Uploading…":terminal.pdf_url?"Re-upload Record of Road Test PDF":"Upload Record of Road Test PDF"}
+      <div style={{display:"flex",flexDirection:"column",gap:6,alignItems:"flex-start",paddingTop:10,borderTop:"1px solid #f3f4f6"}}>
+        <button onClick={()=>onEdit(terminal)} style={Btn("ghost")}>Edit</button>
+        <button onClick={()=>fileRef.current?.click()} disabled={uploading} style={{...Btn("outline",cc.h),opacity:uploading?0.6:1}}>
+          {uploading?"Uploading...":terminal.pdf_url?"Re-upload Record of Road Test PDF":"Upload Record of Road Test PDF"}
         </button>
       </div>
     </div>
@@ -903,29 +920,412 @@ function EmailSettingsForm({moduleKey,label,placeholders,config,onChange}) {
   const set=(k,v)=>onChange(moduleKey,{...config,[k]:v});
   const isOn=config?.enabled||false;
   return (
-    <div style={{background:"#0d0d20",border:`1px solid ${isOn?"#1e3a5a":"#262642"}`,borderRadius:10,padding:18,marginBottom:14}}>
+    <div style={{background:"#fff",border:"1px solid "+(isOn?FC.rt.bd:"#e5e7eb"),borderRadius:10,padding:18,marginBottom:14}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:isOn?14:0}}>
-        <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:16,color:"#eeeeff"}}>{label}</span>
+        <span style={{fontWeight:700,fontSize:16,color:"#111827"}}>{label}</span>
         <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",userSelect:"none"}}>
-          <div onClick={()=>set("enabled",!isOn)} style={{width:36,height:20,borderRadius:10,background:isOn?"#ff6200":"#2a2a48",border:`1px solid ${isOn?"#cc4e00":"#3a3a6a"}`,position:"relative",transition:"background .2s",cursor:"pointer"}}>
+          <div onClick={()=>set("enabled",!isOn)} style={{width:36,height:20,borderRadius:10,background:isOn?FC.rt.h:"#e5e7eb",border:"1px solid "+(isOn?FC.rt.h:"#d1d5db"),position:"relative",transition:"background .2s",cursor:"pointer"}}>
             <div style={{position:"absolute",top:2,left:isOn?17:2,width:14,height:14,borderRadius:"50%",background:"#fff",transition:"left .2s"}}/>
           </div>
-          <span style={{fontSize:12,color:isOn?"#00ee77":"#5a5a9a",fontFamily:"'DM Mono',monospace"}}>{isOn?"Enabled":"Disabled"}</span>
+          <span style={{fontSize:12,color:isOn?FC.hir.tx:"#9ca3af",fontWeight:600}}>{isOn?"Enabled":"Disabled"}</span>
         </label>
       </div>
       {isOn&&<>
-        <div className="form-grid-2">
-          <Field label="To (comma-separated)"><input style={IS} value={config.to||""} onChange={e=>set("to",e.target.value)} placeholder="hr@company.com, ops@company.com"/></Field>
-          <Field label="CC (optional)"><input style={IS} value={config.cc||""} onChange={e=>set("cc",e.target.value)} placeholder="manager@company.com"/></Field>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
+          <Field label="To (comma-separated)"><input style={INP} value={config.to||""} onChange={e=>set("to",e.target.value)} placeholder="hr@company.com, ops@company.com"/></Field>
+          <Field label="CC (optional)"><input style={INP} value={config.cc||""} onChange={e=>set("cc",e.target.value)} placeholder="manager@company.com"/></Field>
         </div>
-        <Field label="Subject" span><input style={IS} value={config.subject||""} onChange={e=>set("subject",e.target.value)}/></Field>
-        <Field label="Body (leave blank for auto-generated)" span><textarea style={{...IS,height:90,resize:"vertical"}} value={config.body||""} onChange={e=>set("body",e.target.value)} placeholder="Leave blank to use the default branded layout."/></Field>
-        <div style={{fontSize:11,color:"#4a4a70",fontFamily:"'DM Mono',monospace",marginTop:4}}>
-          Available placeholders: {placeholders.map(p=><span key={p} style={{marginRight:6,color:"#5a5a88"}}>{"{{"+p+"}}"}</span>)}
+        <Field label="Subject" span><input style={INP} value={config.subject||""} onChange={e=>set("subject",e.target.value)}/></Field>
+        <Field label="Body (leave blank for auto-generated)" span><textarea style={{...INP,height:90,resize:"vertical"}} value={config.body||""} onChange={e=>set("body",e.target.value)} placeholder="Leave blank to use the default branded layout."/></Field>
+        <div style={{fontSize:11,color:"#9ca3af",marginTop:4}}>
+          Available placeholders: {placeholders.map(p=><span key={p} style={{marginRight:6,color:"#6b7280"}}>{"{{"+p+"}}"}</span>)}
         </div>
       </>}
     </div>
   );
+}
+
+// ─── Accident Form ────────────────────────────────────────────────────────────
+function AccidentForm({onSave,onClose,existing}) {
+  const cc=FC.acc; const now=new Date(); const pad=n=>String(n).padStart(2,"0");
+  const [form,setForm]=useState(existing||{terminal:TERMINALS[0],reportedBy:"",accidentDate:now.getFullYear()+"-"+pad(now.getMonth()+1)+"-"+pad(now.getDate()),accidentTime:pad(now.getHours())+":"+pad(now.getMinutes()),accidentAddress:"",description:"",victimName:"",victimPhone:"",victimPlate:"",victimMake:"",victimModel:"",victimColor:"",driverName:"",fedexId:"",vehicleId:"",vehicleYear:"",vehicleMake:"",vehicleModel:"",vderWorking:"",v360Working:""});
+  const [photos,setPhotos]=useState(existing?.photos||[]);
+  const [videos,setVideos]=useState(existing?.videos||[]);
+  const set=(k,v)=>setForm(f=>({...f,[k]:v}));
+  const addPhotos=e=>{Array.from(e.target.files).forEach(file=>{const r=new FileReader();r.onload=ev=>setPhotos(p=>[...p,{id:Date.now()+Math.random(),name:file.name,type:file.type,data:ev.target.result}]);r.readAsDataURL(file);});};
+  const addVideos=e=>{Array.from(e.target.files).forEach(file=>{const r=new FileReader();r.onload=ev=>setVideos(p=>[...p,{id:Date.now()+Math.random(),name:file.name,type:file.type,data:ev.target.result}]);r.readAsDataURL(file);});};
+  const doSave=()=>{if(!form.victimName||!form.driverName||!form.fedexId)return alert("Fill Victim Name, Driver Name, and FedEx ID.");onSave({...form,photos,videos,id:existing?.id||Date.now().toString(),createdAt:existing?.createdAt||new Date().toISOString()});};
+  const SH=({label})=><div style={{fontSize:10,color:cc.tx,fontWeight:700,letterSpacing:1,textTransform:"uppercase",borderBottom:"2px solid "+cc.bd,paddingBottom:6,marginBottom:14,marginTop:20}}>{label}</div>;
+  const YN=({field})=><div style={{display:"flex",gap:8}}>{["Yes","No"].map(opt=><button key={opt} type="button" onClick={()=>set(field,opt)} style={{flex:1,padding:"9px",borderRadius:8,border:"1.5px solid "+(form[field]===opt?(opt==="Yes"?"#16a34a":"#dc2626"):"#e5e7eb"),background:form[field]===opt?(opt==="Yes"?"#f0fdf4":"#fef2f2"):"#fff",color:form[field]===opt?(opt==="Yes"?"#166534":"#991b1b"):"#6b7280",fontWeight:600,fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>{opt}</button>)}</div>;
+  return <div>
+    <div style={{background:cc.bg,border:"1px solid "+cc.bd,borderRadius:10,padding:"10px 14px",marginBottom:16}}>
+      <div style={{fontSize:10,color:cc.tx,fontWeight:700,letterSpacing:.8,textTransform:"uppercase"}}>Accident Report</div>
+      <div style={{fontSize:15,fontWeight:700,color:cc.tx,marginTop:2}}>{form.driverName?form.driverName.toUpperCase():"[DRIVER NAME]"}</div>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
+      <Field label="Terminal"><select style={INP} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>{TERMINALS.map(t=><option key={t} value={t}>{t}</option>)}</select></Field>
+      <Field label="Reported By"><input style={INP} value={form.reportedBy} onChange={e=>set("reportedBy",e.target.value)} placeholder="Manager name"/></Field>
+      <Field label="Date"><input style={INP} type="date" value={form.accidentDate} onChange={e=>set("accidentDate",e.target.value)}/></Field>
+      <Field label="Time"><input style={INP} type="time" value={form.accidentTime} onChange={e=>set("accidentTime",e.target.value)}/></Field>
+    </div>
+    <Field label="Address of Accident" span><input style={INP} value={form.accidentAddress} onChange={e=>set("accidentAddress",e.target.value)} placeholder="Full address"/></Field>
+    <Field label="Description" span><textarea style={{...INP,height:80,resize:"vertical"}} value={form.description} onChange={e=>set("description",e.target.value)} placeholder="What happened..."/></Field>
+    <SH label="Victim Information"/>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
+      <Field label="Victim Name *"><input style={INP} value={form.victimName} onChange={e=>set("victimName",e.target.value)} placeholder="Full name"/></Field>
+      <Field label="Victim Phone"><input style={INP} value={form.victimPhone} onChange={e=>set("victimPhone",e.target.value)} placeholder="+1 (555) 000-0000"/></Field>
+      <Field label="License Plate"><input style={INP} value={form.victimPlate} onChange={e=>set("victimPlate",e.target.value)} placeholder="ABC-1234"/></Field>
+      <Field label="Color"><input style={INP} value={form.victimColor} onChange={e=>set("victimColor",e.target.value)} placeholder="White"/></Field>
+      <Field label="Make"><input style={INP} value={form.victimMake} onChange={e=>set("victimMake",e.target.value)} placeholder="Toyota"/></Field>
+      <Field label="Model"><input style={INP} value={form.victimModel} onChange={e=>set("victimModel",e.target.value)} placeholder="Camry"/></Field>
+    </div>
+    <SH label="PND Driver"/>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
+      <Field label="Driver Name *"><input style={INP} value={form.driverName} onChange={e=>set("driverName",e.target.value)} placeholder="Full name"/></Field>
+      <Field label="FedEx ID *"><input style={INP} value={form.fedexId} onChange={e=>set("fedexId",e.target.value)} placeholder="FX-000000"/></Field>
+    </div>
+    <SH label="PND Vehicle"/>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
+      <Field label="Vehicle ID"><input style={INP} value={form.vehicleId} onChange={e=>set("vehicleId",e.target.value)} placeholder="Unit ID"/></Field>
+      <Field label="Year"><input style={INP} value={form.vehicleYear} onChange={e=>set("vehicleYear",e.target.value)} placeholder="2022"/></Field>
+      <Field label="Make"><input style={INP} value={form.vehicleMake} onChange={e=>set("vehicleMake",e.target.value)} placeholder="Ford"/></Field>
+      <Field label="Model"><input style={INP} value={form.vehicleModel} onChange={e=>set("vehicleModel",e.target.value)} placeholder="Transit"/></Field>
+      <Field label="VDER Camera Working?"><YN field="vderWorking"/></Field>
+      <Field label="360 Camera Working?"><YN field="v360Working"/></Field>
+    </div>
+    <div style={{marginTop:16,marginBottom:14}}>
+      <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",background:"#f9fafb",border:"2px dashed #e5e7eb",borderRadius:8,padding:"12px 16px",marginBottom:8}}>
+        <span style={{fontSize:13,color:"#9ca3af"}}>Attach Photos</span>
+        <input type="file" multiple accept="image/*" onChange={addPhotos} style={{display:"none"}}/>
+      </label>
+      {photos.length>0&&<div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:8}}>{photos.map((a,i)=><div key={i} style={{position:"relative"}}><img src={a.data} alt="" style={{width:60,height:60,objectFit:"cover",borderRadius:6,border:"1px solid #e5e7eb"}}/><button onClick={()=>setPhotos(p=>p.filter((_,j)=>j!==i))} style={{position:"absolute",top:-5,right:-5,background:"#dc2626",border:"none",borderRadius:"50%",width:16,height:16,color:"#fff",cursor:"pointer",fontSize:10}}>x</button></div>)}</div>}
+      <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",background:"#f9fafb",border:"2px dashed #e5e7eb",borderRadius:8,padding:"12px 16px"}}>
+        <span style={{fontSize:13,color:"#9ca3af"}}>Attach Videos</span>
+        <input type="file" multiple accept="video/*" onChange={addVideos} style={{display:"none"}}/>
+      </label>
+      {videos.length>0&&<div style={{marginTop:8,display:"flex",flexDirection:"column",gap:5}}>{videos.map((a,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:8,background:"#f3f4f6",borderRadius:6,padding:"6px 10px",fontSize:12,color:"#374151"}}>{a.name}<button onClick={()=>setVideos(p=>p.filter((_,j)=>j!==i))} style={{marginLeft:"auto",background:"none",border:"none",color:"#dc2626",cursor:"pointer",fontSize:13}}>x</button></div>)}</div>}
+    </div>
+    <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:10}}>
+      <button style={Btn("ghost")} onClick={onClose}>Cancel</button>
+      <button style={Btn("primary",cc.h)} onClick={doSave}>{existing?"Update":"Submit Accident Report"}</button>
+    </div>
+  </div>;
+}
+
+function AccidentCard({report,onView,onEdit,onDelete}) {
+  const cc=FC.acc; const t=TERMINAL_DATA[report.terminal]||{};
+  return <div style={{background:"#fff",border:"1.5px solid "+cc.bd,borderLeft:"4px solid "+cc.h,borderRadius:14,padding:18,boxShadow:"0 1px 6px rgba(0,0,0,.06)"}}>
+    <div style={{background:cc.bg,border:"1px solid "+cc.bd,borderRadius:8,padding:"8px 12px",marginBottom:12}}>
+      <div style={{fontSize:10,color:cc.tx,fontWeight:700,textTransform:"uppercase",marginBottom:2}}>Accident Report</div>
+      <div style={{fontSize:15,fontWeight:700,color:cc.tx}}>{report.driverName}</div>
+      <div style={{fontSize:11,color:cc.ring,marginTop:1}}>FedEx: {report.fedexId}</div>
+    </div>
+    <div style={{fontSize:12,color:"#6b7280",display:"flex",flexDirection:"column",gap:4,marginBottom:10}}>
+      <div style={{color:cc.h,fontWeight:500}}>{report.terminal}</div>
+      <div>{report.accidentDate?new Date(report.accidentDate+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"}):""}{report.accidentTime?" - "+report.accidentTime:""}</div>
+      {report.accidentAddress&&<div style={{color:"#9ca3af"}}>{report.accidentAddress}</div>}
+      <div>Victim: <span style={{color:cc.h,fontWeight:600}}>{report.victimName}</span>{report.victimPhone?" - "+report.victimPhone:""}</div>
+      {(report.victimMake||report.victimModel)&&<div>{[report.victimColor,report.victimMake,report.victimModel].filter(Boolean).join(" ")}{report.victimPlate?" ("+report.victimPlate+")":""}</div>}
+    </div>
+    {report.description&&<div style={{background:"#f9fafb",borderRadius:6,padding:"8px 10px",marginBottom:10,fontSize:12,color:"#6b7280",lineHeight:1.6}}>{report.description.slice(0,110)}{report.description.length>110?"...":""}</div>}
+    {report.photos?.length>0&&<div style={{display:"flex",gap:6,marginBottom:10}}>{report.photos.slice(0,4).map((a,i)=><img key={i} src={a.data} alt="" style={{width:48,height:48,objectFit:"cover",borderRadius:6,border:"1px solid #e5e7eb"}}/>)}</div>}
+    <div style={{fontSize:10,color:"#9ca3af",marginBottom:10}}>Filed {new Date(report.createdAt).toLocaleDateString()} - {report.reportedBy||t.manager}</div>
+    <div style={{display:"flex",gap:6,flexWrap:"wrap",paddingTop:10,borderTop:"1px solid #f3f4f6"}}>
+      <button onClick={()=>onView(report)} style={Btn("outline",cc.h)}>View Full</button>
+      <button onClick={()=>onEdit(report)} style={Btn("ghost")}>Edit</button>
+      <button onClick={()=>onDelete(report.id)} style={{...Btn("ghost"),marginLeft:"auto",color:"#dc2626",borderColor:"#fecaca"}}><Ico n="trash" s={13}/></button>
+    </div>
+  </div>;
+}
+
+function AccidentDetail({report,onClose}) {
+  const cc=FC.acc; const t=TERMINAL_DATA[report.terminal]||{}; const [lb,setLb]=useState(null);
+  const Row=({label,value})=>value?<div style={{marginBottom:12}}><div style={{fontSize:10,color:"#9ca3af",fontWeight:600,textTransform:"uppercase",marginBottom:3}}>{label}</div><div style={{fontSize:14,color:"#374151",lineHeight:1.6}}>{value}</div></div>:null;
+  const SH=({label})=><div style={{fontSize:10,color:cc.tx,fontWeight:700,textTransform:"uppercase",borderBottom:"2px solid "+cc.bd,paddingBottom:5,marginBottom:12,marginTop:18}}>{label}</div>;
+  return <Modal title="Full Accident Report" onClose={onClose} wide>
+    <div style={{background:cc.bg,border:"1px solid "+cc.bd,borderRadius:10,padding:"12px 16px",marginBottom:18}}><div style={{fontSize:10,color:cc.tx,fontWeight:700,textTransform:"uppercase",marginBottom:3}}>Accident Report</div><div style={{fontSize:17,fontWeight:700,color:cc.tx}}>Driver: {report.driverName?.toUpperCase()}</div><div style={{fontSize:12,color:cc.ring,marginTop:2}}>FedEx: {report.fedexId}</div></div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 20px"}}>
+      <Row label="Terminal" value={report.terminal}/><Row label="Reported By" value={report.reportedBy||t.manager}/>
+      <Row label="Date" value={report.accidentDate?new Date(report.accidentDate+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"}):null}/><Row label="Time" value={report.accidentTime}/>
+    </div>
+    <Row label="Address" value={report.accidentAddress}/>
+    <div style={{marginBottom:16}}><div style={{fontSize:10,color:"#9ca3af",fontWeight:600,textTransform:"uppercase",marginBottom:6}}>Description</div><div style={{background:"#f9fafb",border:"1px solid #e5e7eb",borderRadius:8,padding:"10px 14px",fontSize:13,color:"#374151",lineHeight:1.75}}>{report.description||"--"}</div></div>
+    <SH label="Victim"/>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 20px"}}>
+      <Row label="Name" value={report.victimName}/><Row label="Phone" value={report.victimPhone}/>
+      <Row label="Plate" value={report.victimPlate}/><Row label="Color" value={report.victimColor}/>
+      <Row label="Make" value={report.victimMake}/><Row label="Model" value={report.victimModel}/>
+    </div>
+    <SH label="PND Vehicle"/>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 20px"}}>
+      <Row label="Vehicle ID" value={report.vehicleId}/><Row label="Year" value={report.vehicleYear}/>
+      <Row label="Make" value={report.vehicleMake}/><Row label="Model" value={report.vehicleModel}/>
+      <Row label="VDER Camera" value={report.vderWorking&&<span style={{color:report.vderWorking==="Yes"?"#16a34a":"#dc2626",fontWeight:700}}>{report.vderWorking}</span>}/>
+      <Row label="360 Camera" value={report.v360Working&&<span style={{color:report.v360Working==="Yes"?"#16a34a":"#dc2626",fontWeight:700}}>{report.v360Working}</span>}/>
+    </div>
+    {report.photos?.length>0&&<div style={{marginTop:16}}><div style={{fontSize:10,color:"#9ca3af",fontWeight:600,textTransform:"uppercase",marginBottom:8}}>Photos</div><div style={{display:"flex",flexWrap:"wrap",gap:8}}>{report.photos.map((a,i)=><img key={i} src={a.data} alt="" onClick={()=>setLb(a)} style={{width:90,height:90,objectFit:"cover",borderRadius:6,border:"1px solid #e5e7eb",cursor:"pointer"}}/>)}</div></div>}
+    {lb&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.85)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>setLb(null)}><img src={lb.data} alt="" style={{maxWidth:"90vw",maxHeight:"90vh",borderRadius:8}}/><button onClick={()=>setLb(null)} style={{position:"absolute",top:20,right:20,background:"none",border:"none",color:"#fff",cursor:"pointer",fontSize:28}}>x</button></div>}
+  </Modal>;
+}
+
+// ─── Hiring Form / Card / Notify Modal ───────────────────────────────────────
+function HRNotifyModal({req,onClose}) {
+  const cc=FC.hir; const [hrPhone,setHrPhone]=useState(""); const [sent,setSent]=useState(false); const [copied,setCopied]=useState(false);
+  const msg=buildHiringSMS(req); const digits=hrPhone.replace(/\D/g,"");
+  const openSMS=()=>{window.location.href="sms:"+digits+"?body="+encodeURIComponent(msg);setSent(true);};
+  const openWA=()=>{window.open("https://wa.me/"+digits+"?text="+encodeURIComponent(msg),"_blank");setSent(true);};
+  const copy=()=>{navigator.clipboard.writeText(msg).catch(()=>{const el=document.createElement("textarea");el.value=msg;document.body.appendChild(el);el.select();document.execCommand("copy");document.body.removeChild(el);});setCopied(true);setTimeout(()=>setCopied(false),3000);};
+  const isStart=req.action==="start";
+  return <Modal title="Notify HR Department" onClose={onClose} wide>
+    <div style={{background:cc.bg,border:"1px solid "+cc.bd,borderRadius:12,padding:18}}>
+      <div style={{background:"#fff",border:"1px solid "+cc.bd,borderRadius:10,padding:"12px 16px",marginBottom:16,display:"flex",alignItems:"center",gap:12}}>
+        <div style={{width:42,height:42,borderRadius:"50%",background:isStart?cc.h:"#dc2626",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,color:"#fff",fontWeight:800,fontSize:18}}>{isStart?"GO":"||"}</div>
+        <div style={{flex:1}}>
+          <div style={{fontSize:15,fontWeight:700,color:"#111827"}}>{isStart?"Start Hiring Request":"Pause Hiring Request"}</div>
+          <div style={{fontSize:12,color:cc.h,marginTop:1}}>{req.terminal} - by {req.requestedBy}</div>
+          {isStart&&<div style={{fontSize:11,color:"#9ca3af",marginTop:1}}>Drivers needed: {req.driversNeeded}</div>}
+        </div>
+        {sent&&<span style={{background:cc.bg,border:"1px solid "+cc.bd,borderRadius:6,padding:"3px 10px",fontSize:11,color:cc.tx,fontWeight:600}}>Sent!</span>}
+      </div>
+      <Field label="HR Phone Number"><input style={{...INP,fontSize:15}} value={hrPhone} onChange={e=>setHrPhone(e.target.value)} placeholder="+1 (800) 000-0000"/></Field>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+        <button onClick={openSMS} style={{background:isStart?cc.h:"#dc2626",border:"none",borderRadius:10,padding:"14px",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:6}}>
+          <span style={{fontSize:24}}>{"💬"}</span><span style={{fontWeight:700,fontSize:14,color:"#fff"}}>Text Message</span><span style={{fontSize:11,color:"rgba(255,255,255,.7)"}}>Opens Messages app</span>
+        </button>
+        <button onClick={openWA} style={{background:"#25d366",border:"none",borderRadius:10,padding:"14px",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:6}}>
+          <span style={{fontSize:24}}>{"📱"}</span><span style={{fontWeight:700,fontSize:14,color:"#fff"}}>WhatsApp</span><span style={{fontSize:11,color:"rgba(255,255,255,.7)"}}>Opens WhatsApp</span>
+        </button>
+      </div>
+      <pre style={{margin:0,fontSize:12,color:"#374151",lineHeight:1.75,whiteSpace:"pre-wrap",background:"#fff",border:"1px solid "+cc.bd,borderRadius:8,padding:14,maxHeight:180,overflowY:"auto",fontFamily:"monospace"}}>{msg}</pre>
+      <div style={{display:"flex",gap:8,marginTop:12,alignItems:"center"}}>
+        <button onClick={copy} style={Btn(copied?"primary":"outline",cc.h)}>{copied?"Copied!":"Copy Message"}</button>
+        <button onClick={onClose} style={{marginLeft:"auto",...Btn("ghost")}}>Done</button>
+      </div>
+    </div>
+  </Modal>;
+}
+
+function HiringForm({onSave,onClose,existing}) {
+  const cc=FC.hir;
+  const [form,setForm]=useState(existing||{terminal:TERMINALS[0],requestedBy:"",action:"start",driversNeeded:"",urgency:"medium",reason:""});
+  const set=(k,v)=>setForm(f=>({...f,[k]:v}));
+  const doSave=()=>{
+    if(!form.requestedBy.trim())return alert("Enter your name.");
+    if(form.action==="start"&&(!form.driversNeeded||parseInt(form.driversNeeded)<1))return alert("Enter how many drivers are needed.");
+    if(!form.reason.trim())return alert("Provide a reason.");
+    onSave({...form,id:existing?.id||Date.now().toString(),status:form.action==="start"?"Active":"Paused",createdAt:existing?.createdAt||new Date().toISOString(),_notify:true});
+  };
+  const urg=URGENCY.find(u=>u.v===form.urgency)||URGENCY[1];
+  return <div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
+      <Field label="Terminal Location"><select style={INP} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>{TERMINALS.map(t=><option key={t} value={t}>{t}</option>)}</select></Field>
+      <Field label="Your Name (Manager) *"><input style={INP} value={form.requestedBy} onChange={e=>set("requestedBy",e.target.value)} placeholder="Manager name"/></Field>
+    </div>
+    <TInfo tk={form.terminal}/>
+    <Field label="Hiring Action *">
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        <button type="button" onClick={()=>set("action","start")} style={{display:"flex",alignItems:"center",gap:12,padding:"16px",borderRadius:12,border:"2px solid "+(form.action==="start"?cc.h:"#e5e7eb"),background:form.action==="start"?cc.bg:"#fff",cursor:"pointer",textAlign:"left",fontFamily:"inherit"}}>
+          <div style={{width:40,height:40,borderRadius:10,background:form.action==="start"?cc.h:"#f3f4f6",display:"flex",alignItems:"center",justifyContent:"center",color:form.action==="start"?"#fff":"#374151",fontWeight:800,fontSize:14,flexShrink:0}}>GO</div>
+          <div><div style={{fontWeight:700,fontSize:14,color:form.action==="start"?cc.h:"#374151"}}>Start Hiring</div><div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>Request new candidates</div></div>
+        </button>
+        <button type="button" onClick={()=>set("action","pause")} style={{display:"flex",alignItems:"center",gap:12,padding:"16px",borderRadius:12,border:"2px solid "+(form.action==="pause"?"#dc2626":"#e5e7eb"),background:form.action==="pause"?"#fef2f2":"#fff",cursor:"pointer",textAlign:"left",fontFamily:"inherit"}}>
+          <div style={{width:40,height:40,borderRadius:10,background:form.action==="pause"?"#dc2626":"#f3f4f6",display:"flex",alignItems:"center",justifyContent:"center",color:form.action==="pause"?"#fff":"#374151",fontWeight:800,fontSize:14,flexShrink:0}}>||</div>
+          <div><div style={{fontWeight:700,fontSize:14,color:form.action==="pause"?"#dc2626":"#374151"}}>Pause Hiring</div><div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>Stop accepting candidates</div></div>
+        </button>
+      </div>
+    </Field>
+    {form.action==="start"&&<>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
+        <Field label="Drivers Needed *"><input style={INP} type="number" min="1" max="100" value={form.driversNeeded} onChange={e=>set("driversNeeded",e.target.value)} placeholder="e.g. 5"/></Field>
+        <Field label="Urgency Level *"><select style={INP} value={form.urgency} onChange={e=>set("urgency",e.target.value)}>{URGENCY.map(u=><option key={u.v} value={u.v}>{u.label} - {u.sub}</option>)}</select></Field>
+      </div>
+      <div style={{background:urg.bg,border:"1px solid "+urg.bd,borderRadius:8,padding:"8px 14px",marginBottom:14,display:"flex",alignItems:"center",gap:10}}>
+        <div><div style={{fontSize:12,fontWeight:700,color:urg.hex}}>{urg.label} Priority</div><div style={{fontSize:11,color:urg.hex,opacity:.8}}>{urg.sub}</div></div>
+      </div>
+    </>}
+    <Field label={form.action==="start"?"Reason for Hiring Request *":"Reason for Pausing Hiring *"}>
+      <textarea style={{...INP,height:100,resize:"vertical"}} value={form.reason} onChange={e=>set("reason",e.target.value)} placeholder={form.action==="start"?"Why are new drivers needed?...":"Why pause hiring?..."}/>
+    </Field>
+    <div style={{background:cc.bg,border:"1px solid "+cc.bd,borderRadius:8,padding:"10px 14px",marginBottom:14,fontSize:12,color:cc.tx,fontWeight:500}}>
+      HR will receive an SMS/WhatsApp notification after submitting.
+    </div>
+    <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:10}}>
+      <button style={Btn("ghost")} onClick={onClose}>Cancel</button>
+      <button style={Btn("primary",form.action==="start"?cc.h:"#dc2626")} onClick={doSave}>{existing?"Update":form.action==="start"?"Submit and Notify HR":"Pause and Notify HR"}</button>
+    </div>
+  </div>;
+}
+
+function HiringCard({req,onEdit,onDelete}) {
+  const cc=FC.hir; const t=TERMINAL_DATA[req.terminal]||{}; const urg=URGENCY.find(u=>u.v===req.urgency)||URGENCY[1]; const isStart=req.action==="start";
+  return <div style={{background:"#fff",border:"1.5px solid "+(isStart?cc.bd:FC.inj.bd),borderLeft:"4px solid "+(isStart?cc.h:FC.inj.h),borderRadius:14,padding:18,boxShadow:"0 1px 6px rgba(0,0,0,.06)"}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
+      <div>
+        <div style={{display:"inline-flex",alignItems:"center",gap:6,background:isStart?cc.bg:FC.inj.bg,border:"1.5px solid "+(isStart?cc.bd:FC.inj.bd),borderRadius:8,padding:"3px 10px",marginBottom:6}}>
+          <span style={{fontSize:11,fontWeight:700,color:isStart?cc.h:FC.inj.h}}>{isStart?"START HIRING":"PAUSE HIRING"}</span>
+        </div>
+        <div style={{fontSize:15,fontWeight:700,color:"#111827"}}>{req.terminal}</div>
+        <div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>By: {req.requestedBy}</div>
+      </div>
+      <Badge status={req.status}/>
+    </div>
+    {t.address&&<div style={{fontSize:11,color:"#9ca3af",marginBottom:12}}>{t.address}</div>}
+    {isStart&&<div style={{display:"flex",gap:10,marginBottom:12}}>
+      <div style={{flex:1,background:cc.bg,border:"1px solid "+cc.bd,borderRadius:8,padding:"10px 14px",textAlign:"center"}}>
+        <div style={{fontSize:10,color:cc.tx,fontWeight:600,textTransform:"uppercase",letterSpacing:.5}}>Drivers Needed</div>
+        <div style={{fontSize:28,fontWeight:800,color:cc.h,lineHeight:1.1,marginTop:4}}>{req.driversNeeded}</div>
+      </div>
+      <div style={{flex:2,background:urg.bg,border:"1px solid "+urg.bd,borderRadius:8,padding:"10px 14px"}}>
+        <div style={{fontSize:10,color:urg.hex,fontWeight:600,textTransform:"uppercase",letterSpacing:.5}}>Urgency</div>
+        <div style={{fontSize:14,fontWeight:700,color:urg.hex,marginTop:3}}>{urg.label}</div>
+        <div style={{fontSize:11,color:urg.hex,opacity:.8}}>{urg.sub}</div>
+      </div>
+    </div>}
+    {req.reason&&<div style={{background:"#f9fafb",border:"1px solid #e5e7eb",borderRadius:8,padding:"8px 12px",marginBottom:10,fontSize:12,color:"#374151",lineHeight:1.6}}>{req.reason.slice(0,150)}{req.reason.length>150?"...":""}</div>}
+    <div style={{fontSize:10,color:"#9ca3af",marginBottom:10}}>Submitted {new Date(req.createdAt).toLocaleDateString()}</div>
+    <div style={{display:"flex",gap:6,flexWrap:"wrap",paddingTop:10,borderTop:"1px solid #f3f4f6"}}>
+      <button onClick={()=>onEdit(req)} style={Btn("ghost")}>Edit</button>
+      <button onClick={()=>onDelete(req.id)} style={{...Btn("ghost"),marginLeft:"auto",color:"#dc2626",borderColor:"#fecaca"}}><Ico n="trash" s={13}/></button>
+    </div>
+  </div>;
+}
+
+// ─── Insurance Form / Card / Email Modal ─────────────────────────────────────
+function InsuranceEmailModal({req,onClose}) {
+  const cc=FC.ins; const [copied,setCopied]=useState(false); const [copiedSubj,setCopiedSubj]=useState(false);
+  const email=buildInsuranceEmail(req);
+  const copy=()=>{navigator.clipboard.writeText(email.body).catch(()=>{const el=document.createElement("textarea");el.value=email.body;document.body.appendChild(el);el.select();document.execCommand("copy");document.body.removeChild(el);});setCopied(true);setTimeout(()=>setCopied(false),3000);};
+  const copySubj=()=>{navigator.clipboard.writeText(email.subject).catch(()=>{const el=document.createElement("textarea");el.value=email.subject;document.body.appendChild(el);el.select();document.execCommand("copy");document.body.removeChild(el);});setCopiedSubj(true);setTimeout(()=>setCopiedSubj(false),3000);};
+  const openMail=()=>{window.location.href="mailto:?subject="+encodeURIComponent(email.subject)+"&body="+encodeURIComponent(email.body);};
+  return <Modal title="Insurance Enrollment Email" onClose={onClose} wide>
+    <div style={{background:cc.bg,border:"1px solid "+cc.bd,borderRadius:12,padding:18}}>
+      <div style={{background:"#fff",border:"1px solid "+cc.bd,borderRadius:10,padding:"12px 16px",marginBottom:16,display:"flex",alignItems:"center",gap:12}}>
+        <div style={{width:42,height:42,borderRadius:"50%",background:cc.h,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,color:"#fff",fontSize:20}}>+</div>
+        <div style={{flex:1}}>
+          <div style={{fontSize:15,fontWeight:700,color:"#111827"}}>{req.employeeName}</div>
+          <div style={{fontSize:12,color:cc.h,marginTop:1}}>{req.terminal}</div>
+          <div style={{fontSize:11,color:"#9ca3af",marginTop:1}}>{req.employeePhone}</div>
+        </div>
+        <div style={{background:req.has30Days==="yes"?FC.hir.bg:FC.inj.bg,border:"1px solid "+(req.has30Days==="yes"?FC.hir.bd:FC.inj.bd),borderRadius:8,padding:"4px 10px",fontSize:11,fontWeight:700,color:req.has30Days==="yes"?FC.hir.tx:FC.inj.tx}}>
+          {req.has30Days==="yes"?"30 Days Met":"Under 30 Days"}
+        </div>
+      </div>
+      <div style={{marginBottom:12}}>
+        <div style={{fontSize:10,color:"#6b7280",fontWeight:600,textTransform:"uppercase",marginBottom:6,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span>Email Subject</span>
+          <button onClick={copySubj} style={{...Btn(copiedSubj?"primary":"outline",cc.h),padding:"3px 10px",fontSize:11}}>{copiedSubj?"Copied!":"Copy"}</button>
+        </div>
+        <div style={{background:"#fff",border:"1px solid "+cc.bd,borderRadius:8,padding:"10px 14px",fontSize:13,color:"#374151",fontWeight:500,lineHeight:1.5}}>{email.subject}</div>
+      </div>
+      <div style={{marginBottom:14}}>
+        <div style={{fontSize:10,color:"#6b7280",fontWeight:600,textTransform:"uppercase",marginBottom:6,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span>Email Body</span>
+          <button onClick={copy} style={{...Btn(copied?"primary":"outline",cc.h),padding:"3px 10px",fontSize:11}}>{copied?"Copied!":"Copy Body"}</button>
+        </div>
+        <pre style={{margin:0,fontSize:12,color:"#374151",lineHeight:1.85,whiteSpace:"pre-wrap",wordBreak:"break-word",background:"#fff",border:"1px solid "+cc.bd,borderRadius:8,padding:16,maxHeight:320,overflowY:"auto",fontFamily:"monospace"}}>{email.body}</pre>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+        <button onClick={openMail} style={{...Btn("primary",cc.h),display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"14px"}}>
+          <span style={{fontSize:22}}>@</span>
+          <span style={{fontWeight:700,fontSize:13}}>Open in Mail App</span>
+          <span style={{fontSize:10,opacity:.75}}>Auto-fills subject and body</span>
+        </button>
+        <button onClick={copy} style={{...Btn(copied?"primary":"outline",cc.h),display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"14px"}}>
+          <span style={{fontSize:22}}>{"[]"}</span>
+          <span style={{fontWeight:700,fontSize:13}}>{copied?"Copied!":"Copy Full Email"}</span>
+          <span style={{fontSize:10,opacity:.75}}>Paste into any email client</span>
+        </button>
+      </div>
+      <div style={{display:"flex",justifyContent:"flex-end"}}>
+        <button onClick={onClose} style={Btn("ghost")}>Done</button>
+      </div>
+    </div>
+  </Modal>;
+}
+
+function InsuranceForm({onSave,onClose,existing}) {
+  const cc=FC.ins;
+  const [form,setForm]=useState(existing||{terminal:TERMINALS[0],requestedBy:"",employeeName:"",employeePhone:"",has30Days:"",notes:""});
+  const set=(k,v)=>setForm(f=>({...f,[k]:v}));
+  const doSave=()=>{
+    if(!form.employeeName.trim())return alert("Enter employee name.");
+    if(!form.employeePhone.trim())return alert("Enter employee phone number.");
+    if(!form.has30Days)return alert("Please indicate whether the employee has 30 days of employment.");
+    if(!form.requestedBy.trim())return alert("Enter your name.");
+    onSave({...form,id:existing?.id||Date.now().toString(),status:"Pending",createdAt:existing?.createdAt||new Date().toISOString(),_email:true});
+  };
+  return <div>
+    <div style={{background:cc.bg,border:"1px solid "+cc.bd,borderRadius:10,padding:"12px 16px",marginBottom:18,display:"flex",alignItems:"center",gap:12}}>
+      <div style={{fontSize:28}}>+</div>
+      <div>
+        <div style={{fontSize:13,fontWeight:700,color:cc.tx}}>Health Insurance Enrollment Request</div>
+        <div style={{fontSize:11,color:cc.ring,marginTop:1}}>Submitting will generate a ready-to-send email for the insurance agent</div>
+      </div>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
+      <Field label="Terminal Location"><select style={INP} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>{TERMINALS.map(t=><option key={t} value={t}>{t}</option>)}</select></Field>
+      <Field label="Requested By (Manager) *"><input style={INP} value={form.requestedBy} onChange={e=>set("requestedBy",e.target.value)} placeholder="Your name"/></Field>
+    </div>
+    <TInfo tk={form.terminal}/>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
+      <Field label="Employee Full Name *"><input style={INP} value={form.employeeName} onChange={e=>set("employeeName",e.target.value)} placeholder="First and Last Name"/></Field>
+      <Field label="Employee Phone Number *"><input style={INP} value={form.employeePhone} onChange={e=>set("employeePhone",e.target.value)} placeholder="+1 (555) 000-0000"/></Field>
+    </div>
+    <Field label="Does the employee have 30 days of employment? *">
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        <button type="button" onClick={()=>set("has30Days","yes")} style={{display:"flex",alignItems:"center",gap:12,padding:"16px",borderRadius:12,border:"2px solid "+(form.has30Days==="yes"?cc.h:"#e5e7eb"),background:form.has30Days==="yes"?cc.bg:"#fff",cursor:"pointer",textAlign:"left",fontFamily:"inherit"}}>
+          <div style={{width:38,height:38,borderRadius:10,background:form.has30Days==="yes"?cc.h:"#f0fdf4",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,color:form.has30Days==="yes"?"#fff":"#166534",fontWeight:800,fontSize:18}}>Y</div>
+          <div><div style={{fontWeight:700,fontSize:14,color:form.has30Days==="yes"?cc.h:"#166534"}}>Yes</div><div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>Employee is eligible</div></div>
+        </button>
+        <button type="button" onClick={()=>set("has30Days","no")} style={{display:"flex",alignItems:"center",gap:12,padding:"16px",borderRadius:12,border:"2px solid "+(form.has30Days==="no"?"#dc2626":"#e5e7eb"),background:form.has30Days==="no"?"#fef2f2":"#fff",cursor:"pointer",textAlign:"left",fontFamily:"inherit"}}>
+          <div style={{width:38,height:38,borderRadius:10,background:form.has30Days==="no"?"#dc2626":"#fef2f2",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,color:form.has30Days==="no"?"#fff":"#991b1b",fontWeight:800,fontSize:18}}>N</div>
+          <div><div style={{fontWeight:700,fontSize:14,color:form.has30Days==="no"?"#dc2626":"#991b1b"}}>No</div><div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>Not yet eligible</div></div>
+        </button>
+      </div>
+    </Field>
+    {form.has30Days==="no"&&<div style={{background:"#fefce8",border:"1px solid #fde68a",borderRadius:8,padding:"10px 14px",marginBottom:14,fontSize:12,color:"#854d0e",fontWeight:500}}>Note: Employee has not yet reached 30 days. The request and email will note this.</div>}
+    {form.has30Days==="yes"&&<div style={{background:cc.bg,border:"1px solid "+cc.bd,borderRadius:8,padding:"10px 14px",marginBottom:14,fontSize:12,color:cc.tx,fontWeight:500}}>Employee meets the 30-day requirement for health insurance enrollment.</div>}
+    <Field label="Additional Notes (optional)">
+      <textarea style={{...INP,height:80,resize:"vertical"}} value={form.notes} onChange={e=>set("notes",e.target.value)} placeholder="Plan preferences, dependents, special circumstances..."/>
+    </Field>
+    <div style={{background:cc.bg,border:"1px solid "+cc.bd,borderRadius:8,padding:"10px 14px",marginBottom:14,fontSize:12,color:cc.tx,fontWeight:500}}>
+      After submitting, a ready-to-send email will be generated for the insurance agent.
+    </div>
+    <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:10}}>
+      <button style={Btn("ghost")} onClick={onClose}>Cancel</button>
+      <button style={Btn("primary",cc.h)} onClick={doSave}>{existing?"Update Request":"Submit and Generate Email"}</button>
+    </div>
+  </div>;
+}
+
+function InsuranceCard({req,onEdit,onDelete,onEmail}) {
+  const cc=FC.ins; const t=TERMINAL_DATA[req.terminal]||{};
+  return <div style={{background:"#fff",border:"1.5px solid "+cc.bd,borderLeft:"4px solid "+cc.h,borderRadius:14,padding:18,boxShadow:"0 1px 6px rgba(0,0,0,.06)"}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+      <div style={{display:"flex",alignItems:"center",gap:10}}>
+        <div style={{width:40,height:40,borderRadius:10,background:cc.bg,border:"1px solid "+cc.bd,display:"flex",alignItems:"center",justifyContent:"center",color:cc.h,fontWeight:800,fontSize:18,flexShrink:0}}>+</div>
+        <div>
+          <div style={{fontSize:15,fontWeight:700,color:"#111827"}}>{req.employeeName}</div>
+          <div style={{fontSize:11,color:"#9ca3af",marginTop:1}}>{req.employeePhone}</div>
+        </div>
+      </div>
+      <span style={{background:req.has30Days==="yes"?FC.hir.bg:FC.inj.bg,border:"1px solid "+(req.has30Days==="yes"?FC.hir.bd:FC.inj.bd),borderRadius:99,padding:"3px 10px",fontSize:11,fontWeight:700,color:req.has30Days==="yes"?FC.hir.tx:FC.inj.tx,whiteSpace:"nowrap"}}>
+        {req.has30Days==="yes"?"30 Days Met":"Under 30 Days"}
+      </span>
+    </div>
+    <div style={{fontSize:12,color:"#6b7280",display:"flex",flexDirection:"column",gap:3,marginBottom:10}}>
+      <div style={{color:cc.h,fontWeight:500}}>{req.terminal}</div>
+      {t.address&&<div style={{color:"#9ca3af",paddingLeft:12}}>{t.address}</div>}
+      <div>Requested by: {req.requestedBy}</div>
+    </div>
+    {req.notes&&<div style={{background:"#f9fafb",border:"1px solid #e5e7eb",borderRadius:8,padding:"8px 12px",marginBottom:10,fontSize:12,color:"#374151",lineHeight:1.6,fontStyle:"italic"}}>{req.notes.slice(0,120)}{req.notes.length>120?"...":""}</div>}
+    <div style={{fontSize:10,color:"#9ca3af",marginBottom:10}}>Submitted {new Date(req.createdAt).toLocaleDateString()}</div>
+    <div style={{display:"flex",gap:6,flexWrap:"wrap",paddingTop:10,borderTop:"1px solid #f3f4f6"}}>
+      <button onClick={()=>onEdit(req)} style={Btn("ghost")}>Edit</button>
+      <button onClick={()=>onEmail(req)} style={Btn("primary",cc.h)}>View Email</button>
+      <button onClick={()=>onDelete(req.id)} style={{...Btn("ghost"),marginLeft:"auto",color:"#dc2626",borderColor:"#fecaca"}}><Ico n="trash" s={13}/></button>
+    </div>
+  </div>;
 }
 
 // ─── App ──────────────────────────────────────────────────────────────────────
@@ -964,6 +1364,9 @@ export default function App() {
   const [unis,setUnis]=useState([]);
   const [trucks,setTrucks]=useState([]);
   const [injs,setInjs]=useState([]);
+  const [accs,setAccs]=useState([]);
+  const [hirs,setHirs]=useState([]);
+  const [insrs,setInsrs]=useState([]);
   const [loading,setLoading]=useState(true);
   const [modal,setModal]=useState(null);
   const [toasts,setToasts]=useState([]);
@@ -976,8 +1379,8 @@ export default function App() {
   const toast=useCallback((msg,type="info")=>{const id=Date.now();setToasts(t=>[...t,{id,message:msg,type}]);setTimeout(()=>setToasts(t=>t.filter(x=>x.id!==id)),4500);},[]);
 
   const loadAll=useCallback(async()=>{
-    const [a,b,c,d]=await Promise.all([dbLoad(SK.rt),dbLoad(SK.uni),dbLoad(SK.tr),dbLoad(SK.inj)]);
-    setRts(a);setUnis(b);setTrucks(c);setInjs(d);setLastSync(new Date());setLoading(false);
+    const [a,b,c,d,e,f,g]=await Promise.all([dbLoad(SK.rt),dbLoad(SK.uni),dbLoad(SK.tr),dbLoad(SK.inj),dbLoad(SK.acc),dbLoad(SK.hir),dbLoad(SK.ins)]);
+    setRts(a);setUnis(b);setTrucks(c);setInjs(d);setAccs(e);setHirs(f);setInsrs(g);setLastSync(new Date());setLoading(false);
   },[]);
 
   const handleSync=useCallback(async()=>{
@@ -1032,42 +1435,72 @@ export default function App() {
   const saveTruck=async truck=>{const isNew=!trucks.some(t=>t.id===truck.id);const upd=isNew?[...trucks,truck]:trucks.map(t=>t.id===truck.id?truck:t);setTrucks(upd);toast(isNew?"🚚 Truck added!":"Truck updated.","success");setModal(null);dbSave(SK.tr,upd);};
   const delTruck=async id=>{if(!confirm("Remove truck?"))return;const upd=trucks.filter(t=>t.id!==id);setTrucks(upd);toast("Truck removed.");dbSave(SK.tr,upd);};
 
-  const saveInj=async r=>{const isNew=!injs.some(x=>x.id===r.id);const upd=isNew?[...injs,r]:injs.map(x=>x.id===r.id?r:x);setInjs(upd);toast(isNew?"🚨 Injury report filed.":"Report updated.","warn");setModal(null);dbSave(SK.inj,upd);};
+  const saveInj=async r=>{const isNew=!injs.some(x=>x.id===r.id);const upd=isNew?[...injs,r]:injs.map(x=>x.id===r.id?r:x);setInjs(upd);toast(isNew?"Injury report filed.":"Report updated.","warn");setModal(null);dbSave(SK.inj,upd);};
   const delInj=async id=>{if(!confirm("Delete this injury report?"))return;const upd=injs.filter(r=>r.id!==id);setInjs(upd);toast("Report deleted.");dbSave(SK.inj,upd);};
+
+  const saveAcc=async r=>{const isNew=!accs.some(x=>x.id===r.id);const upd=isNew?[...accs,r]:accs.map(x=>x.id===r.id?r:x);setAccs(upd);toast(isNew?"Accident report filed.":"Report updated.","warn");setModal(null);dbSave(SK.acc,upd);};
+  const delAcc=async id=>{if(!confirm("Delete this accident report?"))return;const upd=accs.filter(r=>r.id!==id);setAccs(upd);toast("Report deleted.");dbSave(SK.acc,upd);};
+
+  const saveHir=async r=>{
+    const showNotify=r._notify; const clean={...r}; delete clean._notify;
+    const isNew=!hirs.some(x=>x.id===clean.id);
+    const upd=isNew?[...hirs,clean]:hirs.map(x=>x.id===clean.id?clean:x);
+    setHirs(upd);toast(isNew?"Hiring request submitted.":"Request updated.","success");
+    setModal(showNotify?{type:"hirNotify",data:clean}:null);
+    dbSave(SK.hir,upd);
+  };
+  const delHir=async id=>{if(!confirm("Delete this hiring request?"))return;const upd=hirs.filter(r=>r.id!==id);setHirs(upd);toast("Removed.");dbSave(SK.hir,upd);};
+
+  const saveInsr=async r=>{
+    const showEmail=r._email; const clean={...r}; delete clean._email;
+    const isNew=!insrs.some(x=>x.id===clean.id);
+    const upd=isNew?[...insrs,clean]:insrs.map(x=>x.id===clean.id?clean:x);
+    setInsrs(upd);toast(isNew?"Insurance request submitted.":"Request updated.","success");
+    setModal(showEmail?{type:"insEmail",data:clean}:null);
+    dbSave(SK.ins,upd);
+  };
+  const delInsr=async id=>{if(!confirm("Delete this insurance request?"))return;const upd=insrs.filter(r=>r.id!==id);setInsrs(upd);toast("Removed.");dbSave(SK.ins,upd);};
 
   const pendingOut=rts.filter(r=>{const e=new Date(`${r.date}T${r.time}`);e.setMinutes(e.getMinutes()+parseInt(r.duration||60));return new Date()>=e&&r.status==="Scheduled";}).length;
   const truckAlerts=trucks.filter(t=>(expStatus(t.regExpiry)!=="ok"&&expStatus(t.regExpiry)!=="none")||(expStatus(t.inspExpiry)!=="ok"&&expStatus(t.inspExpiry)!=="none")).length;
+  const activeHiring=hirs.filter(h=>h.action==="start"&&h.status==="Active").length;
 
   const fRts       =rts.filter(r=>(fTerm==="All"||r.terminal===fTerm)&&(fStatus==="All"||r.status===fStatus)).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
   const fTerminals =terminals.filter(t=>fTerminalStatus==="All"||(t.status||"Active")===fTerminalStatus).sort((a,b)=>a.name?.localeCompare(b.name));
   const fUnis  =unis.filter(u=>fTerm==="All"||u.terminal===fTerm).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
   const fTrucks=trucks.filter(t=>fTerm==="All"||t.terminal===fTerm).sort((a,b)=>{const u=x=>{const r=expStatus(x.regExpiry),i=expStatus(x.inspExpiry);if(r==="expired"||i==="expired")return 0;if(r==="warning"||i==="warning")return 1;return 2;};return u(a)-u(b);});
   const fInjs  =injs.filter(r=>fTerm==="All"||r.terminal===fTerm).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  const fAccs  =accs.filter(r=>fTerm==="All"||r.terminal===fTerm).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  const fHirs  =hirs.filter(r=>fTerm==="All"||r.terminal===fTerm).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  const fInsrs =insrs.filter(r=>fTerm==="All"||r.terminal===fTerm).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
 
   const TABS=[
-    {key:"rt",    icon:"clip",   label:"Road Tests",     count:rts.filter(r=>r.status==="Scheduled").length, badgeColor:"#ff6200"},
-    {key:"uni",   icon:"shirt",  label:"Uniform Orders", count:unis.filter(u=>u.status==="Pending").length,  badgeColor:"#ff6200"},
-    {key:"fleet", icon:"fleet",  label:"Fleet",          count:truckAlerts,                                   badgeColor:"#cc6600"},
-    {key:"inj",   icon:"medkit", label:"Injury Reports", count:injs.length,                                   badgeColor:"#aa1111"},
+    {key:"rt",    icon:"clip",   label:"Road Tests",     count:rts.filter(r=>r.status==="Scheduled").length, badgeColor:FC.rt.h},
+    {key:"uni",   icon:"shirt",  label:"Uniform Orders", count:unis.filter(u=>u.status==="Pending").length,  badgeColor:FC.uni.h},
+    {key:"fleet", icon:"fleet",  label:"Fleet",          count:truckAlerts,                                   badgeColor:FC.fleet.h},
+    {key:"inj",   icon:"medkit", label:"Injury Reports", count:injs.length,                                   badgeColor:FC.inj.h},
+    {key:"acc",   icon:"warn",   label:"Accidents",      count:accs.length,                                   badgeColor:FC.acc.h},
+    {key:"hir",   icon:"user",   label:"Hiring",         count:activeHiring,                                  badgeColor:FC.hir.h},
+    {key:"ins",   icon:"phone",  label:"Insurance",      count:insrs.length,                                  badgeColor:FC.ins.h},
     ...(currentUser?.role==="admin"?[
-      {key:"users",     icon:"user",  label:"Users",     count:0,badgeColor:"#ff6200"},
-      {key:"terminals", icon:"fleet", label:"Terminals", count:0,badgeColor:"#ff6200"},
-      {key:"settings",  icon:"gear",  label:"Settings",  count:0,badgeColor:"#ff6200"},
+      {key:"users",     icon:"user",  label:"Users",     count:0,badgeColor:"#6b7280"},
+      {key:"terminals", icon:"fleet", label:"Terminals", count:0,badgeColor:"#6b7280"},
+      {key:"settings",  icon:"gear",  label:"Settings",  count:0,badgeColor:"#6b7280"},
     ]:[]),
   ];
 
-  const addLabel={rt:"Schedule Road Test",uni:"New Uniform Request",fleet:"Add Truck",inj:"File Injury Report",users:"Add User",terminals:"Add Terminal",settings:""};
-  const addType ={rt:"newRT",uni:"newUni",fleet:"newTruck",inj:"newInj",users:"newUser",terminals:"newTerminal",settings:null};
+  const addLabel={rt:"Schedule Road Test",uni:"New Uniform Request",fleet:"Add Truck",inj:"File Injury Report",acc:"File Accident Report",hir:"New Hiring Request",ins:"New Insurance Request",users:"Add User",terminals:"Add Terminal",settings:""};
+  const addType ={rt:"newRT",uni:"newUni",fleet:"newTruck",inj:"newInj",acc:"newAcc",hir:"newHir",ins:"newIns",users:"newUser",terminals:"newTerminal",settings:null};
 
   const STATS=[
-    {l:"Total Tests",    v:rts.length,                                    c:"#7070a8"},
-    {l:"Scheduled",      v:rts.filter(r=>r.status==="Scheduled").length,  c:"#4db8ff"},
-    {l:"Passed",         v:rts.filter(r=>r.status==="Passed").length,     c:"#00ee77"},
-    {l:"Failed",         v:rts.filter(r=>r.status==="Failed").length,     c:"#ff6666"},
-    {l:"Pending Orders", v:unis.filter(u=>u.status==="Pending").length,   c:"#ffcc44"},
-    {l:"Fleet Alerts",   v:truckAlerts,                                    c:"#ffaa00"},
-    {l:"Total Trucks",   v:trucks.length,                                  c:"#8888b0"},
-    {l:"Injury Reports", v:injs.length,                                    c:"#ff8888"},
+    {l:"Scheduled Tests", v:rts.filter(r=>r.status==="Scheduled").length,  c:FC.rt.h},
+    {l:"Passed",          v:rts.filter(r=>r.status==="Passed").length,     c:"#16a34a"},
+    {l:"Pending Orders",  v:unis.filter(u=>u.status==="Pending").length,   c:FC.uni.h},
+    {l:"Fleet Alerts",    v:truckAlerts,                                    c:FC.fleet.h},
+    {l:"Injury Reports",  v:injs.length,                                    c:FC.inj.h},
+    {l:"Accidents",       v:accs.length,                                    c:FC.acc.h},
+    {l:"Active Hiring",   v:activeHiring,                                   c:FC.hir.h},
+    {l:"Insurance Reqs",  v:insrs.length,                                   c:FC.ins.h},
   ];
 
   // ── User save handlers (admin) ───────────────────────────────────────────────
@@ -1116,43 +1549,45 @@ export default function App() {
   },[loadTerminals,toast]);
 
   if (!authChecked) return (
-    <div style={{minHeight:"100vh",background:"#080812",display:"flex",alignItems:"center",justifyContent:"center"}}>
-      <span style={{color:"#5050a0",fontFamily:"'DM Mono',monospace",fontSize:13}}>Loading…</span>
+    <div style={{minHeight:"100vh",background:"#f8fafc",display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <span style={{color:"#9ca3af",fontFamily:"'DM Mono',monospace",fontSize:13}}>Loading…</span>
     </div>
   );
 
+  const activeCC=FC[tab]||FC.rt;
+
   return (
-    <div style={{minHeight:"100vh",background:"radial-gradient(ellipse at 30% 0%, #10102a 0%, #080812 65%)",fontFamily:"'Barlow Condensed',sans-serif",color:"#eeeeff"}}>
+    <div style={{minHeight:"100vh",background:"#f8fafc",fontFamily:"'Barlow Condensed',sans-serif",color:"#111827"}}>
 
       {/* ── AUTH MODAL ─────────────────────────────────────── */}
       {!currentUser && <AuthModal onLogin={handleLogin}/>}
 
       {/* ── HEADER ─────────────────────────────────────────── */}
-      <div className="app-header" style={{background:"#0b0b1e",borderBottom:"1px solid #1e1e38"}}>
+      <div className="app-header" style={{background:"#fff",borderBottom:"1px solid #e5e7eb",boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
         <div className="header-inner">
           <div className="header-top">
             <div className="header-brand">
-              <div style={{background:"#ff6200",borderRadius:8,padding:"7px 10px",display:"flex",flexShrink:0}}><Ico n="truck" s={20}/></div>
+              <div style={{background:"#111827",borderRadius:10,padding:"8px 11px",display:"flex",flexShrink:0}}><Ico n="truck" s={20}/></div>
               <div>
-                <div className="brand-title">PND LOGISTICS MANAGEMENT</div>
-                <div className="brand-sub">ROAD TESTS · UNIFORMS · FLEET · INJURY REPORTS · 6 TERMINALS</div>
+                <div className="brand-title" style={{color:"#111827"}}>PND LOGISTICS MANAGEMENT</div>
+                <div className="brand-sub" style={{color:"#9ca3af"}}>ROAD TESTS · UNIFORMS · FLEET · INJURY · ACCIDENTS · HIRING · INSURANCE</div>
               </div>
             </div>
             <div className="header-actions">
-              {pendingOut>0&&<div style={{background:"#2a1200",border:"1px solid #ff6200",borderRadius:7,padding:"5px 10px",display:"flex",alignItems:"center",gap:5,animation:"pulse 2s infinite"}}><Ico n="bell" s={13}/><span style={{fontSize:12,color:"#ffaa55",fontFamily:"'DM Mono',monospace"}}>{pendingOut} awaiting outcome</span></div>}
-              <button onClick={handleSync} disabled={syncing} style={{...B("ghost"),padding:"6px 10px",display:"flex",alignItems:"center",gap:5,fontSize:12,opacity:syncing?.5:1,transition:"opacity .2s"}}><span style={{display:"inline-flex",animation:syncing?"spin 1s linear infinite":"none"}}><Ico n="refresh" s={13}/></span>{syncing?"Syncing…":"Sync"}</button>
-              {lastSync&&<span className="sync-label" style={{fontSize:10,color:"#5050a0",fontFamily:"'DM Mono',monospace"}}>{lastSync.toLocaleTimeString()}</span>}
+              {pendingOut>0&&<div style={{background:"#fff7ed",border:"1px solid #fed7aa",borderRadius:7,padding:"5px 10px",display:"flex",alignItems:"center",gap:5}}><Ico n="bell" s={13}/><span style={{fontSize:12,color:"#c2410c",fontFamily:"'DM Mono',monospace"}}>{pendingOut} awaiting outcome</span></div>}
+              <button onClick={handleSync} disabled={syncing} style={{...Btn("ghost"),padding:"6px 10px",display:"flex",alignItems:"center",gap:5,fontSize:12,opacity:syncing?.5:1,transition:"opacity .2s"}}><span style={{display:"inline-flex",animation:syncing?"spin 1s linear infinite":"none"}}><Ico n="refresh" s={13}/></span>{syncing?"Syncing…":"Sync"}</button>
+              {lastSync&&<span className="sync-label" style={{fontSize:10,color:"#9ca3af",fontFamily:"'DM Mono',monospace"}}>{lastSync.toLocaleTimeString()}</span>}
               {currentUser&&(
-                <div style={{display:"flex",alignItems:"center",gap:8,borderLeft:"1px solid #1e1e38",paddingLeft:10,marginLeft:2}}>
-                  <span style={{fontSize:11,color:"#7070a8",fontFamily:"'DM Mono',monospace",maxWidth:100,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{currentUser.name}</span>
-                  <button onClick={handleLogout} style={{background:"#1c1c32",border:"1px solid #2e2e4a",color:"#9090b8",padding:"5px 10px",borderRadius:6,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:12,letterSpacing:.5}}>Logout</button>
+                <div style={{display:"flex",alignItems:"center",gap:8,borderLeft:"1px solid #e5e7eb",paddingLeft:10,marginLeft:2}}>
+                  <span style={{fontSize:11,color:"#6b7280",fontFamily:"'DM Mono',monospace",maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{currentUser.name}</span>
+                  <button onClick={handleLogout} style={{background:"#f3f4f6",border:"1px solid #e5e7eb",color:"#374151",padding:"5px 12px",borderRadius:7,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:12,letterSpacing:.5}}>Logout</button>
                 </div>
               )}
             </div>
           </div>
           <div className="tabs-row">
             {TABS.map(t=>(
-              <button key={t.key} className="tab-btn" onClick={()=>setTab(t.key)} style={{borderBottomColor:tab===t.key?"#ff6200":"transparent",color:tab===t.key?"#ff6200":"#7070a8"}}>
+              <button key={t.key} className="tab-btn" onClick={()=>setTab(t.key)} style={{borderBottomColor:tab===t.key?t.badgeColor:"transparent",color:tab===t.key?t.badgeColor:"#6b7280",fontWeight:tab===t.key?700:500}}>
                 <Ico n={t.icon} s={15}/>{t.label}
                 {t.count>0&&<span style={{background:t.badgeColor,color:"#fff",borderRadius:99,padding:"1px 8px",fontSize:10,fontWeight:700}}>{t.count}</span>}
               </button>
@@ -1162,11 +1597,11 @@ export default function App() {
       </div>
 
       {/* ── STATS BAR ──────────────────────────────────────── */}
-      <div className="stats-bar" style={{background:"#0b0b1e",borderBottom:"1px solid #161630"}}>
+      <div className="stats-bar" style={{background:"#fff",borderBottom:"1px solid #e5e7eb"}}>
         <div className="stats-inner">
           {STATS.map(s=>(
             <div key={s.l} className="stat-item">
-              <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:"#6868a8",textTransform:"uppercase",letterSpacing:.8}}>{s.l}</span>
+              <span style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:"#9ca3af",textTransform:"uppercase",letterSpacing:.8}}>{s.l}</span>
               <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:22,color:s.c,lineHeight:1}}>{s.v}</span>
             </div>
           ))}
@@ -1176,48 +1611,64 @@ export default function App() {
       {/* ── MAIN ───────────────────────────────────────────── */}
       <div className="main-wrap">
         <div className="filter-bar">
-          {tab!=="users"&&tab!=="terminals"&&tab!=="settings"&&<select style={{...IS,width:"auto",minWidth:200}} value={fTerm} onChange={e=>setFTerm(e.target.value)}>
+          {tab!=="users"&&tab!=="terminals"&&tab!=="settings"&&<select style={{...INP,width:"auto",minWidth:200}} value={fTerm} onChange={e=>setFTerm(e.target.value)}>
             <option value="All">All Terminals</option>
             {TERMINALS.map(t=><option key={t} value={t}>{t}</option>)}
           </select>}
-          {tab==="rt"&&<select style={{...IS,width:"auto"}} value={fStatus} onChange={e=>setFStatus(e.target.value)}>{["All","Scheduled","Passed","Failed"].map(s=><option key={s} value={s}>{s}</option>)}</select>}
-          {tab==="terminals"&&<select style={{...IS,width:"auto"}} value={fTerminalStatus} onChange={e=>setFTerminalStatus(e.target.value)}>{["Active","Inactive","All"].map(s=><option key={s} value={s}>{s}</option>)}</select>}
-          <button onClick={()=>downloadCSV(tab,{rt:rts,uni:unis,fleet:trucks,inj:injs,users,terminals}[tab])} style={{...B("ghost"),display:"flex",alignItems:"center",gap:6,marginLeft:"auto",padding:"6px 14px",fontSize:12}}>
+          {tab==="rt"&&<select style={{...INP,width:"auto"}} value={fStatus} onChange={e=>setFStatus(e.target.value)}>{["All","Scheduled","Passed","Failed"].map(s=><option key={s} value={s}>{s}</option>)}</select>}
+          {tab==="terminals"&&<select style={{...INP,width:"auto"}} value={fTerminalStatus} onChange={e=>setFTerminalStatus(e.target.value)}>{["Active","Inactive","All"].map(s=><option key={s} value={s}>{s}</option>)}</select>}
+          <button onClick={()=>downloadCSV(tab,{rt:rts,uni:unis,fleet:trucks,inj:injs,users,terminals}[tab])} style={{...Btn("ghost"),display:"flex",alignItems:"center",gap:6,marginLeft:"auto",padding:"6px 14px",fontSize:12}}>
             <Ico n="dl" s={14}/><span className="sync-label">Download CSV</span>
           </button>
-          {tab!=="settings"&&<button className="add-btn" onClick={()=>setModal({type:addType[tab]})} style={{...B(tab==="inj"?"danger":"primary"),display:"flex",alignItems:"center",gap:6}}>
+          {tab!=="settings"&&addType[tab]&&<button className="add-btn" onClick={()=>setModal({type:addType[tab]})} style={{...Btn(tab==="inj"||tab==="acc"?"danger":"primary",tab==="inj"?"#dc2626":tab==="acc"?FC.acc.h:activeCC.h),display:"flex",alignItems:"center",gap:6}}>
             <Ico n="plus" s={14}/>{addLabel[tab]}
           </button>}
         </div>
 
         {loading ? (
-          <div style={{textAlign:"center",padding:80,color:"#5a5a9a",fontFamily:"'DM Mono',monospace"}}>Loading shared data…</div>
+          <div style={{textAlign:"center",padding:80,color:"#9ca3af",fontFamily:"'DM Mono',monospace"}}>Loading shared data…</div>
         ) : tab==="rt" ? (
           fRts.length===0
-            ?<div style={{textAlign:"center",padding:80,color:"#5a5a9a",fontFamily:"'DM Mono',monospace",fontSize:13}}>No road tests yet. Click "Schedule Road Test" to begin.</div>
-            :<div className="cards-grid">{fRts.map(t=><RTCard key={t.id} test={t} onEdit={t=>setModal({type:"editRT",data:t})} onOutcome={t=>setModal({type:"outcome",data:t})} onDelete={delRT} onSms={t=>setModal({type:"sms",data:t})} users={users} terminals={terminals}/>)}</div>
+            ?<Empty msg="No road tests yet. Click Schedule Road Test to begin."/>
+            :<Grid>{fRts.map(t=><RTCard key={t.id} test={t} onEdit={t=>setModal({type:"editRT",data:t})} onOutcome={t=>setModal({type:"outcome",data:t})} onDelete={delRT} onSms={t=>setModal({type:"sms",data:t})} users={users} terminals={terminals}/>)}</Grid>
         ) : tab==="uni" ? (
           fUnis.length===0
-            ?<div style={{textAlign:"center",padding:80,color:"#5a5a9a",fontFamily:"'DM Mono',monospace",fontSize:13}}>No uniform requests yet.</div>
-            :<div className="cards-grid">{fUnis.map(u=><UniCard key={u.id} req={u} onEdit={r=>setModal({type:"editUni",data:r})} onDelete={delUni} onFulfill={fulfillUni}/>)}</div>
+            ?<Empty msg="No uniform requests yet."/>
+            :<Grid>{fUnis.map(u=><UniCard key={u.id} req={u} onEdit={r=>setModal({type:"editUni",data:r})} onDelete={delUni} onFulfill={fulfillUni}/>)}</Grid>
         ) : tab==="fleet" ? (<>
-          {truckAlerts>0&&<div style={{background:"#1e1000",border:"1px solid #7a4400",borderRadius:9,padding:"11px 16px",marginBottom:16,display:"flex",alignItems:"center",gap:10}}><Ico n="warn" s={16}/><span style={{fontSize:14,color:"#ffcc44",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>{truckAlerts} truck{truckAlerts>1?"s":""} require attention — registration or inspection expiring soon / expired</span></div>}
+          {truckAlerts>0&&<div style={{background:EXP.warning.bg,border:"1px solid "+EXP.warning.bd,borderRadius:9,padding:"11px 16px",marginBottom:16,display:"flex",alignItems:"center",gap:10}}><Ico n="warn" s={16}/><span style={{fontSize:14,color:EXP.warning.tx,fontWeight:700}}>{truckAlerts} truck{truckAlerts>1?"s":""} require attention — registration or inspection expiring soon / expired</span></div>}
           {fTrucks.length===0
-            ?<div style={{textAlign:"center",padding:80,color:"#5a5a9a",fontFamily:"'DM Mono',monospace",fontSize:13}}>No trucks yet. Click "Add Truck" to begin.</div>
-            :<div className="cards-grid-wide">{fTrucks.map(t=><TruckCard key={t.id} truck={t} onEdit={t=>setModal({type:"editTruck",data:t})} onDelete={delTruck}/>)}</div>}
-        </>) : tab==="users" ? (
+            ?<Empty msg="No trucks yet. Click Add Truck to begin."/>
+            :<Grid>{fTrucks.map(t=><TruckCard key={t.id} truck={t} onEdit={t=>setModal({type:"editTruck",data:t})} onDelete={delTruck}/>)}</Grid>}
+        </>) : tab==="inj" ? (
+          fInjs.length===0
+            ?<Empty msg="No injury reports filed yet. Click File Injury Report to begin."/>
+            :<Grid>{fInjs.map(r=><InjuryCard key={r.id} report={r} onView={r=>setModal({type:"viewInj",data:r})} onEdit={r=>setModal({type:"editInj",data:r})} onDelete={delInj}/>)}</Grid>
+        ) : tab==="acc" ? (
+          fAccs.length===0
+            ?<Empty msg="No accident reports filed yet. Click File Accident Report to begin."/>
+            :<Grid>{fAccs.map(r=><AccidentCard key={r.id} report={r} onView={r=>setModal({type:"viewAcc",data:r})} onEdit={r=>setModal({type:"editAcc",data:r})} onDelete={delAcc}/>)}</Grid>
+        ) : tab==="hir" ? (
+          fHirs.length===0
+            ?<Empty msg="No hiring requests yet. Click New Hiring Request to begin."/>
+            :<Grid>{fHirs.map(r=><HiringCard key={r.id} req={r} onEdit={r=>setModal({type:"editHir",data:r})} onDelete={delHir}/>)}</Grid>
+        ) : tab==="ins" ? (
+          fInsrs.length===0
+            ?<Empty msg="No insurance requests yet. Click New Insurance Request to begin."/>
+            :<Grid>{fInsrs.map(r=><InsuranceCard key={r.id} req={r} onEdit={r=>setModal({type:"editIns",data:r})} onDelete={delInsr} onEmail={r=>setModal({type:"insEmail",data:r})}/>)}</Grid>
+        ) : tab==="users" ? (
           users.length===0
-            ?<div style={{textAlign:"center",padding:80,color:"#5a5a9a",fontFamily:"'DM Mono',monospace",fontSize:13}}>No users yet. Click "Add User" to create one.</div>
-            :<div className="cards-grid-wide">{users.map(u=><UserCard key={u.id} user={u} onEdit={u=>setModal({type:"editUser",data:u})} isSelf={u.id===currentUser?.id}/>)}</div>
+            ?<Empty msg="No users yet. Click Add User to create one."/>
+            :<Grid>{users.map(u=><UserCard key={u.id} user={u} onEdit={u=>setModal({type:"editUser",data:u})} isSelf={u.id===currentUser?.id}/>)}</Grid>
         ) : tab==="terminals" ? (
           fTerminals.length===0
-            ?<div style={{textAlign:"center",padding:80,color:"#5a5a9a",fontFamily:"'DM Mono',monospace",fontSize:13}}>{terminals.length===0?"No terminals yet. Click \"Add Terminal\" to create one.":"No terminals match the selected filter."}</div>
-            :<div className="cards-grid-wide">{fTerminals.map(t=><TerminalCard key={t.id} terminal={t} onEdit={t=>setModal({type:"editTerminal",data:t})} onUploadPdf={handleUploadTerminalPdf}/>)}</div>
+            ?<Empty msg={terminals.length===0?"No terminals yet. Click Add Terminal to create one.":"No terminals match the selected filter."}/>
+            :<Grid>{fTerminals.map(t=><TerminalCard key={t.id} terminal={t} onEdit={t=>setModal({type:"editTerminal",data:t})} onUploadPdf={handleUploadTerminalPdf}/>)}</Grid>
         ) : tab==="settings" ? (
           <div style={{maxWidth:640,margin:"0 auto"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-              <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:22,color:"#eeeeff"}}>Email Notifications</span>
-              <button style={B("primary")} onClick={handleSaveSettings}>Save Settings</button>
+              <span style={{fontWeight:800,fontSize:22,color:"#111827"}}>Email Notifications</span>
+              <button style={Btn("primary")} onClick={handleSaveSettings}>Save Settings</button>
             </div>
             <EmailSettingsForm
               moduleKey="roadTestOutcome"
@@ -1227,11 +1678,7 @@ export default function App() {
               onChange={handleSettingsChange}
             />
           </div>
-        ) : (
-          fInjs.length===0
-            ?<div style={{textAlign:"center",padding:80,color:"#5a5a9a",fontFamily:"'DM Mono',monospace",fontSize:13}}>No injury reports filed yet. Click "File Injury Report" to begin.</div>
-            :<div className="cards-grid-wide">{fInjs.map(r=><InjuryCard key={r.id} report={r} onView={r=>setModal({type:"viewInj",data:r})} onEdit={r=>setModal({type:"editInj",data:r})} onDelete={delInj}/>)}</div>
-        )}
+        ) : null}
       </div>
 
       {/* ── MODALS ─────────────────────────────────────────── */}
@@ -1246,6 +1693,15 @@ export default function App() {
       {modal?.type==="newInj"    && <Modal title="File Work Injury Report"   onClose={()=>setModal(null)} wide><InjuryForm onSave={saveInj}     onClose={()=>setModal(null)}/></Modal>}
       {modal?.type==="editInj"   && <Modal title="Edit Injury Report"        onClose={()=>setModal(null)} wide><InjuryForm onSave={saveInj}     onClose={()=>setModal(null)} existing={modal.data}/></Modal>}
       {modal?.type==="viewInj"   && <InjuryDetail report={modal.data} onClose={()=>setModal(null)}/>}
+      {modal?.type==="newAcc"    && <Modal title="File Accident Report"     onClose={()=>setModal(null)} wide><AccidentForm  onSave={saveAcc}  onClose={()=>setModal(null)}/></Modal>}
+      {modal?.type==="editAcc"   && <Modal title="Edit Accident Report"     onClose={()=>setModal(null)} wide><AccidentForm  onSave={saveAcc}  onClose={()=>setModal(null)} existing={modal.data}/></Modal>}
+      {modal?.type==="viewAcc"   && <AccidentDetail report={modal.data} onClose={()=>setModal(null)}/>}
+      {modal?.type==="newHir"    && <Modal title="New Hiring Request"        onClose={()=>setModal(null)} wide><HiringForm    onSave={saveHir}  onClose={()=>setModal(null)}/></Modal>}
+      {modal?.type==="editHir"   && <Modal title="Edit Hiring Request"       onClose={()=>setModal(null)} wide><HiringForm    onSave={saveHir}  onClose={()=>setModal(null)} existing={modal.data}/></Modal>}
+      {modal?.type==="hirNotify" && <HRNotifyModal req={modal.data} onClose={()=>setModal(null)}/>}
+      {modal?.type==="newIns"    && <Modal title="New Insurance Request"     onClose={()=>setModal(null)} wide><InsuranceForm onSave={saveInsr} onClose={()=>setModal(null)}/></Modal>}
+      {modal?.type==="editIns"   && <Modal title="Edit Insurance Request"    onClose={()=>setModal(null)} wide><InsuranceForm onSave={saveInsr} onClose={()=>setModal(null)} existing={modal.data}/></Modal>}
+      {modal?.type==="insEmail"  && <InsuranceEmailModal req={modal.data} onClose={()=>setModal(null)}/>}
       {modal?.type==="newUser"       && <Modal title="Create User"      onClose={()=>setModal(null)} wide><UserForm     onSave={handleSaveUser}     onClose={()=>setModal(null)} allUsers={users}/></Modal>}
       {modal?.type==="editUser"      && <Modal title="Edit User"        onClose={()=>setModal(null)} wide><UserForm     onSave={handleSaveUser}     onClose={()=>setModal(null)} existing={modal.data} allUsers={users}/></Modal>}
       {modal?.type==="newTerminal"   && <Modal title="Add Terminal"     onClose={()=>setModal(null)} wide><TerminalForm onSave={handleSaveTerminal} onClose={()=>setModal(null)}/></Modal>}

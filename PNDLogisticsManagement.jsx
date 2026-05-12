@@ -1373,6 +1373,7 @@ export default function App() {
   const [fTerm,setFTerm]=useState("All");
   const [fStatus,setFStatus]=useState("All");
   const [fTerminalStatus,setFTerminalStatus]=useState("Active");
+  const [settingsTab,setSettingsTab]=useState("terminals");
   const [lastSync,setLastSync]=useState(null);
   const [syncing,setSyncing]=useState(false);
 
@@ -1483,14 +1484,12 @@ export default function App() {
     {key:"hir",   icon:"user",   label:"Hiring",         count:activeHiring,                                  badgeColor:FC.hir.h},
     {key:"ins",   icon:"phone",  label:"Insurance",      count:insrs.length,                                  badgeColor:FC.ins.h},
     ...(currentUser?.role==="admin"?[
-      {key:"users",     icon:"user",  label:"Users",     count:0,badgeColor:"#6b7280"},
-      {key:"terminals", icon:"fleet", label:"Terminals", count:0,badgeColor:"#6b7280"},
-      {key:"settings",  icon:"gear",  label:"Settings",  count:0,badgeColor:"#6b7280"},
+      {key:"settings", icon:"gear", label:"Settings", count:0, badgeColor:"#6b7280"},
     ]:[]),
   ];
 
-  const addLabel={rt:"Schedule Road Test",uni:"New Uniform Request",fleet:"Add Truck",inj:"File Injury Report",acc:"File Accident Report",hir:"New Hiring Request",ins:"New Insurance Request",users:"Add User",terminals:"Add Terminal",settings:""};
-  const addType ={rt:"newRT",uni:"newUni",fleet:"newTruck",inj:"newInj",acc:"newAcc",hir:"newHir",ins:"newIns",users:"newUser",terminals:"newTerminal",settings:null};
+  const addLabel={rt:"Schedule Road Test",uni:"New Uniform Request",fleet:"Add Truck",inj:"File Injury Report",acc:"File Accident Report",hir:"New Hiring Request",ins:"New Insurance Request"};
+  const addType ={rt:"newRT",uni:"newUni",fleet:"newTruck",inj:"newInj",acc:"newAcc",hir:"newHir",ins:"newIns"};
 
   const STATS=[
     {l:"Scheduled Tests", v:rts.filter(r=>r.status==="Scheduled").length,  c:FC.rt.h},
@@ -1611,18 +1610,22 @@ export default function App() {
       {/* ── MAIN ───────────────────────────────────────────── */}
       <div className="main-wrap">
         <div className="filter-bar">
-          {tab!=="users"&&tab!=="terminals"&&tab!=="settings"&&<select style={{...INP,width:"auto",minWidth:200}} value={fTerm} onChange={e=>setFTerm(e.target.value)}>
+          {tab!=="settings"&&<select style={{...INP,width:"auto",minWidth:200}} value={fTerm} onChange={e=>setFTerm(e.target.value)}>
             <option value="All">All Terminals</option>
             {TERMINALS.map(t=><option key={t} value={t}>{t}</option>)}
           </select>}
           {tab==="rt"&&<select style={{...INP,width:"auto"}} value={fStatus} onChange={e=>setFStatus(e.target.value)}>{["All","Scheduled","Passed","Failed"].map(s=><option key={s} value={s}>{s}</option>)}</select>}
-          {tab==="terminals"&&<select style={{...INP,width:"auto"}} value={fTerminalStatus} onChange={e=>setFTerminalStatus(e.target.value)}>{["Active","Inactive","All"].map(s=><option key={s} value={s}>{s}</option>)}</select>}
-          <button onClick={()=>downloadCSV(tab,{rt:rts,uni:unis,fleet:trucks,inj:injs,users,terminals}[tab])} style={{...Btn("ghost"),display:"flex",alignItems:"center",gap:6,marginLeft:"auto",padding:"6px 14px",fontSize:12}}>
-            <Ico n="dl" s={14}/><span className="sync-label">Download CSV</span>
-          </button>
+          {tab==="settings"&&settingsTab==="terminals"&&<select style={{...INP,width:"auto"}} value={fTerminalStatus} onChange={e=>setFTerminalStatus(e.target.value)}>{["Active","Inactive","All"].map(s=><option key={s} value={s}>{s}</option>)}</select>}
+          {tab!=="settings"||settingsTab!=="email"
+            ?<button onClick={()=>{const d=tab==="settings"?(settingsTab==="users"?users:settingsTab==="terminals"?terminals:null):{rt:rts,uni:unis,fleet:trucks,inj:injs}[tab];if(d)downloadCSV(settingsTab==="users"?"users":settingsTab==="terminals"?"terminals":tab,d);}} style={{...Btn("ghost"),display:"flex",alignItems:"center",gap:6,marginLeft:"auto",padding:"6px 14px",fontSize:12}}>
+                <Ico n="dl" s={14}/><span className="sync-label">Download CSV</span>
+              </button>
+            :<div style={{marginLeft:"auto"}}/>}
           {tab!=="settings"&&addType[tab]&&<button className="add-btn" onClick={()=>setModal({type:addType[tab]})} style={{...Btn(tab==="inj"||tab==="acc"?"danger":"primary",tab==="inj"?"#dc2626":tab==="acc"?FC.acc.h:activeCC.h),display:"flex",alignItems:"center",gap:6}}>
             <Ico n="plus" s={14}/>{addLabel[tab]}
           </button>}
+          {tab==="settings"&&settingsTab==="terminals"&&<button onClick={()=>setModal({type:"newTerminal"})} style={{...Btn("primary","#6b7280"),display:"flex",alignItems:"center",gap:6}}><Ico n="plus" s={14}/>Add Terminal</button>}
+          {tab==="settings"&&settingsTab==="users"&&<button onClick={()=>setModal({type:"newUser"})} style={{...Btn("primary","#6b7280"),display:"flex",alignItems:"center",gap:6}}><Ico n="plus" s={14}/>Add User</button>}
         </div>
 
         {loading ? (
@@ -1656,27 +1659,38 @@ export default function App() {
           fInsrs.length===0
             ?<Empty msg="No insurance requests yet. Click New Insurance Request to begin."/>
             :<Grid>{fInsrs.map(r=><InsuranceCard key={r.id} req={r} onEdit={r=>setModal({type:"editIns",data:r})} onDelete={delInsr} onEmail={r=>setModal({type:"insEmail",data:r})}/>)}</Grid>
-        ) : tab==="users" ? (
-          users.length===0
-            ?<Empty msg="No users yet. Click Add User to create one."/>
-            :<Grid>{users.map(u=><UserCard key={u.id} user={u} onEdit={u=>setModal({type:"editUser",data:u})} isSelf={u.id===currentUser?.id}/>)}</Grid>
-        ) : tab==="terminals" ? (
-          fTerminals.length===0
-            ?<Empty msg={terminals.length===0?"No terminals yet. Click Add Terminal to create one.":"No terminals match the selected filter."}/>
-            :<Grid>{fTerminals.map(t=><TerminalCard key={t.id} terminal={t} onEdit={t=>setModal({type:"editTerminal",data:t})} onUploadPdf={handleUploadTerminalPdf}/>)}</Grid>
         ) : tab==="settings" ? (
-          <div style={{maxWidth:640,margin:"0 auto"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-              <span style={{fontWeight:800,fontSize:22,color:"#111827"}}>Email Notifications</span>
-              <button style={Btn("primary")} onClick={handleSaveSettings}>Save Settings</button>
+          <div>
+            <div style={{display:"flex",gap:2,background:"#f3f4f6",borderRadius:10,padding:4,marginBottom:24,width:"fit-content"}}>
+              {[{key:"terminals",label:"Terminals"},{key:"users",label:"Users"},{key:"email",label:"Email Notifications"}].map(st=>(
+                <button key={st.key} onClick={()=>setSettingsTab(st.key)} style={{padding:"7px 18px",borderRadius:8,border:"none",cursor:"pointer",fontSize:13,fontWeight:600,fontFamily:"inherit",background:settingsTab===st.key?"#fff":"transparent",color:settingsTab===st.key?"#111827":"#6b7280",boxShadow:settingsTab===st.key?"0 1px 4px rgba(0,0,0,.1)":undefined,transition:"all .15s"}}>
+                  {st.label}
+                </button>
+              ))}
             </div>
-            <EmailSettingsForm
-              moduleKey="roadTestOutcome"
-              label="Road Test Outcome (Pass / Fail)"
-              placeholders={["candidateName","fedexId","phone","terminal","date","time","status","feedback","firstDay","completedAt"]}
-              config={emailSettings.roadTestOutcome}
-              onChange={handleSettingsChange}
-            />
+            {settingsTab==="terminals" ? (
+              fTerminals.length===0
+                ?<Empty msg={terminals.length===0?"No terminals yet. Click Add Terminal to create one.":"No terminals match the selected filter."}/>
+                :<Grid>{fTerminals.map(t=><TerminalCard key={t.id} terminal={t} onEdit={t=>setModal({type:"editTerminal",data:t})} onUploadPdf={handleUploadTerminalPdf}/>)}</Grid>
+            ) : settingsTab==="users" ? (
+              users.length===0
+                ?<Empty msg="No users yet. Click Add User to create one."/>
+                :<Grid>{users.map(u=><UserCard key={u.id} user={u} onEdit={u=>setModal({type:"editUser",data:u})} isSelf={u.id===currentUser?.id}/>)}</Grid>
+            ) : settingsTab==="email" ? (
+              <div style={{maxWidth:640}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+                  <span style={{fontWeight:800,fontSize:22,color:"#111827"}}>Email Notifications</span>
+                  <button style={Btn("primary")} onClick={handleSaveSettings}>Save Settings</button>
+                </div>
+                <EmailSettingsForm
+                  moduleKey="roadTestOutcome"
+                  label="Road Test Outcome (Pass / Fail)"
+                  placeholders={["candidateName","fedexId","phone","terminal","date","time","status","feedback","firstDay","completedAt"]}
+                  config={emailSettings.roadTestOutcome}
+                  onChange={handleSettingsChange}
+                />
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>

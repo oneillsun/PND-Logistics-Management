@@ -5,6 +5,7 @@ import { fetchTerminals, createTerminal, updateTerminal, uploadTerminalPdf } fro
 import { sendModuleEmail } from "./src/lib/email.js";
 import { fetchEmailSettings, saveEmailSettings, DEFAULT_SETTINGS } from "./src/lib/settings.js";
 import { generateRoadTestPDF } from "./src/lib/pdfRecord.js";
+import { uploadDotCardFile } from "./src/lib/dotCards.js";
 
 const TERMINAL_DATA = {
 "Fort Worth Terminal - 761":      { address: "4901 Village Creek Rd, Fort Worth TX 76119",        manager: "Alexis Rodriguez", phone: "+1 (787) 672-8847" },
@@ -23,7 +24,7 @@ const getSizes = t => BOTTOM_TYPES.includes(t) ? BOTTOM_SIZES : TOP_SIZES;
 const defSize  = t => BOTTOM_TYPES.includes(t) ? "32" : "M";
 const BODY_PARTS = ["Head / Skull","Face","Eye(s)","Ear(s)","Neck","Shoulder(s)","Upper Arm","Elbow","Forearm","Wrist","Hand / Fingers","Upper Back","Lower Back","Chest / Ribs","Abdomen","Hip","Thigh","Knee","Lower Leg / Shin","Ankle","Foot / Toes","Multiple Areas","Other"];
 const US_STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
-const SK = { rt:"pnd_rt_v5", uni:"pnd_uni_v5", tr:"pnd_tr_v5", inj:"pnd_inj_v5", acc:"pnd_acc_v2", hir:"pnd_hir_v1", ins:"pnd_ins_v1" };
+const SK = { rt:"pnd_rt_v5", uni:"pnd_uni_v5", tr:"pnd_tr_v5", inj:"pnd_inj_v5", acc:"pnd_acc_v2", hir:"pnd_hir_v1", ins:"pnd_ins_v1", dot:"pnd_dot_v1" };
 const FC = {
   rt:    { h:"#2563eb", bg:"#eff6ff", bd:"#bfdbfe", tx:"#1e40af", ring:"#93c5fd", soft:"#dbeafe" },
   uni:   { h:"#7c3aed", bg:"#f5f3ff", bd:"#ddd6fe", tx:"#5b21b6", ring:"#c4b5fd", soft:"#ede9fe" },
@@ -32,6 +33,7 @@ const FC = {
   acc:   { h:"#ea580c", bg:"#fff7ed", bd:"#fed7aa", tx:"#7c2d12", ring:"#fdba74", soft:"#ffedd5" },
   hir:   { h:"#059669", bg:"#ecfdf5", bd:"#a7f3d0", tx:"#064e3b", ring:"#6ee7b7", soft:"#d1fae5" },
   ins:   { h:"#0369a1", bg:"#f0f9ff", bd:"#bae6fd", tx:"#0c4a6e", ring:"#7dd3fc", soft:"#e0f2fe" },
+  dot:   { h:"#d97706", bg:"#fffbeb", bd:"#fde68a", tx:"#92400e", ring:"#fcd34d", soft:"#fef3c7" },
 };
 const STC = {
   Scheduled:{ bg:"#eff6ff", tx:"#1e40af", bd:"#bfdbfe" },
@@ -137,6 +139,7 @@ function Ico({n,s=16}){
   if(n==="attach")  return <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>;
   if(n==="gear")    return <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>;
   if(n==="eye")     return <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>;
+  if(n==="badge")   return <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="M8 7h8M8 11h6M8 15h4"/></svg>;
   return null;
 }
 
@@ -183,6 +186,7 @@ const CSV_COLS = {
   uni:   ["id","terminal","requestedBy","status","notes","items","createdAt","fulfilledAt"],
   fleet: ["id","terminal","truckNumber","licensePlate","regState","regExpiry","inspExpiry","vin","notes","createdAt","updatedAt"],
   inj:   ["id","terminal","employeeName","injuryDate","injuryTime","injuryAddress","description","bodyPart","medicalAttention","medicalProvider","missedWork","missedDays","witnesses","reportedBy","createdAt"],
+  dot:       ["id","terminal","firstName","lastName","fedexId","expirationDate","file_url","createdAt"],
   users:     ["id","name","username","role","terminal","phone","email","fedex_id","status","created_at"],
   terminals: ["id","name","code","address","city","state","zipcode","fulladdress","status","rt_employer_name"],
 };
@@ -1328,6 +1332,74 @@ function InsuranceCard({req,onEdit,onDelete,onEmail}) {
   </div>;
 }
 
+// ─── DOT Card Form ────────────────────────────────────────────────────────────
+function DOTCardForm({onSave,onClose,existing}) {
+  const now=new Date(); const pad=n=>String(n).padStart(2,"0");
+  const [form,setForm]=useState(existing||{terminal:TERMINALS[0],firstName:"",lastName:"",fedexId:"",expirationDate:""});
+  const set=(k,v)=>setForm(f=>({...f,[k]:v}));
+  const doSave=()=>{
+    if(!form.firstName.trim()||!form.lastName.trim()) return alert("Driver first and last name are required.");
+    if(!form.fedexId.trim()) return alert("FedEx ID is required.");
+    if(!form.expirationDate) return alert("Expiration date is required.");
+    onSave({...form,id:existing?.id||Date.now().toString(),createdAt:existing?.createdAt||new Date().toISOString()});
+  };
+  return <>
+    <div className="form-grid-2">
+      <Field label="Terminal *" span><select style={INP} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>{TERMINALS.map(t=><option key={t} value={t}>{t}</option>)}</select></Field>
+      <Field label="Driver First Name *"><input style={INP} value={form.firstName} onChange={e=>set("firstName",e.target.value)} placeholder="John"/></Field>
+      <Field label="Driver Last Name *"><input style={INP} value={form.lastName} onChange={e=>set("lastName",e.target.value)} placeholder="Smith"/></Field>
+      <Field label="Driver FedEx ID *"><input style={INP} value={form.fedexId} onChange={e=>set("fedexId",e.target.value)} placeholder="FX-000000"/></Field>
+      <Field label="Expiration Date *"><input style={INP} type="date" value={form.expirationDate} onChange={e=>set("expirationDate",e.target.value)}/></Field>
+    </div>
+    <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:10}}>
+      <button style={Btn("ghost")} onClick={onClose}>Cancel</button>
+      <button style={Btn("primary",FC.dot.h)} onClick={doSave}>{existing?"Update DOT Card":"Add DOT Card"}</button>
+    </div>
+  </>;
+}
+
+// ─── DOT Card ─────────────────────────────────────────────────────────────────
+function DOTCard({card,onEdit,onDelete,onUpload}) {
+  const cc=FC.dot;
+  const [uploading,setUploading]=useState(false);
+  const fileRef=useRef(null);
+  const handleFile=async e=>{
+    const file=e.target.files?.[0]; if(!file) return;
+    setUploading(true);
+    await onUpload(card,file);
+    setUploading(false);
+    e.target.value="";
+  };
+  const st=expStatus(card.expirationDate);
+  const ec=EXP[st];
+  const expDate=card.expirationDate?new Date(card.expirationDate+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}):"";
+  return <div style={{background:"#fff",border:"1.5px solid "+cc.bd,borderLeft:"4px solid "+cc.h,borderRadius:14,padding:18,boxShadow:"0 1px 6px rgba(0,0,0,.06)"}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+      <div>
+        <div style={{fontSize:16,fontWeight:700,color:"#111827"}}>{card.firstName} {card.lastName}</div>
+        <div style={{fontSize:12,color:cc.h,fontWeight:600,marginTop:2}}>{card.fedexId}</div>
+      </div>
+      {st!=="none"&&<span style={{background:ec.bg,border:"1px solid "+ec.bd,borderRadius:99,padding:"3px 10px",fontSize:11,fontWeight:700,color:ec.tx,whiteSpace:"nowrap"}}>{expLabel(card.expirationDate)}</span>}
+    </div>
+    <div style={{fontSize:12,color:"#6b7280",display:"flex",flexDirection:"column",gap:3,marginBottom:10}}>
+      <div style={{color:cc.h,fontWeight:500}}>{card.terminal}</div>
+      {card.expirationDate&&<div>Expires: <span style={{fontWeight:600,color:ec.tx}}>{expDate}</span></div>}
+    </div>
+    <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10,padding:"8px 10px",background:card.file_url?"#f0fdf4":"#f9fafb",border:"1px solid "+(card.file_url?"#bbf7d0":"#e5e7eb"),borderRadius:8}}>
+      <span style={{fontSize:12,color:card.file_url?"#166534":"#9ca3af",fontWeight:600}}>{card.file_url?"Card file: "+(card.file_name||card.file_url.split("/").pop()):"No card file uploaded"}</span>
+    </div>
+    <input ref={fileRef} type="file" accept="image/*,application/pdf" style={{display:"none"}} onChange={handleFile}/>
+    <div style={{display:"flex",gap:6,flexWrap:"wrap",paddingTop:10,borderTop:"1px solid #f3f4f6"}}>
+      <button onClick={()=>onEdit(card)} style={Btn("ghost")}>Edit</button>
+      <button onClick={()=>fileRef.current?.click()} disabled={uploading} style={{...Btn("outline",cc.h),opacity:uploading?0.6:1}}>
+        {uploading?"Uploading…":card.file_url?"Re-upload Card":"Upload Card"}
+      </button>
+      {card.file_url&&<a href={card.file_url} target="_blank" rel="noreferrer" style={{...Btn("ghost"),textDecoration:"none",display:"flex",alignItems:"center",gap:5}}><Ico n="eye" s={13}/>View</a>}
+      <button onClick={()=>onDelete(card.id)} style={{...Btn("ghost"),marginLeft:"auto",color:"#dc2626",borderColor:"#fecaca"}}><Ico n="trash" s={13}/></button>
+    </div>
+  </div>;
+}
+
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
   // ── Auth ────────────────────────────────────────────────────────────────────
@@ -1367,6 +1439,7 @@ export default function App() {
   const [accs,setAccs]=useState([]);
   const [hirs,setHirs]=useState([]);
   const [insrs,setInsrs]=useState([]);
+  const [dots,setDots]=useState([]);
   const [loading,setLoading]=useState(true);
   const [modal,setModal]=useState(null);
   const [toasts,setToasts]=useState([]);
@@ -1380,8 +1453,8 @@ export default function App() {
   const toast=useCallback((msg,type="info")=>{const id=Date.now();setToasts(t=>[...t,{id,message:msg,type}]);setTimeout(()=>setToasts(t=>t.filter(x=>x.id!==id)),4500);},[]);
 
   const loadAll=useCallback(async()=>{
-    const [a,b,c,d,e,f,g]=await Promise.all([dbLoad(SK.rt),dbLoad(SK.uni),dbLoad(SK.tr),dbLoad(SK.inj),dbLoad(SK.acc),dbLoad(SK.hir),dbLoad(SK.ins)]);
-    setRts(a);setUnis(b);setTrucks(c);setInjs(d);setAccs(e);setHirs(f);setInsrs(g);setLastSync(new Date());setLoading(false);
+    const [a,b,c,d,e,f,g,h]=await Promise.all([dbLoad(SK.rt),dbLoad(SK.uni),dbLoad(SK.tr),dbLoad(SK.inj),dbLoad(SK.acc),dbLoad(SK.hir),dbLoad(SK.ins),dbLoad(SK.dot)]);
+    setRts(a);setUnis(b);setTrucks(c);setInjs(d);setAccs(e);setHirs(f);setInsrs(g);setDots(h);setLastSync(new Date());setLoading(false);
   },[]);
 
   const handleSync=useCallback(async()=>{
@@ -1462,6 +1535,15 @@ export default function App() {
   };
   const delInsr=async id=>{if(!confirm("Delete this insurance request?"))return;const upd=insrs.filter(r=>r.id!==id);setInsrs(upd);toast("Removed.");dbSave(SK.ins,upd);};
 
+  const saveDot=async r=>{const isNew=!dots.some(x=>x.id===r.id);const upd=isNew?[...dots,r]:dots.map(x=>x.id===r.id?r:x);setDots(upd);toast(isNew?"DOT Card added.":"DOT Card updated.","success");setModal(null);dbSave(SK.dot,upd);};
+  const delDot=async id=>{if(!confirm("Delete this DOT card record?"))return;const upd=dots.filter(r=>r.id!==id);setDots(upd);toast("Removed.");dbSave(SK.dot,upd);};
+  const handleUploadDotCardFile=useCallback(async(card,file)=>{
+    const{url,error}=await uploadDotCardFile(card.id,file);
+    if(error) return toast("Upload failed: "+error,"warn");
+    const upd=dots.map(r=>r.id===card.id?{...r,file_url:url,file_name:file.name}:r);
+    setDots(upd);dbSave(SK.dot,upd);toast("Card file uploaded.","success");
+  },[dots,toast]);
+
   const pendingOut=rts.filter(r=>{const e=new Date(`${r.date}T${r.time}`);e.setMinutes(e.getMinutes()+parseInt(r.duration||60));return new Date()>=e&&r.status==="Scheduled";}).length;
   const truckAlerts=trucks.filter(t=>(expStatus(t.regExpiry)!=="ok"&&expStatus(t.regExpiry)!=="none")||(expStatus(t.inspExpiry)!=="ok"&&expStatus(t.inspExpiry)!=="none")).length;
   const activeHiring=hirs.filter(h=>h.action==="start"&&h.status==="Active").length;
@@ -1474,6 +1556,7 @@ export default function App() {
   const fAccs  =accs.filter(r=>fTerm==="All"||r.terminal===fTerm).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
   const fHirs  =hirs.filter(r=>fTerm==="All"||r.terminal===fTerm).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
   const fInsrs =insrs.filter(r=>fTerm==="All"||r.terminal===fTerm).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  const fDots  =dots.filter(r=>fTerm==="All"||r.terminal===fTerm).sort((a,b)=>new Date(a.expirationDate)-new Date(b.expirationDate));
 
   const TABS=[
     {key:"rt",    icon:"clip",   label:"Road Tests",     count:rts.filter(r=>r.status==="Scheduled").length, badgeColor:FC.rt.h},
@@ -1483,13 +1566,14 @@ export default function App() {
     {key:"acc",   icon:"warn",   label:"Accidents",      count:accs.length,                                   badgeColor:FC.acc.h},
     {key:"hir",   icon:"user",   label:"Hiring",         count:activeHiring,                                  badgeColor:FC.hir.h},
     {key:"ins",   icon:"phone",  label:"Insurance",      count:insrs.length,                                  badgeColor:FC.ins.h},
+    {key:"dot",   icon:"badge",  label:"DOT Cards",      count:dots.filter(d=>{const s=expStatus(d.expirationDate);return s==="expired"||s==="warning";}).length, badgeColor:FC.dot.h},
     ...(currentUser?.role==="admin"?[
       {key:"settings", icon:"gear", label:"Settings", count:0, badgeColor:"#6b7280"},
     ]:[]),
   ];
 
-  const addLabel={rt:"Schedule Road Test",uni:"New Uniform Request",fleet:"Add Truck",inj:"File Injury Report",acc:"File Accident Report",hir:"New Hiring Request",ins:"New Insurance Request"};
-  const addType ={rt:"newRT",uni:"newUni",fleet:"newTruck",inj:"newInj",acc:"newAcc",hir:"newHir",ins:"newIns"};
+  const addLabel={rt:"Schedule Road Test",uni:"New Uniform Request",fleet:"Add Truck",inj:"File Injury Report",acc:"File Accident Report",hir:"New Hiring Request",ins:"New Insurance Request",dot:"+ DOT Card"};
+  const addType ={rt:"newRT",uni:"newUni",fleet:"newTruck",inj:"newInj",acc:"newAcc",hir:"newHir",ins:"newIns",dot:"newDot"};
 
   const STATS=[
     {l:"Scheduled Tests", v:rts.filter(r=>r.status==="Scheduled").length,  c:FC.rt.h},
@@ -1617,7 +1701,7 @@ export default function App() {
           {tab==="rt"&&<select style={{...INP,width:"auto"}} value={fStatus} onChange={e=>setFStatus(e.target.value)}>{["All","Scheduled","Passed","Failed"].map(s=><option key={s} value={s}>{s}</option>)}</select>}
           {tab==="settings"&&settingsTab==="terminals"&&<select style={{...INP,width:"auto"}} value={fTerminalStatus} onChange={e=>setFTerminalStatus(e.target.value)}>{["Active","Inactive","All"].map(s=><option key={s} value={s}>{s}</option>)}</select>}
           {tab!=="settings"||settingsTab!=="email"
-            ?<button onClick={()=>{const d=tab==="settings"?(settingsTab==="users"?users:settingsTab==="terminals"?terminals:null):{rt:rts,uni:unis,fleet:trucks,inj:injs}[tab];if(d)downloadCSV(settingsTab==="users"?"users":settingsTab==="terminals"?"terminals":tab,d);}} style={{...Btn("ghost"),display:"flex",alignItems:"center",gap:6,marginLeft:"auto",padding:"6px 14px",fontSize:12}}>
+            ?<button onClick={()=>{const d=tab==="settings"?(settingsTab==="users"?users:settingsTab==="terminals"?terminals:null):{rt:rts,uni:unis,fleet:trucks,inj:injs,acc:accs,hir:hirs,ins:insrs,dot:dots}[tab];if(d)downloadCSV(settingsTab==="users"?"users":settingsTab==="terminals"?"terminals":tab,d);}} style={{...Btn("ghost"),display:"flex",alignItems:"center",gap:6,marginLeft:"auto",padding:"6px 14px",fontSize:12}}>
                 <Ico n="dl" s={14}/><span className="sync-label">Download CSV</span>
               </button>
             :<div style={{marginLeft:"auto"}}/>}
@@ -1659,6 +1743,10 @@ export default function App() {
           fInsrs.length===0
             ?<Empty msg="No insurance requests yet. Click New Insurance Request to begin."/>
             :<Grid>{fInsrs.map(r=><InsuranceCard key={r.id} req={r} onEdit={r=>setModal({type:"editIns",data:r})} onDelete={delInsr} onEmail={r=>setModal({type:"insEmail",data:r})}/>)}</Grid>
+        ) : tab==="dot" ? (
+          fDots.length===0
+            ?<Empty msg="No DOT cards yet. Click + DOT Card to add one."/>
+            :<Grid>{fDots.map(r=><DOTCard key={r.id} card={r} onEdit={r=>setModal({type:"editDot",data:r})} onDelete={delDot} onUpload={handleUploadDotCardFile}/>)}</Grid>
         ) : tab==="settings" ? (
           <div>
             <div style={{display:"flex",gap:2,background:"#f3f4f6",borderRadius:10,padding:4,marginBottom:24,width:"fit-content"}}>
@@ -1716,6 +1804,8 @@ export default function App() {
       {modal?.type==="newIns"    && <Modal title="New Insurance Request"     onClose={()=>setModal(null)} wide><InsuranceForm onSave={saveInsr} onClose={()=>setModal(null)}/></Modal>}
       {modal?.type==="editIns"   && <Modal title="Edit Insurance Request"    onClose={()=>setModal(null)} wide><InsuranceForm onSave={saveInsr} onClose={()=>setModal(null)} existing={modal.data}/></Modal>}
       {modal?.type==="insEmail"  && <InsuranceEmailModal req={modal.data} onClose={()=>setModal(null)}/>}
+      {modal?.type==="newDot"    && <Modal title="Add DOT Card"          onClose={()=>setModal(null)} wide><DOTCardForm onSave={saveDot}  onClose={()=>setModal(null)}/></Modal>}
+      {modal?.type==="editDot"   && <Modal title="Edit DOT Card"         onClose={()=>setModal(null)} wide><DOTCardForm onSave={saveDot}  onClose={()=>setModal(null)} existing={modal.data}/></Modal>}
       {modal?.type==="newUser"       && <Modal title="Create User"      onClose={()=>setModal(null)} wide><UserForm     onSave={handleSaveUser}     onClose={()=>setModal(null)} allUsers={users}/></Modal>}
       {modal?.type==="editUser"      && <Modal title="Edit User"        onClose={()=>setModal(null)} wide><UserForm     onSave={handleSaveUser}     onClose={()=>setModal(null)} existing={modal.data} allUsers={users}/></Modal>}
       {modal?.type==="newTerminal"   && <Modal title="Add Terminal"     onClose={()=>setModal(null)} wide><TerminalForm onSave={handleSaveTerminal} onClose={()=>setModal(null)}/></Modal>}

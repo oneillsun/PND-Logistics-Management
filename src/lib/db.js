@@ -9,6 +9,7 @@ const TABLE = {
   pnd_acc_v2: 'accidents',
   pnd_hir_v1: 'hiring_requests',
   pnd_ins_v1: 'insurance_requests',
+  pnd_dot_v1: 'dot_cards',
   pnd_term_v1: 'terminals',
 }
 

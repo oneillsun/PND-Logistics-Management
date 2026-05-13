@@ -1,7 +1,5 @@
-const SUPABASE_URL     = import.meta.env.VITE_SUPABASE_URL
+const SUPABASE_URL      = import.meta.env.VITE_SUPABASE_URL
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
-const RESEND_KEY = import.meta.env.VITE_RESEND_API_KEY  // kept for legacy reference only
-const FROM_EMAIL = import.meta.env.VITE_FROM_EMAIL      // kept for legacy reference only
 
 // Build a branded HTML email body for road test outcomes
 function buildOutcomeHtml(test) {
@@ -171,40 +169,3 @@ export async function sendModuleEmail(moduleKey, placeholders, settings) {
   }
 }
 
-// ── Legacy: road test outcome email (kept for reference) ─────────────────────
-
-export async function sendRoadTestOutcomeEmail(test) {
-  if (!RESEND_KEY) {
-    console.warn('[email] VITE_RESEND_API_KEY not set — skipping email.')
-    return { skipped: true }
-  }
-  if (!test.createdBy?.email) {
-    console.warn('[email] Road test has no createdBy.email — skipping email.')
-    return { skipped: true }
-  }
-
-  const passed  = test.status === 'Passed'
-  const subject = `Road Test ${passed ? 'PASSED ✅' : 'FAILED ❌'} — ${test.candidateName}`
-
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${RESEND_KEY}`,
-      'Content-Type':  'application/json',
-    },
-    body: JSON.stringify({
-      from:    FROM_EMAIL,
-      to:      test.createdBy.email,
-      subject,
-      html:    buildOutcomeHtml(test),
-    }),
-  })
-
-  if (!res.ok) {
-    const err = await res.text()
-    console.error('[email] Resend error:', err)
-    return { error: err }
-  }
-
-  return { ok: true }
-}

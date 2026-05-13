@@ -1,5 +1,6 @@
-const RESEND_KEY = Deno.env.get('RESEND_API_KEY')
-const FROM_EMAIL = Deno.env.get('FROM_EMAIL') || 'onboarding@resend.dev'
+const BREVO_API_KEY = Deno.env.get('BREVO_API_KEY')
+const FROM_EMAIL    = Deno.env.get('FROM_EMAIL') || 'noreply@yourdomain.com'
+const FROM_NAME     = Deno.env.get('FROM_NAME')  || 'PND Logistics Management'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -14,19 +15,28 @@ Deno.serve(async (req) => {
   try {
     const { to, cc, subject, html } = await req.json()
 
-    if (!RESEND_KEY) {
-      return new Response(JSON.stringify({ error: 'RESEND_API_KEY not set' }), {
+    if (!BREVO_API_KEY) {
+      return new Response(JSON.stringify({ error: 'BREVO_API_KEY not set' }), {
         status: 500, headers: { ...cors, 'Content-Type': 'application/json' },
       })
     }
 
-    const payload: Record<string, unknown> = { from: FROM_EMAIL, to, subject, html }
-    if (cc?.length) payload.cc = cc
+    // Brevo expects arrays of { email } objects
+    const toArr = (Array.isArray(to) ? to : [to]).filter(Boolean).map(e => ({ email: e }))
+    const ccArr = (Array.isArray(cc) ? cc : [cc]).filter(Boolean).map(e => ({ email: e }))
 
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+    const payload: Record<string, unknown> = {
+      sender:      { name: FROM_NAME, email: FROM_EMAIL },
+      to:          toArr,
+      subject,
+      htmlContent: html,
+    }
+    if (ccArr.length) payload.cc = ccArr
+
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method:  'POST',
+      headers: { 'api-key': BREVO_API_KEY, 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload),
     })
 
     const data = await res.json()

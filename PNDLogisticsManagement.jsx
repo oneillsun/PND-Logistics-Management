@@ -923,25 +923,18 @@ function TerminalCard({terminal,onEdit,onUploadPdf}) {
 function EmailSettingsForm({moduleKey,label,placeholders,config,onChange}) {
   const set=(k,v)=>onChange(moduleKey,{...config,[k]:v});
   const isOn=config?.enabled||false;
-  const [open,setOpen]=useState(false);
   return (
-    <div style={{background:"#fff",border:"1px solid "+(isOn?FC.rt.bd:"#e5e7eb"),borderRadius:10,marginBottom:14,overflow:"hidden"}}>
-      <div onClick={()=>setOpen(o=>!o)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 18px",cursor:"pointer",userSelect:"none"}}>
-        <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <span style={{fontSize:13,color:"#9ca3af",transition:"transform .2s",display:"inline-block",transform:open?"rotate(90deg)":"rotate(0deg)"}}>▶</span>
-          <span style={{fontWeight:700,fontSize:16,color:"#111827"}}>{label}</span>
-          <span style={{background:isOn?FC.hir.bg:"#f3f4f6",border:"1px solid "+(isOn?FC.hir.bd:"#e5e7eb"),borderRadius:99,padding:"2px 10px",fontSize:11,fontWeight:700,color:isOn?FC.hir.tx:"#9ca3af"}}>{isOn?"Enabled":"Disabled"}</span>
-        </div>
+    <div style={{background:"#fff",border:"1px solid "+(isOn?FC.rt.bd:"#e5e7eb"),borderRadius:10,padding:18,marginBottom:14}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:isOn?14:0}}>
+        <span style={{fontWeight:700,fontSize:16,color:"#111827"}}>{label}</span>
+        <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",userSelect:"none"}}>
+          <div onClick={()=>set("enabled",!isOn)} style={{width:36,height:20,borderRadius:10,background:isOn?FC.rt.h:"#e5e7eb",border:"1px solid "+(isOn?FC.rt.h:"#d1d5db"),position:"relative",transition:"background .2s",cursor:"pointer"}}>
+            <div style={{position:"absolute",top:2,left:isOn?17:2,width:14,height:14,borderRadius:"50%",background:"#fff",transition:"left .2s"}}/>
+          </div>
+          <span style={{fontSize:12,color:isOn?FC.hir.tx:"#9ca3af",fontWeight:600}}>{isOn?"Enabled":"Disabled"}</span>
+        </label>
       </div>
-      {open&&<div style={{padding:"0 18px 18px",borderTop:"1px solid #f3f4f6"}}>
-        <div style={{display:"flex",justifyContent:"flex-end",alignItems:"center",paddingTop:12,marginBottom:14}}>
-          <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",userSelect:"none"}}>
-            <div onClick={()=>set("enabled",!isOn)} style={{width:36,height:20,borderRadius:10,background:isOn?FC.rt.h:"#e5e7eb",border:"1px solid "+(isOn?FC.rt.h:"#d1d5db"),position:"relative",transition:"background .2s",cursor:"pointer"}}>
-              <div style={{position:"absolute",top:2,left:isOn?17:2,width:14,height:14,borderRadius:"50%",background:"#fff",transition:"left .2s"}}/>
-            </div>
-            <span style={{fontSize:12,color:isOn?FC.hir.tx:"#9ca3af",fontWeight:600}}>{isOn?"Enabled":"Disabled"}</span>
-          </label>
-        </div>
+      {isOn&&<>
         <div style={{display:"grid",gridTemplateColumns:"1fr",gap:"0 14px"}}>
           <Field label="CC (optional)"><input style={INP} value={config.cc||""} onChange={e=>set("cc",e.target.value)} placeholder="manager@company.com"/></Field>
         </div>
@@ -950,7 +943,7 @@ function EmailSettingsForm({moduleKey,label,placeholders,config,onChange}) {
         <div style={{fontSize:11,color:"#9ca3af",marginTop:4}}>
           Available placeholders: {placeholders.map(p=><span key={p} style={{marginRight:6,color:"#6b7280"}}>{"{{"+p+"}}"}</span>)}
         </div>
-      </div>}
+      </>}
     </div>
   );
 }

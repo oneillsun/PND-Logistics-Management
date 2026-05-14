@@ -935,8 +935,7 @@ function EmailSettingsForm({moduleKey,label,placeholders,config,onChange}) {
         </label>
       </div>
       {isOn&&<>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
-          <Field label="To (comma-separated)"><input style={INP} value={config.to||""} onChange={e=>set("to",e.target.value)} placeholder="hr@company.com, ops@company.com"/></Field>
+        <div style={{display:"grid",gridTemplateColumns:"1fr",gap:"0 14px"}}>
           <Field label="CC (optional)"><input style={INP} value={config.cc||""} onChange={e=>set("cc",e.target.value)} placeholder="manager@company.com"/></Field>
         </div>
         <Field label="Subject" span><input style={INP} value={config.subject||""} onChange={e=>set("subject",e.target.value)}/></Field>
@@ -1514,13 +1513,15 @@ export default function App() {
     setModal(null);
     dbSave(SK.rt,upd);
     if(test.status==="Passed"){
+      const creatorEmail=test.createdBy?.email||"";
       const result=await sendModuleEmail("roadTestOutcome",{
         candidateName:test.candidateName,fedexId:test.fedexId,phone:test.phone,
         terminal:test.terminal,date:test.date,time:test.time,
         status:test.status,feedback:test.feedback||"",firstDay:test.firstDay||"",
         completedAt:test.completedAt,
-      },emailSettings);
-      if(result?.ok) toast("📧 Notification email sent.","success");
+      },emailSettings,creatorEmail);
+      if(result?.ok) toast("📧 Notification email sent to "+creatorEmail+".","success");
+      else if(result?.skipped&&!creatorEmail) toast("📧 Email skipped — road test creator has no email on file.","warn");
       else if(result?.error) toast("📧 Email failed to send — check console.","warn");
     }
   };

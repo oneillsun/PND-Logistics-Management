@@ -152,17 +152,18 @@ export async function sendEmail({ to, cc, subject, html }) {
   return { ok: true }
 }
 
-export async function sendModuleEmail(moduleKey, placeholders, settings) {
+export async function sendModuleEmail(moduleKey, placeholders, settings, toOverride) {
   const cfg = settings?.[moduleKey]
   console.log(`[email] sendModuleEmail(${moduleKey}) cfg:`, JSON.stringify(cfg))
   if (!cfg?.enabled) return { skipped: true }
-  if (!cfg.to?.trim()) return { skipped: true }
+  const to = toOverride?.trim() || cfg.to?.trim()
+  if (!to) return { skipped: true }
   const subject = interpolate(cfg.subject, placeholders)
   const html = cfg.body
     ? `<div style="font-family:Arial,sans-serif;background:#080812;color:#eeeeff;padding:24px;">${interpolate(cfg.body, placeholders).replace(/\n/g, '<br/>')}</div>`
     : buildFallbackHtml(placeholders)
   try {
-    return await sendEmail({ to: cfg.to, cc: cfg.cc, subject, html })
+    return await sendEmail({ to, cc: cfg.cc, subject, html })
   } catch (err) {
     console.error('[email] sendEmail threw:', err)
     return { error: err.message || String(err) }

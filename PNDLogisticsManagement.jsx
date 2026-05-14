@@ -1432,8 +1432,8 @@ export default function App() {
 
   useEffect(()=>{ setCurrentUser(getSession()); setAuthChecked(true); },[]);
 
-  const handleLogin  = useCallback(user => setCurrentUser(user), []);
-  const handleLogout = useCallback(()=>{ logout(); setCurrentUser(null); },[]);
+  const handleLogin  = useCallback(user => { setCurrentUser(user); if(user?.role!=="admin") setTab(t=>t==="settings"?"rt":t); }, []);
+  const handleLogout = useCallback(()=>{ logout(); setCurrentUser(null); setTab("rt"); },[]);
 
   const loadUsers = useCallback(async()=>{
     const data = await fetchUsers();
@@ -1770,7 +1770,7 @@ export default function App() {
           fDots.length===0
             ?<Empty msg="No DOT cards yet. Click + DOT Card to add one."/>
             :<Grid>{fDots.map(r=><DOTCard key={r.id} card={r} onEdit={r=>setModal({type:"editDot",data:r})} onDelete={delDot} onUpload={handleUploadDotCardFile}/>)}</Grid>
-        ) : tab==="settings" ? (
+        ) : tab==="settings"&&currentUser?.role==="admin" ? (
           <div>
             <div style={{display:"flex",gap:2,background:"#f3f4f6",borderRadius:10,padding:4,marginBottom:24,width:"fit-content"}}>
               {[{key:"terminals",label:"Terminals"},{key:"users",label:"Users"},{key:"email",label:"Email Notifications"}].map(st=>(

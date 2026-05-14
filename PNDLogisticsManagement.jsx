@@ -1370,6 +1370,29 @@ function DOTCard({card,onEdit,onDelete,onUpload}) {
     setUploading(false);
     e.target.value="";
   };
+  const buildDownloadName=()=>{
+    const ext=card.file_url?"."+card.file_url.split(".").pop().split("?")[0]:"";
+    const parts=[];
+    const first=card.firstName?.trim();
+    const last=card.lastName?.trim();
+    if(first||last) parts.push((first?first[0].toUpperCase():"")+( last||""));
+    if(card.fedexId?.trim()) parts.push(card.fedexId.trim());
+    if(card.expirationDate){
+      const[y,m,d]=card.expirationDate.split("-");
+      parts.push(`${m}${d}${y}`);
+    }
+    return (parts.join("_")||"DOTCard")+ext;
+  };
+  const handleDownload=async()=>{
+    if(!card.file_url) return;
+    const res=await fetch(card.file_url);
+    const blob=await res.blob();
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url; a.download=buildDownloadName();
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+  };
   const st=expStatus(card.expirationDate);
   const ec=EXP[st];
   const expDate=card.expirationDate?new Date(card.expirationDate+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}):"";
@@ -1394,7 +1417,7 @@ function DOTCard({card,onEdit,onDelete,onUpload}) {
       <button onClick={()=>fileRef.current?.click()} disabled={uploading} style={{...Btn("outline",cc.h),opacity:uploading?0.6:1}}>
         {uploading?"Uploading…":card.file_url?"Re-upload Card":"Upload Card"}
       </button>
-      {card.file_url&&<a href={card.file_url} target="_blank" rel="noreferrer" style={{...Btn("ghost"),textDecoration:"none",display:"flex",alignItems:"center",gap:5}}><Ico n="eye" s={13}/>View</a>}
+      {card.file_url&&<button onClick={handleDownload} style={{...Btn("ghost"),display:"flex",alignItems:"center",gap:5}}><Ico n="dl" s={13}/>Download</button>}
       <button onClick={()=>onDelete(card.id)} style={{...Btn("ghost"),marginLeft:"auto",color:"#dc2626",borderColor:"#fecaca"}}><Ico n="trash" s={13}/></button>
     </div>
   </div>;

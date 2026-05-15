@@ -396,10 +396,8 @@ function RTCard({test,onEdit,onOutcome,onDelete,onSms,users=[],terminals=[]}) {
         <div>
           <div style={{fontSize:17,fontWeight:700,color:"#111827"}}>{test.candidateName}</div>
           <div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>FX ID: {test.fedexId}{test.dln&&<span style={{marginLeft:10}}>DLN: {test.dln}{test.dlnState&&" ("+test.dlnState+")"}</span>}</div>
-        <div style={{display:"flex",alignItems:"center",gap:5,marginTop:4}}>
-          <div style={{width:14,height:14,borderRadius:3,border:"1.5px solid "+(test.paylocityOnboarding?cc.h:"#d1d5db"),background:test.paylocityOnboarding?cc.h:"#fff",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-            {test.paylocityOnboarding&&<svg width="9" height="7" viewBox="0 0 9 7" fill="none"><polyline points="1,3.5 3.5,6 8,1" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-          </div>
+        <div style={{display:"flex",alignItems:"center",gap:4,marginTop:4}}>
+          <span style={{color:test.paylocityOnboarding?cc.h:"#ef4444",display:"flex",alignItems:"center"}}><Ico n={test.paylocityOnboarding?"check":"x"} s={12}/></span>
           <span style={{fontSize:11,color:test.paylocityOnboarding?cc.h:"#ef4444",fontWeight:500}}>Paylocity Onboarding</span>
         </div>
         </div>

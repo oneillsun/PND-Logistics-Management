@@ -923,27 +923,32 @@ function TerminalCard({terminal,onEdit,onUploadPdf}) {
 function EmailSettingsForm({moduleKey,label,placeholders,config,onChange}) {
   const set=(k,v)=>onChange(moduleKey,{...config,[k]:v});
   const isOn=config?.enabled||false;
+  const [open,setOpen]=useState(false);
   return (
-    <div style={{background:"#fff",border:"1px solid "+(isOn?FC.rt.bd:"#e5e7eb"),borderRadius:10,padding:18,marginBottom:14}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:isOn?14:0}}>
-        <span style={{fontWeight:700,fontSize:16,color:"#111827"}}>{label}</span>
-        <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",userSelect:"none"}}>
-          <div onClick={()=>set("enabled",!isOn)} style={{width:36,height:20,borderRadius:10,background:isOn?FC.rt.h:"#e5e7eb",border:"1px solid "+(isOn?FC.rt.h:"#d1d5db"),position:"relative",transition:"background .2s",cursor:"pointer"}}>
-            <div style={{position:"absolute",top:2,left:isOn?17:2,width:14,height:14,borderRadius:"50%",background:"#fff",transition:"left .2s"}}/>
-          </div>
-          <span style={{fontSize:12,color:isOn?FC.hir.tx:"#9ca3af",fontWeight:600}}>{isOn?"Enabled":"Disabled"}</span>
-        </label>
-      </div>
-      {isOn&&<>
-        <div style={{display:"grid",gridTemplateColumns:"1fr",gap:"0 14px"}}>
-          <Field label="CC (optional)"><input style={INP} value={config.cc||""} onChange={e=>set("cc",e.target.value)} placeholder="manager@company.com"/></Field>
+    <div style={{background:"#fff",border:"1px solid "+(isOn?FC.rt.bd:"#e5e7eb"),borderRadius:10,marginBottom:14,overflow:"hidden"}}>
+      <div onClick={()=>setOpen(o=>!o)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 18px",cursor:"pointer",userSelect:"none"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontSize:11,color:"#9ca3af",display:"inline-block",transform:open?"rotate(90deg)":"rotate(0deg)",transition:"transform .2s"}}>&#9654;</span>
+          <span style={{fontWeight:700,fontSize:16,color:"#111827"}}>{label}</span>
         </div>
+        <span style={{background:isOn?FC.hir.bg:"#f3f4f6",border:"1px solid "+(isOn?FC.hir.bd:"#e5e7eb"),borderRadius:99,padding:"2px 10px",fontSize:11,fontWeight:700,color:isOn?FC.hir.tx:"#9ca3af"}}>{isOn?"Enabled":"Disabled"}</span>
+      </div>
+      {open&&<div style={{padding:"0 18px 18px",borderTop:"1px solid #f3f4f6"}}>
+        <div style={{display:"flex",justifyContent:"flex-end",paddingTop:12,marginBottom:14}}>
+          <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",userSelect:"none"}}>
+            <div onClick={e=>{e.stopPropagation();set("enabled",!isOn);}} style={{width:36,height:20,borderRadius:10,background:isOn?FC.rt.h:"#e5e7eb",border:"1px solid "+(isOn?FC.rt.h:"#d1d5db"),position:"relative",transition:"background .2s",cursor:"pointer"}}>
+              <div style={{position:"absolute",top:2,left:isOn?17:2,width:14,height:14,borderRadius:"50%",background:"#fff",transition:"left .2s"}}/>
+            </div>
+            <span style={{fontSize:12,color:isOn?FC.hir.tx:"#9ca3af",fontWeight:600}}>{isOn?"Enabled":"Disabled"}</span>
+          </label>
+        </div>
+        <Field label="CC (optional)"><input style={INP} value={config.cc||""} onChange={e=>set("cc",e.target.value)} placeholder="manager@company.com"/></Field>
         <Field label="Subject" span><input style={INP} value={config.subject||""} onChange={e=>set("subject",e.target.value)}/></Field>
         <Field label="Body (leave blank for auto-generated)" span><textarea style={{...INP,height:90,resize:"vertical"}} value={config.body||""} onChange={e=>set("body",e.target.value)} placeholder="Leave blank to use the default branded layout."/></Field>
         <div style={{fontSize:11,color:"#9ca3af",marginTop:4}}>
           Available placeholders: {placeholders.map(p=><span key={p} style={{marginRight:6,color:"#6b7280"}}>{"{{"+p+"}}"}</span>)}
         </div>
-      </>}
+      </div>}
     </div>
   );
 }
@@ -1466,7 +1471,7 @@ export default function App() {
   const [modal,setModal]=useState(null);
   const [toasts,setToasts]=useState([]);
   const [fTerm,setFTerm]=useState("All");
-  const [fStatus,setFStatus]=useState("All");
+  const [fStatus,setFStatus]=useState("Scheduled");
   const [fTerminalStatus,setFTerminalStatus]=useState("Active");
   const [settingsTab,setSettingsTab]=useState("terminals");
   const [lastSync,setLastSync]=useState(null);
@@ -1572,7 +1577,7 @@ export default function App() {
   const truckAlerts=trucks.filter(t=>(expStatus(t.regExpiry)!=="ok"&&expStatus(t.regExpiry)!=="none")||(expStatus(t.inspExpiry)!=="ok"&&expStatus(t.inspExpiry)!=="none")).length;
   const activeHiring=hirs.filter(h=>h.action==="start"&&h.status==="Active").length;
 
-  const fRts       =rts.filter(r=>(fTerm==="All"||r.terminal===fTerm)&&(fStatus==="All"||r.status===fStatus)).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  const fRts       =rts.filter(r=>(fTerm==="All"||r.terminal===fTerm)&&(fStatus==="All"||r.status===fStatus)).sort((a,b)=>new Date(a.date)-new Date(b.date));
   const fTerminals =terminals.filter(t=>fTerminalStatus==="All"||(t.status||"Active")===fTerminalStatus).sort((a,b)=>a.name?.localeCompare(b.name));
   const fUnis  =unis.filter(u=>fTerm==="All"||u.terminal===fTerm).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
   const fTrucks=trucks.filter(t=>fTerm==="All"||t.terminal===fTerm).sort((a,b)=>{const u=x=>{const r=expStatus(x.regExpiry),i=expStatus(x.inspExpiry);if(r==="expired"||i==="expired")return 0;if(r==="warning"||i==="warning")return 1;return 2;};return u(a)-u(b);});
@@ -1723,7 +1728,6 @@ export default function App() {
             {TERMINALS.map(t=><option key={t} value={t}>{t}</option>)}
           </select>}
           {tab==="rt"&&<select style={{...INP,width:"auto"}} value={fStatus} onChange={e=>setFStatus(e.target.value)}>{["All","Scheduled","Passed","Failed"].map(s=><option key={s} value={s}>{s}</option>)}</select>}
-          {tab==="settings"&&settingsTab==="terminals"&&<select style={{...INP,width:"auto"}} value={fTerminalStatus} onChange={e=>setFTerminalStatus(e.target.value)}>{["Active","Inactive","All"].map(s=><option key={s} value={s}>{s}</option>)}</select>}
           {tab!=="settings"||settingsTab!=="email"
             ?<button onClick={()=>{const d=tab==="settings"?(settingsTab==="users"?users:settingsTab==="terminals"?terminals:null):{rt:rts,uni:unis,fleet:trucks,inj:injs,acc:accs,hir:hirs,ins:insrs,dot:dots}[tab];if(d)downloadCSV(settingsTab==="users"?"users":settingsTab==="terminals"?"terminals":tab,d);}} style={{...Btn("ghost"),display:"flex",alignItems:"center",gap:6,marginLeft:"auto",padding:"6px 14px",fontSize:12}}>
                 <Ico n="dl" s={14}/><span className="sync-label">Download CSV</span>
@@ -1780,11 +1784,15 @@ export default function App() {
                 </button>
               ))}
             </div>
-            {settingsTab==="terminals" ? (
-              fTerminals.length===0
+            {settingsTab==="terminals" ? (<>
+              <div style={{marginBottom:16}}>
+                <select style={{...INP,width:"auto"}} value={fTerminalStatus} onChange={e=>setFTerminalStatus(e.target.value)}>{["Active","Inactive","All"].map(s=><option key={s} value={s}>{s}</option>)}</select>
+              </div>
+              {fTerminals.length===0
                 ?<Empty msg={terminals.length===0?"No terminals yet. Click Add Terminal to create one.":"No terminals match the selected filter."}/>
                 :<Grid>{fTerminals.map(t=><TerminalCard key={t.id} terminal={t} onEdit={t=>setModal({type:"editTerminal",data:t})} onUploadPdf={handleUploadTerminalPdf}/>)}</Grid>
-            ) : settingsTab==="users" ? (
+              }
+            </>) : settingsTab==="users" ? (
               users.length===0
                 ?<Empty msg="No users yet. Click Add User to create one."/>
                 :<Grid>{users.map(u=><UserCard key={u.id} user={u} onEdit={u=>setModal({type:"editUser",data:u})} isSelf={u.id===currentUser?.id}/>)}</Grid>
@@ -1796,7 +1804,7 @@ export default function App() {
                 </div>
                 <EmailSettingsForm
                   moduleKey="roadTestOutcome"
-                  label="Road Test Outcome (Pass / Fail)"
+                  label="Road Test Outcome (Pass)"
                   placeholders={["candidateName","fedexId","phone","terminal","date","time","status","feedback","firstDay","completedAt"]}
                   config={emailSettings.roadTestOutcome}
                   onChange={handleSettingsChange}

@@ -182,7 +182,7 @@ const Fld = Field;
 
 // ─── CSV export ───────────────────────────────────────────────────────────────
 const CSV_COLS = {
-  rt:    ["id","candidateName","phone","fedexId","dln","dlnState","terminal","date","time","duration","status","manager","notes","feedback","firstDay","completedAt","createdAt"],
+  rt:    ["id","candidateName","phone","fedexId","dln","dlnState","terminal","date","time","duration","status","manager","notes","feedback","firstDay","completedAt","createdAt","paylocityOnboarding"],
   uni:   ["id","terminal","requestedBy","status","notes","items","createdAt","fulfilledAt"],
   fleet: ["id","terminal","truckNumber","licensePlate","regState","regExpiry","inspExpiry","vin","notes","createdAt","updatedAt"],
   inj:   ["id","terminal","employeeName","injuryDate","injuryTime","injuryAddress","description","bodyPart","medicalAttention","medicalProvider","missedWork","missedDays","witnesses","reportedBy","createdAt"],
@@ -194,21 +194,31 @@ const CSV_COLS = {
 function toCSV(rows, cols) {
   const esc = v => {
     if (v === null || v === undefined) return "";
-    const s = Array.isArray(v)
-      ? v.map(i => `${i.qty}x ${i.type} (${i.size})`).join("; ")
-      : String(v);
-    return s.includes(",") || s.includes('"') || s.includes("\n")
-      ? `"${s.replace(/"/g, '""')}"` : s;
+    let s;
+    if (Array.isArray(v)) s = v.map(i => `${i.qty}x ${i.type} (${i.size})`).join("; ");
+    else if (typeof v === "object") s = JSON.stringify(v);
+    else s = String(v);
+    s = s.replace(/\r\n/g, " ").replace(/\r/g, " ").replace(/\n/g, " ");
+    return s.includes(",") || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const header = cols.join(",");
-  const body   = rows.map(r => cols.map(c => esc(r[c])).join(",")).join("\n");
-  return `${header}\n${body}`;
+  const body   = rows.map(r => cols.map(c => esc(r[c])).join(",")).join("\r\n");
+  return `${header}\r\n${body}`;
 }
 
 function downloadCSV(tab, data) {
-  const cols = CSV_COLS[tab];
-  if (!cols) return;
-  const csv  = toCSV(data, cols);
+  let cols = CSV_COLS[tab];
+  if (!cols) {
+    const keys = new Set();
+    data.forEach(r => Object.keys(r).filter(k => !k.startsWith("_")).forEach(k => keys.add(k)));
+    cols = [...keys];
+  } else if (tab === "rt") {
+    const keys = new Set(cols);
+    data.forEach(r => Object.keys(r).filter(k => !k.startsWith("_")).forEach(k => keys.add(k)));
+    cols = [...keys];
+  }
+  if (!cols.length) return;
+  const csv  = "\ufeff" + toCSV(data, cols);
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement("a");
@@ -285,7 +295,7 @@ function SmsModal({test,onClose}) {
 function RTForm({onSave,onClose,existing}) {
   const cc=FC.rt;
   const now=new Date(); const pad=n=>String(n).padStart(2,"0");
-  const [form,setForm]=useState(existing||{candidateName:"",phone:"",fedexId:"",dln:"",dlnState:"",terminal:TERMINALS[0],date:`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`,time:`${pad(now.getHours())}:${pad(now.getMinutes())}`,duration:"60",notes:""});
+  const [form,setForm]=useState(existing||{candidateName:"",phone:"",fedexId:"",dln:"",dlnState:"",terminal:TERMINALS[0],date:`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`,time:`${pad(now.getHours())}:${pad(now.getMinutes())}`,duration:"60",notes:"",paylocityOnboarding:false});
   const [prev,setPrev]=useState(false);
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const doSave=withSms=>{
@@ -308,6 +318,10 @@ function RTForm({onSave,onClose,existing}) {
       <Field label="Duration (min)"><input style={INP} type="number" min="15" max="240" value={form.duration} onChange={e=>set("duration",e.target.value)}/></Field>
     </div>
     <Field label="Notes" span><textarea style={{...INP,height:58,resize:"vertical"}} value={form.notes} onChange={e=>set("notes",e.target.value)} placeholder="Additional notes..."/></Field>
+    <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",marginBottom:14,userSelect:"none"}}>
+      <input type="checkbox" checked={!!form.paylocityOnboarding} onChange={e=>set("paylocityOnboarding",e.target.checked)} style={{width:16,height:16,accentColor:cc.h,cursor:"pointer"}}/>
+      <span style={{fontSize:13,color:"#374151",fontWeight:500}}>Paylocity Onboarding</span>
+    </label>
     {prev&&<div style={{background:cc.bg,border:"1px solid "+cc.bd,borderRadius:8,padding:14,marginBottom:14}}><div style={{fontSize:11,color:cc.tx,fontWeight:600,marginBottom:8}}>SMS Preview</div><pre style={{margin:0,fontSize:12,color:"#374151",lineHeight:1.75,whiteSpace:"pre-wrap",fontFamily:"monospace"}}>{buildSms(form)}</pre></div>}
     <div style={{display:"flex",gap:8,justifyContent:"flex-end",flexWrap:"wrap",marginTop:10}}>
       <button style={Btn("ghost")} onClick={onClose}>Cancel</button>
@@ -382,6 +396,12 @@ function RTCard({test,onEdit,onOutcome,onDelete,onSms,users=[],terminals=[]}) {
         <div>
           <div style={{fontSize:17,fontWeight:700,color:"#111827"}}>{test.candidateName}</div>
           <div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>FX ID: {test.fedexId}{test.dln&&<span style={{marginLeft:10}}>DLN: {test.dln}{test.dlnState&&" ("+test.dlnState+")"}</span>}</div>
+        <div style={{display:"flex",alignItems:"center",gap:5,marginTop:4}}>
+          <div style={{width:14,height:14,borderRadius:3,border:"1.5px solid "+(test.paylocityOnboarding?cc.h:"#d1d5db"),background:test.paylocityOnboarding?cc.h:"#fff",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+            {test.paylocityOnboarding&&<svg width="9" height="7" viewBox="0 0 9 7" fill="none"><polyline points="1,3.5 3.5,6 8,1" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+          </div>
+          <span style={{fontSize:11,color:test.paylocityOnboarding?cc.h:"#ef4444",fontWeight:500}}>Paylocity Onboarding</span>
+        </div>
         </div>
         <Badge status={test.status}/>
       </div>
@@ -1729,7 +1749,7 @@ export default function App() {
           </select>}
           {tab==="rt"&&<select style={{...INP,width:"auto"}} value={fStatus} onChange={e=>setFStatus(e.target.value)}>{["All","Scheduled","Passed","Failed"].map(s=><option key={s} value={s}>{s}</option>)}</select>}
           {tab!=="settings"||settingsTab!=="email"
-            ?<button onClick={()=>{const d=tab==="settings"?(settingsTab==="users"?users:settingsTab==="terminals"?terminals:null):{rt:rts,uni:unis,fleet:trucks,inj:injs,acc:accs,hir:hirs,ins:insrs,dot:dots}[tab];if(d)downloadCSV(settingsTab==="users"?"users":settingsTab==="terminals"?"terminals":tab,d);}} style={{...Btn("ghost"),display:"flex",alignItems:"center",gap:6,marginLeft:"auto",padding:"6px 14px",fontSize:12}}>
+            ?<button onClick={()=>{const d=tab==="settings"?(settingsTab==="users"?users:settingsTab==="terminals"?terminals:null):{rt:rts,uni:unis,fleet:trucks,inj:injs,acc:accs,hir:hirs,ins:insrs,dot:dots}[tab];const key=tab==="settings"?(settingsTab==="users"?"users":settingsTab==="terminals"?"terminals":null):tab;if(d&&key)downloadCSV(key,d);}} style={{...Btn("ghost"),display:"flex",alignItems:"center",gap:6,marginLeft:"auto",padding:"6px 14px",fontSize:12}}>
                 <Ico n="dl" s={14}/><span className="sync-label">Download CSV</span>
               </button>
             :<div style={{marginLeft:"auto"}}/>}

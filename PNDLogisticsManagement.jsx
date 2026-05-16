@@ -384,7 +384,7 @@ function RTCard({test,onEdit,onOutcome,onDelete,onSms,users=[],terminals=[]}) {
     try{
       const adminUser=users.find(u=>u.terminal===test.terminal&&u.status==="active")||null;
       const termRec=terminals.find(t=>`${t.name} - ${t.code}`===test.terminal||t.name===test.terminal)||{};
-      await generateRoadTestPDF({...test,default_unit_number:termRec.default_unit_number||""},TERMINAL_DATA,adminUser,termRec.pdf_url||null);
+      await generateRoadTestPDF({...test,default_unit_number:termRec.default_unit_number||""},termRec,adminUser,termRec.pdf_url||null);
     }
     catch(e){alert("Failed to generate PDF: "+e.message);}
     finally{setDownloading(false);}
@@ -769,6 +769,7 @@ function UserForm({ onSave, onClose, existing, allUsers }) {
   const doSave = () => {
     if (!form.name||!form.username) return alert("Name and username are required.");
     if (!existing && !form.password) return alert("Password is required for new users.");
+    if (form.role==="bc" && !form.terminal) return alert("Terminal Location is required for BC role.");
     if (form.status === "active" && form.terminal) {
       const conflict = (allUsers||[]).find(u => u.terminal===form.terminal && u.status==="active" && u.id!==existing?.id);
       if (conflict) return alert(`Terminal already has an active user: ${conflict.name}.\nDeactivate that user before assigning another one to this terminal.`);
@@ -785,7 +786,7 @@ function UserForm({ onSave, onClose, existing, allUsers }) {
       </Field>
       <Field label="FedEx ID"><input style={INP} value={form.fedexId} onChange={e=>set("fedexId",e.target.value)} placeholder="FX-000000"/></Field>
       <Field label="Terminal Location">
-        <select style={INP} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>
+        <select style={INP} value={form.terminal} onChange={e=>set("terminal",e.target.value)} disabled={form.role==="admin"}>
           <option value="">— Not assigned —</option>
           {TERMINALS.map(t=>{
             const occupied = (allUsers||[]).find(u => u.terminal===t && u.status==="active" && u.id!==existing?.id);
@@ -794,9 +795,10 @@ function UserForm({ onSave, onClose, existing, allUsers }) {
         </select>
       </Field>
       <Field label="Role">
-        <select style={INP} value={form.role} onChange={e=>set("role",e.target.value)} disabled={isAdminUser}>
+        <select style={INP} value={form.role} onChange={e=>{set("role",e.target.value);if(e.target.value==="admin")set("terminal","");}} disabled={isAdminUser}>
           <option value="user">User</option>
           <option value="admin">Admin</option>
+          <option value="bc">BC</option>
         </select>
       </Field>
       <Field label="Status">
@@ -1660,7 +1662,7 @@ export default function App() {
   const handleSaveTerminal=useCallback(async form=>{
     let error;
     if(modal?.data){
-      error=await updateTerminal(modal.data.id,form);
+      error=await updateTerminal(modal.data.id,{...modal.data,...form});
     } else {
       error=await createTerminal(form);
     }

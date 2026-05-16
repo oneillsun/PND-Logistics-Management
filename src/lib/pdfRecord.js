@@ -1,5 +1,4 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-import generalFields from "../../docs/pdf-general-fields.json";
 
 // All coordinates are in PDF space: x from left, y from bottom (pt units).
 // Page size: 612 x 792 pts. Checkbox font F4 (Wingdings) size 8.04pt.
@@ -47,8 +46,8 @@ function addMinutes(timeStr, minutes) {
 }
 
 export async function generateRoadTestPDF(test, terminalData, adminUser, terminalPdfUrl) {
-  const pdfSrc = terminalPdfUrl || "/docs/OP104PDrev111320.pdf";
-  const response = await fetch(pdfSrc);
+  if (!terminalPdfUrl) throw new Error("No PDF template configured for this terminal. Please upload a PDF template in terminal settings.");
+  const response = await fetch(terminalPdfUrl);
   if (!response.ok) throw new Error("Could not load PDF template for this terminal.");
   const existingPdfBytes = await response.arrayBuffer();
 
@@ -58,7 +57,7 @@ export async function generateRoadTestPDF(test, terminalData, adminUser, termina
 
   const dateStr = formatDate(test.date);
   const startTime = formatTime12(test.time);
-  const endTime = addMinutes(test.time, test.duration);
+  const endTime = addMinutes(test.time, 60);
 
   const now = new Date();
   const todayStr = `${String(now.getMonth() + 1).padStart(2, "0")}/${String(now.getDate()).padStart(2, "0")}/${now.getFullYear()}`;
@@ -122,20 +121,13 @@ export async function generateRoadTestPDF(test, terminalData, adminUser, termina
   satisfactoryY.forEach(y => check(41.0, y));
   satisfactoryYR.forEach(y => check(320.0, y));
 
-  // ── Section 4 — Employer fields from pdf-general-fields.json ──────────────
-  const gf = generalFields[test.terminal] || {};
-  const normalizeFieldKey = key => String(key).replace(/[’']/g, "").replace(/\s+/g, " ").trim().toLowerCase();
-  const getField = key => {
-    if (key in gf) return gf[key] || "";
-    const normalizedKey = normalizeFieldKey(key);
-    const match = Object.keys(gf).find(k => normalizeFieldKey(k) === normalizedKey);
-    return match ? gf[match] || "" : "";
-  };
-  draw(getField("Road Test Administrator Employer's Name"), 240, 103, 8);
-  draw(getField("Road Test Administrator Employer's Business Address"), 240, 83, 8);
-  draw(getField("City"), 370, 83, 8);
-  draw(getField("State"), 470, 83, 8);
-  draw(getField("ZIP Code"), 540, 83, 8);
+  // ── Section 4 — Employer fields from terminal record ──────────────────────
+  const zip = terminalData?.zip || terminalData?.zipcode || "";
+  draw(terminalData?.rt_employer_name || "", 240, 103, 8);
+  draw(terminalData?.address || "", 240, 83, 8);
+  draw(terminalData?.city || "", 370, 83, 8);
+  draw(terminalData?.state || "", 475, 83, 8);
+  draw(zip, 540, 83, 8);
 
   // ── Section 4 ──────────────────────────────────────────────────────────────
   draw("22", 45, 146, 8);                        // Route length (approximately ___ miles)

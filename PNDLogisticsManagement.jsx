@@ -43,6 +43,9 @@ const STC = {
   Completed:{ bg:"#f5f3ff", tx:"#5b21b6", bd:"#ddd6fe" },
   Active:   { bg:"#f0fdf4", tx:"#166534", bd:"#bbf7d0" },
   Paused:   { bg:"#fef2f2", tx:"#991b1b", bd:"#fecaca" },
+  Admin:    { bg:"#f5f3ff", tx:"#5b21b6", bd:"#ddd6fe" },
+  BC:       { bg:"#eff6ff", tx:"#1e40af", bd:"#bfdbfe" },
+  User:     { bg:"#f9fafb", tx:"#6b7280", bd:"#e5e7eb" },
 };
 const EXP = {
   expired:{ bg:"#fef2f2", tx:"#dc2626", bd:"#fecaca" },
@@ -843,7 +846,7 @@ function UserCard({ user, onEdit, isSelf }) {
           </div>
         </div>
         <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5}}>
-          <Badge status={isAdminUser?"Admin":"User"}/>
+          <Badge status={user.role==="admin"?"Admin":user.role==="bc"?"BC":"User"}/>
           <Badge status={user.status==="active"?"Active":"Paused"}/>
         </div>
       </div>
@@ -1357,19 +1360,24 @@ function InsuranceCard({req,onEdit,onDelete,onEmail}) {
 }
 
 // ─── DOT Card Form ────────────────────────────────────────────────────────────
-function DOTCardForm({onSave,onClose,existing}) {
-  const now=new Date(); const pad=n=>String(n).padStart(2,"0");
-  const [form,setForm]=useState(existing||{terminal:TERMINALS[0],firstName:"",lastName:"",fedexId:"",expirationDate:""});
+function DOTCardForm({onSave,onClose,existing,terminals=[]}) {
+  const activeTerminals=terminals.filter(t=>(t.status||"Active")==="Active");
+  const initId=existing?.terminal_id||activeTerminals.find(t=>`${t.name} - ${t.code}`===existing?.terminal)?.id||activeTerminals[0]?.id||"";
+  const initLabel=t=>`${t.name} - ${t.code}`;
+  const initTerminal=activeTerminals.find(t=>t.id===initId)?initLabel(activeTerminals.find(t=>t.id===initId)):existing?.terminal||"";
+  const [form,setForm]=useState({terminal_id:initId,terminal:initTerminal,firstName:existing?.firstName||"",lastName:existing?.lastName||"",fedexId:existing?.fedexId||"",expirationDate:existing?.expirationDate||""});
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
+  const handleTerminal=e=>{const t=activeTerminals.find(x=>x.id===e.target.value);setForm(f=>({...f,terminal_id:e.target.value,terminal:t?`${t.name} - ${t.code}`:""}));};
   const doSave=()=>{
     if(!form.firstName.trim()||!form.lastName.trim()) return alert("Driver first and last name are required.");
     if(!form.fedexId.trim()) return alert("FedEx ID is required.");
     if(!form.expirationDate) return alert("Expiration date is required.");
+    if(!form.terminal_id) return alert("Terminal is required.");
     onSave({...form,id:existing?.id||Date.now().toString(),createdAt:existing?.createdAt||new Date().toISOString()});
   };
   return <>
     <div className="form-grid-2">
-      <Field label="Terminal *" span><select style={INP} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>{TERMINALS.map(t=><option key={t} value={t}>{t}</option>)}</select></Field>
+      <Field label="Terminal *" span><select style={INP} value={form.terminal_id} onChange={handleTerminal}>{activeTerminals.length===0&&<option value="">Loading terminals…</option>}{activeTerminals.map(t=><option key={t.id} value={t.id}>{t.name} - {t.code}</option>)}</select></Field>
       <Field label="Driver First Name *"><input style={INP} value={form.firstName} onChange={e=>set("firstName",e.target.value)} placeholder="John"/></Field>
       <Field label="Driver Last Name *"><input style={INP} value={form.lastName} onChange={e=>set("lastName",e.target.value)} placeholder="Smith"/></Field>
       <Field label="Driver FedEx ID *"><input style={INP} value={form.fedexId} onChange={e=>set("fedexId",e.target.value)} placeholder="FX-000000"/></Field>
@@ -1389,6 +1397,11 @@ function DOTCard({card,onEdit,onDelete,onUpload}) {
   const fileRef=useRef(null);
   const handleFile=async e=>{
     const file=e.target.files?.[0]; if(!file) return;
+    if(file.type!=="application/pdf"){
+      toast("Only PDF files are allowed for DOT card uploads.","warn");
+      e.target.value="";
+      return;
+    }
     setUploading(true);
     await onUpload(card,file);
     setUploading(false);
@@ -1435,7 +1448,7 @@ function DOTCard({card,onEdit,onDelete,onUpload}) {
     <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10,padding:"8px 10px",background:card.file_url?"#f0fdf4":"#f9fafb",border:"1px solid "+(card.file_url?"#bbf7d0":"#e5e7eb"),borderRadius:8}}>
       <span style={{fontSize:12,color:card.file_url?"#166534":"#9ca3af",fontWeight:600}}>{card.file_url?"Card file: "+(card.file_name||card.file_url.split("/").pop()):"No card file uploaded"}</span>
     </div>
-    <input ref={fileRef} type="file" accept="image/*,application/pdf" style={{display:"none"}} onChange={handleFile}/>
+    <input ref={fileRef} type="file" accept="application/pdf" style={{display:"none"}} onChange={handleFile}/>
     <div style={{display:"flex",gap:6,flexWrap:"wrap",paddingTop:10,borderTop:"1px solid #f3f4f6"}}>
       <button onClick={()=>onEdit(card)} style={Btn("ghost")}>Edit</button>
       <button onClick={()=>fileRef.current?.click()} disabled={uploading} style={{...Btn("outline",cc.h),opacity:uploading?0.6:1}}>
@@ -1856,8 +1869,8 @@ export default function App() {
       {modal?.type==="newIns"    && <Modal title="New Insurance Request"     onClose={()=>setModal(null)} wide><InsuranceForm onSave={saveInsr} onClose={()=>setModal(null)}/></Modal>}
       {modal?.type==="editIns"   && <Modal title="Edit Insurance Request"    onClose={()=>setModal(null)} wide><InsuranceForm onSave={saveInsr} onClose={()=>setModal(null)} existing={modal.data}/></Modal>}
       {modal?.type==="insEmail"  && <InsuranceEmailModal req={modal.data} onClose={()=>setModal(null)}/>}
-      {modal?.type==="newDot"    && <Modal title="Add DOT Card"          onClose={()=>setModal(null)} wide><DOTCardForm onSave={saveDot}  onClose={()=>setModal(null)}/></Modal>}
-      {modal?.type==="editDot"   && <Modal title="Edit DOT Card"         onClose={()=>setModal(null)} wide><DOTCardForm onSave={saveDot}  onClose={()=>setModal(null)} existing={modal.data}/></Modal>}
+      {modal?.type==="newDot"    && <Modal title="Add DOT Card"          onClose={()=>setModal(null)} wide><DOTCardForm onSave={saveDot}  onClose={()=>setModal(null)} terminals={terminals}/></Modal>}
+      {modal?.type==="editDot"   && <Modal title="Edit DOT Card"         onClose={()=>setModal(null)} wide><DOTCardForm onSave={saveDot}  onClose={()=>setModal(null)} existing={modal.data} terminals={terminals}/></Modal>}
       {modal?.type==="newUser"       && <Modal title="Create User"      onClose={()=>setModal(null)} wide><UserForm     onSave={handleSaveUser}     onClose={()=>setModal(null)} allUsers={users}/></Modal>}
       {modal?.type==="editUser"      && <Modal title="Edit User"        onClose={()=>setModal(null)} wide><UserForm     onSave={handleSaveUser}     onClose={()=>setModal(null)} existing={modal.data} allUsers={users}/></Modal>}
       {modal?.type==="newTerminal"   && <Modal title="Add Terminal"     onClose={()=>setModal(null)} wide><TerminalForm onSave={handleSaveTerminal} onClose={()=>setModal(null)}/></Modal>}

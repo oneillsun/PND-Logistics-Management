@@ -57,8 +57,26 @@ create table if not exists insurance_requests (
 create table if not exists dot_cards (
   id           text primary key,
   data         jsonb not null,
+  terminal_id  text references terminals(id),
   inserted_at  timestamptz default now()
 );
+
+-- If the table already exists, add terminal_id idempotently
+alter table dot_cards add column if not exists terminal_id text references terminals(id);
+
+-- Trigger: auto-populate terminal_id from data->>'terminal_id' on every upsert
+create or replace function sync_dot_cards_terminal_id()
+returns trigger language plpgsql as $$
+begin
+  new.terminal_id = new.data->>'terminal_id';
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_dot_cards_terminal_id on dot_cards;
+create trigger trg_dot_cards_terminal_id
+  before insert or update on dot_cards
+  for each row execute function sync_dot_cards_terminal_id();
 
 -- Terminals
 create table if not exists terminals (

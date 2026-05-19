@@ -382,6 +382,7 @@ function RTCard({test,onEdit,onOutcome,onDelete,onSms,users=[],terminals=[]}) {
   const needsOutcome=new Date()>=end&&test.status==="Scheduled";
   const t=TERMINAL_DATA[test.terminal]||{};
   const [downloading,setDownloading]=useState(false);
+  const [expanded,setExpanded]=useState(false);
   const handleDownload=async()=>{
     setDownloading(true);
     try{
@@ -395,36 +396,44 @@ function RTCard({test,onEdit,onOutcome,onDelete,onSms,users=[],terminals=[]}) {
   return (
     <div style={{background:"#fff",border:"1.5px solid "+(needsOutcome?cc.h:cc.bd),borderLeft:"4px solid "+(needsOutcome?cc.h:cc.h),borderRadius:14,padding:18,boxShadow:"0 1px 6px rgba(0,0,0,.06)"}}>
       {needsOutcome&&<div style={{background:cc.soft,border:"1px solid "+cc.bd,borderRadius:7,padding:"7px 11px",marginBottom:12,display:"flex",alignItems:"center",gap:6}}><Ico n="bell" s={13}/><span style={{fontSize:12,color:cc.tx,fontWeight:600}}>Road test ended — awaiting outcome</span></div>}
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+      <div onClick={()=>setExpanded(e=>!e)} style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:expanded?10:0,cursor:"pointer",userSelect:"none"}}>
         <div>
           <div style={{fontSize:17,fontWeight:700,color:"#111827"}}>{test.candidateName}</div>
-          <div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>FX ID: {test.fedexId}{test.dln&&<span style={{marginLeft:10}}>DLN: {test.dln}{test.dlnState&&" ("+test.dlnState+")"}</span>}</div>
-        <div style={{display:"flex",alignItems:"center",gap:4,marginTop:4}}>
+          <div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>FX ID: {test.fedexId}</div>
+          <div style={{fontSize:12,color:cc.h,fontWeight:500,marginTop:3}}>{test.terminal}</div>
+          <div style={{fontSize:12,color:"#6b7280",marginTop:2}}>{new Date(test.date+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"})}</div>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <Badge status={test.status}/>
+          <span style={{color:"#9ca3af",fontSize:12,lineHeight:1}}>{expanded?"▲":"▼"}</span>
+        </div>
+      </div>
+      {expanded&&<>
+        <div style={{fontSize:12,color:"#6b7280",display:"flex",flexDirection:"column",gap:3,marginBottom:10}}>
+          <div>{test.phone}</div>
+          <div style={{color:cc.h,fontWeight:500}}>{test.terminal}</div>
+          <div style={{color:"#9ca3af",paddingLeft:12}}>{t.address}</div>
+          <div>{new Date(test.date+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"})} · {test.time}</div>
+          <div>{t.manager} · {t.phone}</div>
+          {test.createdBy&&<div style={{color:"#9ca3af",marginTop:2}}>Scheduled by {test.createdBy.name}</div>}
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:10}}>
           <span style={{color:test.paylocityOnboarding?cc.h:"#ef4444",display:"flex",alignItems:"center"}}><Ico n={test.paylocityOnboarding?"check":"x"} s={12}/></span>
           <span style={{fontSize:11,color:test.paylocityOnboarding?cc.h:"#ef4444",fontWeight:500}}>Paylocity Onboarding</span>
+          {test.dln&&<span style={{fontSize:11,color:"#9ca3af",marginLeft:10}}>DLN: {test.dln}{test.dlnState&&" ("+test.dlnState+")"}</span>}
         </div>
+        {test.status==="Passed"&&<div style={{background:FC.hir.bg,border:"1px solid "+FC.hir.bd,borderRadius:7,padding:"7px 11px",marginBottom:10,fontSize:12,color:FC.hir.tx,fontWeight:600}}>PASSED{test.firstDay?" · Training: "+new Date(test.firstDay+"T12:00:00").toLocaleDateString():""}</div>}
+        {test.status==="Failed"&&<div style={{background:FC.inj.bg,border:"1px solid "+FC.inj.bd,borderRadius:7,padding:"7px 11px",marginBottom:10,fontSize:12,color:FC.inj.tx,fontWeight:600}}>FAILED{test.feedback?" · "+test.feedback.slice(0,70):""}</div>}
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",paddingTop:10,borderTop:"1px solid #f3f4f6"}}>
+          {(test.status==="Scheduled"||test.status==="In Progress")&&<>
+            <button onClick={e=>{e.stopPropagation();onEdit(test);}} style={Btn("ghost")}>Edit</button>
+            <button onClick={e=>{e.stopPropagation();onSms(test);}} style={Btn("outline",cc.h)}>SMS</button>
+            {needsOutcome&&<button onClick={e=>{e.stopPropagation();onOutcome(test);}} style={{...Btn("primary",cc.h),display:"flex",alignItems:"center",gap:5}}><Ico n="clip" s={12}/>Enter Outcome</button>}
+          </>}
+          {test.status==="Passed"&&<button onClick={e=>{e.stopPropagation();handleDownload();}} disabled={downloading} style={{...Btn("success"),display:"flex",alignItems:"center",gap:5,opacity:downloading?.6:1}}><Ico n="dl" s={12}/>{downloading?"Generating...":"Download Record"}</button>}
+          <button onClick={e=>{e.stopPropagation();onDelete(test.id);}} style={{...Btn("ghost"),marginLeft:"auto",color:"#dc2626",borderColor:"#fecaca"}}><Ico n="trash" s={13}/></button>
         </div>
-        <Badge status={test.status}/>
-      </div>
-      <div style={{fontSize:12,color:"#6b7280",display:"flex",flexDirection:"column",gap:3,marginBottom:10}}>
-        <div>{test.phone}</div>
-        <div style={{color:cc.h,fontWeight:500}}>{test.terminal}</div>
-        <div style={{color:"#9ca3af",paddingLeft:12}}>{t.address}</div>
-        <div>{new Date(test.date+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"})} · {test.time}</div>
-        <div>{t.manager} · {t.phone}</div>
-        {test.createdBy&&<div style={{color:"#9ca3af",marginTop:2}}>Scheduled by {test.createdBy.name}</div>}
-      </div>
-      {test.status==="Passed"&&<div style={{background:FC.hir.bg,border:"1px solid "+FC.hir.bd,borderRadius:7,padding:"7px 11px",marginBottom:10,fontSize:12,color:FC.hir.tx,fontWeight:600}}>PASSED{test.firstDay?" · Training: "+new Date(test.firstDay+"T12:00:00").toLocaleDateString():""}</div>}
-      {test.status==="Failed"&&<div style={{background:FC.inj.bg,border:"1px solid "+FC.inj.bd,borderRadius:7,padding:"7px 11px",marginBottom:10,fontSize:12,color:FC.inj.tx,fontWeight:600}}>FAILED{test.feedback?" · "+test.feedback.slice(0,70):""}</div>}
-      <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",paddingTop:10,borderTop:"1px solid #f3f4f6"}}>
-        {(test.status==="Scheduled"||test.status==="In Progress")&&<>
-          <button onClick={()=>onEdit(test)} style={Btn("ghost")}>Edit</button>
-          <button onClick={()=>onSms(test)} style={Btn("outline",cc.h)}>SMS</button>
-          {needsOutcome&&<button onClick={()=>onOutcome(test)} style={{...Btn("primary",cc.h),display:"flex",alignItems:"center",gap:5}}><Ico n="clip" s={12}/>Enter Outcome</button>}
-        </>}
-        {test.status==="Passed"&&<button onClick={handleDownload} disabled={downloading} style={{...Btn("success"),display:"flex",alignItems:"center",gap:5,opacity:downloading?.6:1}}><Ico n="dl" s={12}/>{downloading?"Generating...":"Download Record"}</button>}
-        <button onClick={()=>onDelete(test.id)} style={{...Btn("ghost"),marginLeft:"auto",color:"#dc2626",borderColor:"#fecaca"}}><Ico n="trash" s={13}/></button>
-      </div>
+      </>}
     </div>
   );
 }
@@ -1488,7 +1497,11 @@ export default function App() {
     setEmailSettings(await fetchEmailSettings());
   },[]);
 
-  useEffect(()=>{ if(currentUser?.role==="admin"){ loadUsers(); loadTerminals(); loadSettings(); } },[currentUser,loadUsers,loadTerminals,loadSettings]);
+  useEffect(()=>{
+    if(!currentUser) return;
+    loadTerminals();
+    if(currentUser.role==="admin"){ loadUsers(); loadSettings(); }
+  },[currentUser,loadUsers,loadTerminals,loadSettings]);
 
   // ── Data ────────────────────────────────────────────────────────────────────
   const [tab,setTab]=useState("rt");

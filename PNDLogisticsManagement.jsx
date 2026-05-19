@@ -1505,6 +1505,8 @@ export default function App() {
   const [toasts,setToasts]=useState([]);
   const [fTerm,setFTerm]=useState("All");
   const [fStatus,setFStatus]=useState("Scheduled");
+  const [fDateFrom,setFDateFrom]=useState("");
+  const [fDateTo,setFDateTo]=useState("");
   const [fTerminalStatus,setFTerminalStatus]=useState("Active");
   const [settingsTab,setSettingsTab]=useState("terminals");
   const [lastSync,setLastSync]=useState(null);
@@ -1610,7 +1612,7 @@ export default function App() {
   const truckAlerts=trucks.filter(t=>(expStatus(t.regExpiry)!=="ok"&&expStatus(t.regExpiry)!=="none")||(expStatus(t.inspExpiry)!=="ok"&&expStatus(t.inspExpiry)!=="none")).length;
   const activeHiring=hirs.filter(h=>h.action==="start"&&h.status==="Active").length;
 
-  const fRts       =rts.filter(r=>(fTerm==="All"||r.terminal===fTerm)&&(fStatus==="All"||r.status===fStatus)).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const fRts       =rts.filter(r=>(fTerm==="All"||r.terminal===fTerm)&&(fStatus==="All"||r.status===fStatus)&&(!fDateFrom||r.date>=fDateFrom)&&(!fDateTo||r.date<=fDateTo)).sort((a,b)=>new Date(a.date)-new Date(b.date));
   const fTerminals =terminals.filter(t=>fTerminalStatus==="All"||(t.status||"Active")===fTerminalStatus).sort((a,b)=>a.name?.localeCompare(b.name));
   const fUnis  =unis.filter(u=>fTerm==="All"||u.terminal===fTerm).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
   const fTrucks=trucks.filter(t=>fTerm==="All"||t.terminal===fTerm).sort((a,b)=>{const u=x=>{const r=expStatus(x.regExpiry),i=expStatus(x.inspExpiry);if(r==="expired"||i==="expired")return 0;if(r==="warning"||i==="warning")return 1;return 2;};return u(a)-u(b);});
@@ -1761,6 +1763,12 @@ export default function App() {
             {TERMINALS.map(t=><option key={t} value={t}>{t}</option>)}
           </select>}
           {tab==="rt"&&<select style={{...INP,width:"auto"}} value={fStatus} onChange={e=>setFStatus(e.target.value)}>{["All","Scheduled","Passed","Failed"].map(s=><option key={s} value={s}>{s}</option>)}</select>}
+          {tab==="rt"&&<div style={{display:"flex",alignItems:"center",gap:6}}>
+            <input type="date" style={{...INP,width:"auto"}} value={fDateFrom} onChange={e=>setFDateFrom(e.target.value)} title="From date"/>
+            <span style={{fontSize:12,color:"#9ca3af"}}>to</span>
+            <input type="date" style={{...INP,width:"auto"}} value={fDateTo} onChange={e=>setFDateTo(e.target.value)} title="To date"/>
+            {(fDateFrom||fDateTo)&&<button onClick={()=>{setFDateFrom("");setFDateTo("");}} style={{...Btn("ghost"),padding:"4px 8px",fontSize:11,color:"#6b7280"}}>Clear</button>}
+          </div>}
           {tab!=="settings"||settingsTab!=="email"
             ?<button onClick={()=>{const d=tab==="settings"?(settingsTab==="users"?users:settingsTab==="terminals"?terminals:null):{rt:rts,uni:unis,fleet:trucks,inj:injs,acc:accs,hir:hirs,ins:insrs,dot:dots}[tab];const key=tab==="settings"?(settingsTab==="users"?"users":settingsTab==="terminals"?"terminals":null):tab;if(d&&key)downloadCSV(key,d);}} style={{...Btn("ghost"),display:"flex",alignItems:"center",gap:6,marginLeft:"auto",padding:"6px 14px",fontSize:12}}>
                 <Ico n="dl" s={14}/><span className="sync-label">Download CSV</span>
@@ -1772,6 +1780,8 @@ export default function App() {
           {tab==="settings"&&settingsTab==="terminals"&&<button onClick={()=>setModal({type:"newTerminal"})} style={{...Btn("primary","#6b7280"),display:"flex",alignItems:"center",gap:6}}><Ico n="plus" s={14}/>Add Terminal</button>}
           {tab==="settings"&&settingsTab==="users"&&<button onClick={()=>setModal({type:"newUser"})} style={{...Btn("primary","#6b7280"),display:"flex",alignItems:"center",gap:6}}><Ico n="plus" s={14}/>Add User</button>}
         </div>
+
+        {!loading&&tab==="rt"&&<div style={{fontSize:14,color:"#6b7280",padding:"4px 2px"}}>Showing <span style={{fontWeight:700,color:activeCC.h}}>{fRts.length}</span> road test{fRts.length!==1?"s":""}</div>}
 
         {loading ? (
           <div style={{textAlign:"center",padding:80,color:"#9ca3af",fontFamily:"'DM Mono',monospace"}}>Loading shared data…</div>

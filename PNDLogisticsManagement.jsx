@@ -375,7 +375,7 @@ function OutcomeForm({test,onSave,onClose}) {
 }
 
 // ─── Road Test Card ───────────────────────────────────────────────────────────
-function RTCard({test,onEdit,onOutcome,onDelete,onSms,users=[],terminals=[]}) {
+function RTCard({test,onEdit,onOutcome,onDelete,onSms,users=[],terminals=[],onError}) {
   const cc=FC.rt;
   const start=new Date(`${test.date}T${test.time}`);
   const end=new Date(start.getTime()+parseInt(test.duration||60)*60000);
@@ -390,7 +390,7 @@ function RTCard({test,onEdit,onOutcome,onDelete,onSms,users=[],terminals=[]}) {
       const termRec=terminals.find(t=>`${t.name} - ${t.code}`===test.terminal||t.name===test.terminal)||{};
       await generateRoadTestPDF({...test,default_unit_number:termRec.default_unit_number||""},termRec,adminUser,termRec.pdf_url||null);
     }
-    catch(e){alert("Failed to generate PDF: "+e.message);}
+    catch(e){onError?onError("Failed to generate PDF: "+e.message):alert("Failed to generate PDF: "+e.message);}
     finally{setDownloading(false);}
   };
   return (
@@ -425,8 +425,8 @@ function RTCard({test,onEdit,onOutcome,onDelete,onSms,users=[],terminals=[]}) {
         {test.status==="Passed"&&<div style={{background:FC.hir.bg,border:"1px solid "+FC.hir.bd,borderRadius:7,padding:"7px 11px",marginBottom:10,fontSize:12,color:FC.hir.tx,fontWeight:600}}>PASSED{test.firstDay?" · Training: "+new Date(test.firstDay+"T12:00:00").toLocaleDateString():""}</div>}
         {test.status==="Failed"&&<div style={{background:FC.inj.bg,border:"1px solid "+FC.inj.bd,borderRadius:7,padding:"7px 11px",marginBottom:10,fontSize:12,color:FC.inj.tx,fontWeight:600}}>FAILED{test.feedback?" · "+test.feedback.slice(0,70):""}</div>}
         <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",paddingTop:10,borderTop:"1px solid #f3f4f6"}}>
+          <button onClick={e=>{e.stopPropagation();onEdit(test);}} style={Btn("ghost")}>Edit</button>
           {(test.status==="Scheduled"||test.status==="In Progress")&&<>
-            <button onClick={e=>{e.stopPropagation();onEdit(test);}} style={Btn("ghost")}>Edit</button>
             <button onClick={e=>{e.stopPropagation();onSms(test);}} style={Btn("outline",cc.h)}>SMS</button>
             {needsOutcome&&<button onClick={e=>{e.stopPropagation();onOutcome(test);}} style={{...Btn("primary",cc.h),display:"flex",alignItems:"center",gap:5}}><Ico n="clip" s={12}/>Enter Outcome</button>}
           </>}
@@ -1801,7 +1801,7 @@ export default function App() {
         ) : tab==="rt" ? (
           fRts.length===0
             ?<Empty msg="No road tests yet. Click Schedule Road Test to begin."/>
-            :<Grid>{fRts.map(t=><RTCard key={t.id} test={t} onEdit={t=>setModal({type:"editRT",data:t})} onOutcome={t=>setModal({type:"outcome",data:t})} onDelete={delRT} onSms={t=>setModal({type:"sms",data:t})} users={users} terminals={terminals}/>)}</Grid>
+            :<Grid>{fRts.map(t=><RTCard key={t.id} test={t} onEdit={t=>setModal({type:"editRT",data:t})} onOutcome={t=>setModal({type:"outcome",data:t})} onDelete={delRT} onSms={t=>setModal({type:"sms",data:t})} users={users} terminals={terminals} onError={msg=>toast(msg,"warn")}/>)}</Grid>
         ) : tab==="uni" ? (
           fUnis.length===0
             ?<Empty msg="No uniform requests yet."/>

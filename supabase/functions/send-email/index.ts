@@ -40,8 +40,15 @@ Deno.serve(async (req) => {
     })
 
     const data = await res.json()
+    if (!res.ok) {
+      console.error('Brevo error', res.status, JSON.stringify(data))
+      return new Response(JSON.stringify({ error: `Brevo ${res.status}`, detail: data }), {
+        status: 502,
+        headers: { ...cors, 'Content-Type': 'application/json' },
+      })
+    }
     return new Response(JSON.stringify(data), {
-      status: res.status,
+      status: 200,
       headers: { ...cors, 'Content-Type': 'application/json' },
     })
   } catch (err) {

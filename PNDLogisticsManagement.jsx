@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { dbLoad, dbSave } from "./src/lib/db.js";
 import { login, logout, getSession, fetchUsers, createUser, updateUser } from "./src/lib/auth.js";
 import { fetchTerminals, createTerminal, updateTerminal, uploadTerminalPdf } from "./src/lib/terminals.js";
-import { sendModuleEmail } from "./src/lib/email.js";
+import { sendEmail, buildOutcomeHtml } from "./src/lib/email.js";
 import { fetchEmailSettings, saveEmailSettings, DEFAULT_SETTINGS } from "./src/lib/settings.js";
 import { generateRoadTestPDF } from "./src/lib/pdfRecord.js";
 import { uploadDotCardFile } from "./src/lib/dotCards.js";
@@ -1567,15 +1567,17 @@ export default function App() {
     dbSave(SK.rt,upd);
     if(test.status==="Passed"){
       const creatorEmail=test.createdBy?.email||"";
-      const result=await sendModuleEmail("roadTestOutcome",{
-        candidateName:test.candidateName,fedexId:test.fedexId,phone:test.phone,
-        terminal:test.terminal,date:test.date,time:test.time,
-        status:test.status,feedback:test.feedback||"",firstDay:test.firstDay||"",
-        completedAt:test.completedAt,
-      },emailSettings,creatorEmail);
-      if(result?.ok) toast("📧 Notification email sent to "+creatorEmail+".","success");
-      else if(result?.skipped&&!creatorEmail) toast("📧 Email skipped — road test creator has no email on file.","warn");
-      else if(result?.error) toast("📧 Email failed to send — check console.","warn");
+      if(!creatorEmail){toast("📧 Email skipped — road test creator has no email on file.","warn");}
+      else{
+        const termRec=terminals.find(t=>`${t.name} - ${t.code}`===test.terminal||t.name===test.terminal)||{};
+        const result=await sendEmail({
+          to:creatorEmail,
+          subject:"Road Test Passed - "+test.candidateName,
+          html:buildOutcomeHtml({...test,default_unit_number:termRec.default_unit_number||""}),
+        });
+        if(result?.ok) toast("📧 Notification sent to "+creatorEmail+".","success");
+        else if(result?.error) toast("📧 Email failed — check console.","warn");
+      }
     }
   };
 

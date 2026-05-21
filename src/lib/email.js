@@ -1,8 +1,7 @@
-const SUPABASE_URL      = import.meta.env.VITE_SUPABASE_URL
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
+import { supabase } from './supabase'
 
 // Build a branded HTML email body for road test outcomes
-function buildOutcomeHtml(test) {
+export function buildOutcomeHtml(test) {
   const passed  = test.status === 'Passed'
   const accentColor = passed ? '#00cc66' : '#ff4444'
   const statusLabel = passed ? '✅ PASSED' : '❌ FAILED'
@@ -16,6 +15,7 @@ function buildOutcomeHtml(test) {
     ['FedEx ID',        test.fedexId        || '—'],
     ['Phone',           test.phone          || '—'],
     ['Terminal',        terminalInfo],
+    ...(test.default_unit_number ? [['Vehicle Number', test.default_unit_number]] : []),
     ['Test Date',       testDate],
     ['Test Time',       test.time           || '—'],
     ['Duration',        test.duration ? `${test.duration} min` : '—'],
@@ -136,19 +136,10 @@ export async function sendEmail({ to, cc, subject, html }) {
   const payload = { to: toArr, subject, html }
   if (ccArr.length) payload.cc = ccArr
 
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': SUPABASE_ANON_KEY,
-      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-    },
-    body: JSON.stringify(payload),
-  })
-  if (!res.ok) {
-    const err = await res.text()
-    console.error('[email] Edge function error:', err)
-    return { error: err }
+  const { error } = await supabase.functions.invoke('send-email', { body: payload })
+  if (error) {
+    console.error('[email] Edge function error:', error)
+    return { error: error.message || String(error) }
   }
   return { ok: true }
 }

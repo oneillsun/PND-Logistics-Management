@@ -1565,21 +1565,20 @@ export default function App() {
     toast(test.status==="Passed"?"✅ Passed!":"❌ Outcome recorded.",test.status==="Passed"?"success":"warn");
     setModal(null);
     dbSave(SK.rt,upd);
-    if(test.status==="Passed"){
-      const creatorEmail=test.createdBy?.email||"";
-      if(!creatorEmail){toast("📧 Email skipped — road test creator has no email on file.","warn");}
-      else{
-        const termRec=terminals.find(t=>`${t.name} - ${t.code}`===test.terminal||t.name===test.terminal)||{};
-        const cc=emailSettings.roadTestOutcome?.cc||"";
-        const result=await sendEmail({
-          to:creatorEmail,
-          ...(cc&&{cc}),
-          subject:"Road Test Passed - "+test.candidateName,
-          html:buildOutcomeHtml({...test,default_unit_number:termRec.default_unit_number||""}),
-        });
-        if(result?.ok) toast("📧 Notification sent to "+creatorEmail+".","success");
-        else if(result?.error) toast("📧 Email failed — check console.","warn");
-      }
+    const creatorEmail=test.createdBy?.email||"";
+    if(!creatorEmail){toast("📧 Email skipped — road test creator has no email on file.","warn");}
+    else{
+      const termRec=terminals.find(t=>`${t.name} - ${t.code}`===test.terminal||t.name===test.terminal)||{};
+      const cc=emailSettings.roadTestOutcome?.cc||"";
+      const subject="Road Test "+(test.status==="Passed"?"Passed":"Failed")+" - "+test.candidateName;
+      const result=await sendEmail({
+        to:creatorEmail,
+        ...(cc&&{cc}),
+        subject,
+        html:buildOutcomeHtml({...test,default_unit_number:termRec.default_unit_number||""}),
+      });
+      if(result?.ok) toast("📧 Notification sent to "+creatorEmail+".","success");
+      else if(result?.error) toast("📧 Email failed — check console.","warn");
     }
   };
 

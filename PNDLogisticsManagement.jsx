@@ -1570,8 +1570,10 @@ export default function App() {
       if(!creatorEmail){toast("📧 Email skipped — road test creator has no email on file.","warn");}
       else{
         const termRec=terminals.find(t=>`${t.name} - ${t.code}`===test.terminal||t.name===test.terminal)||{};
+        const cc=emailSettings.roadTestOutcome?.cc||"";
         const result=await sendEmail({
           to:creatorEmail,
+          ...(cc&&{cc}),
           subject:"Road Test Passed - "+test.candidateName,
           html:buildOutcomeHtml({...test,default_unit_number:termRec.default_unit_number||""}),
         });

@@ -1863,7 +1863,7 @@ export default function App() {
                 </div>
                 <EmailSettingsForm
                   moduleKey="roadTestOutcome"
-                  label="Road Test Outcome (Pass)"
+                  label="Road Test Outcome"
                   placeholders={["candidateName","fedexId","phone","terminal","date","time","status","feedback","firstDay","completedAt"]}
                   config={emailSettings.roadTestOutcome}
                   onChange={handleSettingsChange}

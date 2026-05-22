@@ -295,10 +295,11 @@ function SmsModal({test,onClose}) {
 }
 
 // ─── Road Test Form ───────────────────────────────────────────────────────────
-function RTForm({onSave,onClose,existing}) {
+function RTForm({onSave,onClose,existing,terminals=[]}) {
   const cc=FC.rt;
   const now=new Date(); const pad=n=>String(n).padStart(2,"0");
-  const [form,setForm]=useState(existing||{candidateName:"",phone:"",fedexId:"",dln:"",dlnState:"",terminal:TERMINALS[0],date:`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`,time:`${pad(now.getHours())}:${pad(now.getMinutes())}`,duration:"60",notes:"",paylocityOnboarding:false});
+  const activeTerminals=terminals.filter(t=>(t.status||"Active")==="Active");
+  const [form,setForm]=useState(existing||{candidateName:"",phone:"",fedexId:"",dln:"",dlnState:"",terminal:activeTerminals[0]?`${activeTerminals[0].name} - ${activeTerminals[0].code}`:"",date:`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`,time:`${pad(now.getHours())}:${pad(now.getMinutes())}`,duration:"60",notes:"",paylocityOnboarding:false});
   const [prev,setPrev]=useState(false);
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const doSave=withSms=>{
@@ -312,7 +313,7 @@ function RTForm({onSave,onClose,existing}) {
       <Field label="FedEx ID *"><input style={INP} value={form.fedexId} onChange={e=>set("fedexId",e.target.value)} placeholder="FX-000000"/></Field>
       <Field label="Candidate License Number"><input style={INP} value={form.dln||""} onChange={e=>set("dln",e.target.value)} placeholder="DLN-000000"/></Field>
       <Field label="DLN State"><select style={INP} value={form.dlnState||""} onChange={e=>set("dlnState",e.target.value)}><option value="">— Select —</option>{US_STATES.map(s=><option key={s} value={s}>{s}</option>)}</select></Field>
-      <Field label="Terminal Location"><select style={INP} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>{TERMINALS.map(t=><option key={t} value={t}>{t}</option>)}</select></Field>
+      <Field label="Terminal Location"><select style={INP} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>{activeTerminals.length===0&&<option value="">Loading terminals…</option>}{activeTerminals.map(t=><option key={t.id} value={`${t.name} - ${t.code}`}>{t.name} - {t.code}</option>)}</select></Field>
     </div>
     <TInfo tk={form.terminal}/>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0 14px"}}>
@@ -439,10 +440,11 @@ function RTCard({test,onEdit,onOutcome,onDelete,onSms,users=[],terminals=[],onEr
 }
 
 // ─── Uniform Form ─────────────────────────────────────────────────────────────
-function UniForm({onSave,onClose,existing}) {
+function UniForm({onSave,onClose,existing,terminals=[]}) {
   const cc=FC.uni;
+  const activeTerminals=terminals.filter(t=>(t.status||"Active")==="Active");
   const newDrv=()=>({id:Date.now().toString()+Math.random(),name:"",items:[{type:UNIFORM_TYPES[0],size:defSize(UNIFORM_TYPES[0])}]});
-  const [form,setForm]=useState(existing||{terminal:TERMINALS[0],requestedBy:"",drivers:[newDrv()],notes:""});
+  const [form,setForm]=useState(existing||{terminal:activeTerminals[0]?`${activeTerminals[0].name} - ${activeTerminals[0].code}`:"",requestedBy:"",drivers:[newDrv()],notes:""});
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const addDrv=()=>set("drivers",[...form.drivers,newDrv()]);
   const remDrv=id=>set("drivers",form.drivers.filter(d=>d.id!==id));
@@ -457,7 +459,7 @@ function UniForm({onSave,onClose,existing}) {
   };
   return <>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
-      <Field label="Terminal Location"><select style={INP} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>{TERMINALS.map(t=><option key={t} value={t}>{t}</option>)}</select></Field>
+      <Field label="Terminal Location"><select style={INP} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>{activeTerminals.length===0&&<option value="">Loading terminals…</option>}{activeTerminals.map(t=><option key={t.id} value={`${t.name} - ${t.code}`}>{t.name} - {t.code}</option>)}</select></Field>
       <Field label="Requested By *"><input style={INP} value={form.requestedBy} onChange={e=>set("requestedBy",e.target.value)} placeholder="Manager name"/></Field>
     </div>
     <TInfo tk={form.terminal}/>
@@ -543,14 +545,15 @@ function ExpPill({label,dateStr}) {
 }
 
 // ─── Truck Form ───────────────────────────────────────────────────────────────
-function TruckForm({onSave,onClose,existing}) {
+function TruckForm({onSave,onClose,existing,terminals=[]}) {
   const cc=FC.fleet;
-  const [form,setForm]=useState(existing||{terminal:TERMINALS[0],truckNumber:"",licensePlate:"",regState:"",regExpiry:"",inspExpiry:"",vin:"",notes:""});
+  const activeTerminals=terminals.filter(t=>(t.status||"Active")==="Active");
+  const [form,setForm]=useState(existing||{terminal:activeTerminals[0]?`${activeTerminals[0].name} - ${activeTerminals[0].code}`:"",truckNumber:"",licensePlate:"",regState:"",regExpiry:"",inspExpiry:"",vin:"",notes:""});
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const doSave=()=>{if(!form.truckNumber||!form.licensePlate)return alert("Please fill in Truck # and License Plate.");onSave({...form,id:existing?.id||Date.now().toString(),createdAt:existing?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()});};
   return <>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
-      <Field label="Terminal Location"><select style={INP} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>{TERMINALS.map(t=><option key={t} value={t}>{t}</option>)}</select></Field>
+      <Field label="Terminal Location"><select style={INP} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>{activeTerminals.length===0&&<option value="">Loading terminals…</option>}{activeTerminals.map(t=><option key={t.id} value={`${t.name} - ${t.code}`}>{t.name} - {t.code}</option>)}</select></Field>
       <Field label="Truck / Unit # *"><input style={INP} value={form.truckNumber} onChange={e=>set("truckNumber",e.target.value)} placeholder="e.g. T-101"/></Field>
       <Field label="License Plate *"><input style={INP} value={form.licensePlate} onChange={e=>set("licensePlate",e.target.value)} placeholder="e.g. ABC-1234"/></Field>
       <Field label="Registration State"><input style={INP} value={form.regState} onChange={e=>set("regState",e.target.value)} placeholder="TX, KY, GA..." maxLength={2}/></Field>
@@ -593,10 +596,11 @@ function TruckCard({truck,onEdit,onDelete}) {
 }
 
 // ─── Injury Form ──────────────────────────────────────────────────────────────
-function InjuryForm({onSave,onClose,existing}) {
+function InjuryForm({onSave,onClose,existing,terminals=[]}) {
   const cc=FC.inj;
   const now=new Date(); const pad=n=>String(n).padStart(2,"0");
-  const [form,setForm]=useState(existing||{terminal:TERMINALS[0],employeeName:"",injuryDate:`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`,injuryTime:`${pad(now.getHours())}:${pad(now.getMinutes())}`,injuryAddress:"",description:"",bodyPart:BODY_PARTS[0],medicalAttention:"",medicalProvider:"",missedWork:"",missedDays:"",witnesses:"",reportedBy:""});
+  const activeTerminals=terminals.filter(t=>(t.status||"Active")==="Active");
+  const [form,setForm]=useState(existing||{terminal:activeTerminals[0]?`${activeTerminals[0].name} - ${activeTerminals[0].code}`:"",employeeName:"",injuryDate:`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`,injuryTime:`${pad(now.getHours())}:${pad(now.getMinutes())}`,injuryAddress:"",description:"",bodyPart:BODY_PARTS[0],medicalAttention:"",medicalProvider:"",missedWork:"",missedDays:"",witnesses:"",reportedBy:""});
   const [attachments,setAttachments]=useState(existing?.attachments||[]);
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const fmtSize=b=>b>1048576?`${(b/1048576).toFixed(1)}MB`:`${(b/1024).toFixed(0)}KB`;
@@ -608,7 +612,7 @@ function InjuryForm({onSave,onClose,existing}) {
       <div style={{fontSize:14,color:cc.tx,fontWeight:700}}>{"WORK RELATED INJURY - "+(form.employeeName?form.employeeName.toUpperCase():"[EMPLOYEE NAME]")}</div>
     </div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
-      <Field label="Terminal Location"><select style={INP} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>{TERMINALS.map(t=><option key={t} value={t}>{t}</option>)}</select></Field>
+      <Field label="Terminal Location"><select style={INP} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>{activeTerminals.length===0&&<option value="">Loading terminals…</option>}{activeTerminals.map(t=><option key={t.id} value={`${t.name} - ${t.code}`}>{t.name} - {t.code}</option>)}</select></Field>
       <Field label="Reported By (Manager)"><input style={INP} value={form.reportedBy} onChange={e=>set("reportedBy",e.target.value)} placeholder="Manager name"/></Field>
       <Field label="Employee Full Name *"><input style={INP} value={form.employeeName} onChange={e=>set("employeeName",e.target.value)} placeholder="First and Last Name"/></Field>
       <Field label="Body Part Injured"><select style={INP} value={form.bodyPart} onChange={e=>set("bodyPart",e.target.value)}>{BODY_PARTS.map(b=><option key={b} value={b}>{b}</option>)}</select></Field>
@@ -768,7 +772,7 @@ function AuthModal({ onLogin }) {
 }
 
 // ─── User Form (admin) ────────────────────────────────────────────────────────
-function UserForm({ onSave, onClose, existing, allUsers }) {
+function UserForm({ onSave, onClose, existing, allUsers, terminals=[] }) {
   const isAdminUser = existing?.username === "admin";
   const [form, setForm] = useState(existing ? {
     name: existing.name, username: existing.username, password: "",
@@ -800,9 +804,10 @@ function UserForm({ onSave, onClose, existing, allUsers }) {
       <Field label="Terminal Location">
         <select style={INP} value={form.terminal} onChange={e=>set("terminal",e.target.value)} disabled={form.role==="admin"}>
           <option value="">— Not assigned —</option>
-          {TERMINALS.map(t=>{
-            const occupied = (allUsers||[]).find(u => u.terminal===t && u.status==="active" && u.id!==existing?.id);
-            return <option key={t} value={t}>{t}{occupied ? " (active: "+occupied.name+")" : ""}</option>;
+          {terminals.filter(t=>(t.status||"Active")==="Active").map(t=>{
+            const label=`${t.name} - ${t.code}`;
+            const occupied=(allUsers||[]).find(u=>u.terminal===label&&u.status==="active"&&u.id!==existing?.id);
+            return <option key={t.id} value={label}>{label}{occupied?" (active: "+occupied.name+")":""}</option>;
           })}
         </select>
       </Field>
@@ -986,9 +991,10 @@ function EmailSettingsForm({moduleKey,label,placeholders,config,onChange}) {
 }
 
 // ─── Accident Form ────────────────────────────────────────────────────────────
-function AccidentForm({onSave,onClose,existing}) {
+function AccidentForm({onSave,onClose,existing,terminals=[]}) {
   const cc=FC.acc; const now=new Date(); const pad=n=>String(n).padStart(2,"0");
-  const [form,setForm]=useState(existing||{terminal:TERMINALS[0],reportedBy:"",accidentDate:now.getFullYear()+"-"+pad(now.getMonth()+1)+"-"+pad(now.getDate()),accidentTime:pad(now.getHours())+":"+pad(now.getMinutes()),accidentAddress:"",description:"",victimName:"",victimPhone:"",victimPlate:"",victimMake:"",victimModel:"",victimColor:"",driverName:"",fedexId:"",vehicleId:"",vehicleYear:"",vehicleMake:"",vehicleModel:"",vderWorking:"",v360Working:""});
+  const activeTerminals=terminals.filter(t=>(t.status||"Active")==="Active");
+  const [form,setForm]=useState(existing||{terminal:activeTerminals[0]?`${activeTerminals[0].name} - ${activeTerminals[0].code}`:"",reportedBy:"",accidentDate:now.getFullYear()+"-"+pad(now.getMonth()+1)+"-"+pad(now.getDate()),accidentTime:pad(now.getHours())+":"+pad(now.getMinutes()),accidentAddress:"",description:"",victimName:"",victimPhone:"",victimPlate:"",victimMake:"",victimModel:"",victimColor:"",driverName:"",fedexId:"",vehicleId:"",vehicleYear:"",vehicleMake:"",vehicleModel:"",vderWorking:"",v360Working:""});
   const [photos,setPhotos]=useState(existing?.photos||[]);
   const [videos,setVideos]=useState(existing?.videos||[]);
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
@@ -1003,7 +1009,7 @@ function AccidentForm({onSave,onClose,existing}) {
       <div style={{fontSize:15,fontWeight:700,color:cc.tx,marginTop:2}}>{form.driverName?form.driverName.toUpperCase():"[DRIVER NAME]"}</div>
     </div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
-      <Field label="Terminal"><select style={INP} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>{TERMINALS.map(t=><option key={t} value={t}>{t}</option>)}</select></Field>
+      <Field label="Terminal"><select style={INP} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>{activeTerminals.length===0&&<option value="">Loading terminals…</option>}{activeTerminals.map(t=><option key={t.id} value={`${t.name} - ${t.code}`}>{t.name} - {t.code}</option>)}</select></Field>
       <Field label="Reported By"><input style={INP} value={form.reportedBy} onChange={e=>set("reportedBy",e.target.value)} placeholder="Manager name"/></Field>
       <Field label="Date"><input style={INP} type="date" value={form.accidentDate} onChange={e=>set("accidentDate",e.target.value)}/></Field>
       <Field label="Time"><input style={INP} type="time" value={form.accidentTime} onChange={e=>set("accidentTime",e.target.value)}/></Field>
@@ -1145,9 +1151,10 @@ function HRNotifyModal({req,onClose}) {
   </Modal>;
 }
 
-function HiringForm({onSave,onClose,existing}) {
+function HiringForm({onSave,onClose,existing,terminals=[]}) {
   const cc=FC.hir;
-  const [form,setForm]=useState(existing||{terminal:TERMINALS[0],requestedBy:"",action:"start",driversNeeded:"",urgency:"medium",reason:""});
+  const activeTerminals=terminals.filter(t=>(t.status||"Active")==="Active");
+  const [form,setForm]=useState(existing||{terminal:activeTerminals[0]?`${activeTerminals[0].name} - ${activeTerminals[0].code}`:"",requestedBy:"",action:"start",driversNeeded:"",urgency:"medium",reason:""});
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const doSave=()=>{
     if(!form.requestedBy.trim())return alert("Enter your name.");
@@ -1158,7 +1165,7 @@ function HiringForm({onSave,onClose,existing}) {
   const urg=URGENCY.find(u=>u.v===form.urgency)||URGENCY[1];
   return <div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
-      <Field label="Terminal Location"><select style={INP} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>{TERMINALS.map(t=><option key={t} value={t}>{t}</option>)}</select></Field>
+      <Field label="Terminal Location"><select style={INP} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>{activeTerminals.length===0&&<option value="">Loading terminals…</option>}{activeTerminals.map(t=><option key={t.id} value={`${t.name} - ${t.code}`}>{t.name} - {t.code}</option>)}</select></Field>
       <Field label="Your Name (Manager) *"><input style={INP} value={form.requestedBy} onChange={e=>set("requestedBy",e.target.value)} placeholder="Manager name"/></Field>
     </div>
     <TInfo tk={form.terminal}/>
@@ -1283,9 +1290,10 @@ function InsuranceEmailModal({req,onClose}) {
   </Modal>;
 }
 
-function InsuranceForm({onSave,onClose,existing}) {
+function InsuranceForm({onSave,onClose,existing,terminals=[]}) {
   const cc=FC.ins;
-  const [form,setForm]=useState(existing||{terminal:TERMINALS[0],requestedBy:"",employeeName:"",employeePhone:"",has30Days:"",notes:""});
+  const activeTerminals=terminals.filter(t=>(t.status||"Active")==="Active");
+  const [form,setForm]=useState(existing||{terminal:activeTerminals[0]?`${activeTerminals[0].name} - ${activeTerminals[0].code}`:"",requestedBy:"",employeeName:"",employeePhone:"",has30Days:"",notes:""});
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const doSave=()=>{
     if(!form.employeeName.trim())return alert("Enter employee name.");
@@ -1303,7 +1311,7 @@ function InsuranceForm({onSave,onClose,existing}) {
       </div>
     </div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
-      <Field label="Terminal Location"><select style={INP} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>{TERMINALS.map(t=><option key={t} value={t}>{t}</option>)}</select></Field>
+      <Field label="Terminal Location"><select style={INP} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>{activeTerminals.length===0&&<option value="">Loading terminals…</option>}{activeTerminals.map(t=><option key={t.id} value={`${t.name} - ${t.code}`}>{t.name} - {t.code}</option>)}</select></Field>
       <Field label="Requested By (Manager) *"><input style={INP} value={form.requestedBy} onChange={e=>set("requestedBy",e.target.value)} placeholder="Your name"/></Field>
     </div>
     <TInfo tk={form.terminal}/>
@@ -1776,7 +1784,7 @@ export default function App() {
         <div className="filter-bar">
           {tab!=="settings"&&<select style={{...INP,width:"auto",minWidth:200}} value={fTerm} onChange={e=>setFTerm(e.target.value)}>
             <option value="All">All Terminals</option>
-            {TERMINALS.map(t=><option key={t} value={t}>{t}</option>)}
+            {terminals.filter(t=>(t.status||"Active")==="Active").map(t=><option key={t.id} value={`${t.name} - ${t.code}`}>{t.name} - {t.code}</option>)}
           </select>}
           {tab==="rt"&&<select style={{...INP,width:"auto"}} value={fStatus} onChange={e=>setFStatus(e.target.value)}>{["All","Scheduled","Passed","Failed"].map(s=><option key={s} value={s}>{s}</option>)}</select>}
           {tab==="rt"&&<div style={{display:"flex",alignItems:"center",gap:6}}>
@@ -1875,30 +1883,30 @@ export default function App() {
       </div>
 
       {/* ── MODALS ─────────────────────────────────────────── */}
-      {modal?.type==="newRT"     && <Modal title="Schedule Road Test"        onClose={()=>setModal(null)} wide><RTForm      onSave={saveRT}      onClose={()=>setModal(null)}/></Modal>}
-      {modal?.type==="editRT"    && <Modal title="Edit Road Test"            onClose={()=>setModal(null)} wide><RTForm      onSave={saveRT}      onClose={()=>setModal(null)} existing={modal.data}/></Modal>}
+      {modal?.type==="newRT"     && <Modal title="Schedule Road Test"        onClose={()=>setModal(null)} wide><RTForm      onSave={saveRT}      onClose={()=>setModal(null)} terminals={terminals}/></Modal>}
+      {modal?.type==="editRT"    && <Modal title="Edit Road Test"            onClose={()=>setModal(null)} wide><RTForm      onSave={saveRT}      onClose={()=>setModal(null)} existing={modal.data} terminals={terminals}/></Modal>}
       {modal?.type==="outcome"   && <Modal title="Enter Road Test Outcome"   onClose={()=>setModal(null)}     ><OutcomeForm onSave={saveOutcome} onClose={()=>setModal(null)} test={modal.data}/></Modal>}
       {modal?.type==="sms"       && <SmsModal test={modal.data} onClose={()=>setModal(null)}/>}
-      {modal?.type==="newUni"    && <Modal title="New Uniform Order"         onClose={()=>setModal(null)} wide><UniForm    onSave={saveUni}     onClose={()=>setModal(null)}/></Modal>}
-      {modal?.type==="editUni"   && <Modal title="Edit Uniform Request"      onClose={()=>setModal(null)} wide><UniForm    onSave={saveUni}     onClose={()=>setModal(null)} existing={modal.data}/></Modal>}
-      {modal?.type==="newTruck"  && <Modal title="Add Truck to Fleet"        onClose={()=>setModal(null)} wide><TruckForm  onSave={saveTruck}   onClose={()=>setModal(null)}/></Modal>}
-      {modal?.type==="editTruck" && <Modal title="Edit Truck"                onClose={()=>setModal(null)} wide><TruckForm  onSave={saveTruck}   onClose={()=>setModal(null)} existing={modal.data}/></Modal>}
-      {modal?.type==="newInj"    && <Modal title="File Work Injury Report"   onClose={()=>setModal(null)} wide><InjuryForm onSave={saveInj}     onClose={()=>setModal(null)}/></Modal>}
-      {modal?.type==="editInj"   && <Modal title="Edit Injury Report"        onClose={()=>setModal(null)} wide><InjuryForm onSave={saveInj}     onClose={()=>setModal(null)} existing={modal.data}/></Modal>}
+      {modal?.type==="newUni"    && <Modal title="New Uniform Order"         onClose={()=>setModal(null)} wide><UniForm    onSave={saveUni}     onClose={()=>setModal(null)} terminals={terminals}/></Modal>}
+      {modal?.type==="editUni"   && <Modal title="Edit Uniform Request"      onClose={()=>setModal(null)} wide><UniForm    onSave={saveUni}     onClose={()=>setModal(null)} existing={modal.data} terminals={terminals}/></Modal>}
+      {modal?.type==="newTruck"  && <Modal title="Add Truck to Fleet"        onClose={()=>setModal(null)} wide><TruckForm  onSave={saveTruck}   onClose={()=>setModal(null)} terminals={terminals}/></Modal>}
+      {modal?.type==="editTruck" && <Modal title="Edit Truck"                onClose={()=>setModal(null)} wide><TruckForm  onSave={saveTruck}   onClose={()=>setModal(null)} existing={modal.data} terminals={terminals}/></Modal>}
+      {modal?.type==="newInj"    && <Modal title="File Work Injury Report"   onClose={()=>setModal(null)} wide><InjuryForm onSave={saveInj}     onClose={()=>setModal(null)} terminals={terminals}/></Modal>}
+      {modal?.type==="editInj"   && <Modal title="Edit Injury Report"        onClose={()=>setModal(null)} wide><InjuryForm onSave={saveInj}     onClose={()=>setModal(null)} existing={modal.data} terminals={terminals}/></Modal>}
       {modal?.type==="viewInj"   && <InjuryDetail report={modal.data} onClose={()=>setModal(null)}/>}
-      {modal?.type==="newAcc"    && <Modal title="File Accident Report"     onClose={()=>setModal(null)} wide><AccidentForm  onSave={saveAcc}  onClose={()=>setModal(null)}/></Modal>}
-      {modal?.type==="editAcc"   && <Modal title="Edit Accident Report"     onClose={()=>setModal(null)} wide><AccidentForm  onSave={saveAcc}  onClose={()=>setModal(null)} existing={modal.data}/></Modal>}
+      {modal?.type==="newAcc"    && <Modal title="File Accident Report"     onClose={()=>setModal(null)} wide><AccidentForm  onSave={saveAcc}  onClose={()=>setModal(null)} terminals={terminals}/></Modal>}
+      {modal?.type==="editAcc"   && <Modal title="Edit Accident Report"     onClose={()=>setModal(null)} wide><AccidentForm  onSave={saveAcc}  onClose={()=>setModal(null)} existing={modal.data} terminals={terminals}/></Modal>}
       {modal?.type==="viewAcc"   && <AccidentDetail report={modal.data} onClose={()=>setModal(null)}/>}
-      {modal?.type==="newHir"    && <Modal title="New Hiring Request"        onClose={()=>setModal(null)} wide><HiringForm    onSave={saveHir}  onClose={()=>setModal(null)}/></Modal>}
-      {modal?.type==="editHir"   && <Modal title="Edit Hiring Request"       onClose={()=>setModal(null)} wide><HiringForm    onSave={saveHir}  onClose={()=>setModal(null)} existing={modal.data}/></Modal>}
+      {modal?.type==="newHir"    && <Modal title="New Hiring Request"        onClose={()=>setModal(null)} wide><HiringForm    onSave={saveHir}  onClose={()=>setModal(null)} terminals={terminals}/></Modal>}
+      {modal?.type==="editHir"   && <Modal title="Edit Hiring Request"       onClose={()=>setModal(null)} wide><HiringForm    onSave={saveHir}  onClose={()=>setModal(null)} existing={modal.data} terminals={terminals}/></Modal>}
       {modal?.type==="hirNotify" && <HRNotifyModal req={modal.data} onClose={()=>setModal(null)}/>}
-      {modal?.type==="newIns"    && <Modal title="New Insurance Request"     onClose={()=>setModal(null)} wide><InsuranceForm onSave={saveInsr} onClose={()=>setModal(null)}/></Modal>}
-      {modal?.type==="editIns"   && <Modal title="Edit Insurance Request"    onClose={()=>setModal(null)} wide><InsuranceForm onSave={saveInsr} onClose={()=>setModal(null)} existing={modal.data}/></Modal>}
+      {modal?.type==="newIns"    && <Modal title="New Insurance Request"     onClose={()=>setModal(null)} wide><InsuranceForm onSave={saveInsr} onClose={()=>setModal(null)} terminals={terminals}/></Modal>}
+      {modal?.type==="editIns"   && <Modal title="Edit Insurance Request"    onClose={()=>setModal(null)} wide><InsuranceForm onSave={saveInsr} onClose={()=>setModal(null)} existing={modal.data} terminals={terminals}/></Modal>}
       {modal?.type==="insEmail"  && <InsuranceEmailModal req={modal.data} onClose={()=>setModal(null)}/>}
       {modal?.type==="newDot"    && <Modal title="Add DOT Card"          onClose={()=>setModal(null)} wide><DOTCardForm onSave={saveDot}  onClose={()=>setModal(null)} terminals={terminals}/></Modal>}
       {modal?.type==="editDot"   && <Modal title="Edit DOT Card"         onClose={()=>setModal(null)} wide><DOTCardForm onSave={saveDot}  onClose={()=>setModal(null)} existing={modal.data} terminals={terminals}/></Modal>}
-      {modal?.type==="newUser"       && <Modal title="Create User"      onClose={()=>setModal(null)} wide><UserForm     onSave={handleSaveUser}     onClose={()=>setModal(null)} allUsers={users}/></Modal>}
-      {modal?.type==="editUser"      && <Modal title="Edit User"        onClose={()=>setModal(null)} wide><UserForm     onSave={handleSaveUser}     onClose={()=>setModal(null)} existing={modal.data} allUsers={users}/></Modal>}
+      {modal?.type==="newUser"       && <Modal title="Create User"      onClose={()=>setModal(null)} wide><UserForm     onSave={handleSaveUser}     onClose={()=>setModal(null)} allUsers={users} terminals={terminals}/></Modal>}
+      {modal?.type==="editUser"      && <Modal title="Edit User"        onClose={()=>setModal(null)} wide><UserForm     onSave={handleSaveUser}     onClose={()=>setModal(null)} existing={modal.data} allUsers={users} terminals={terminals}/></Modal>}
       {modal?.type==="newTerminal"   && <Modal title="Add Terminal"     onClose={()=>setModal(null)} wide><TerminalForm onSave={handleSaveTerminal} onClose={()=>setModal(null)}/></Modal>}
       {modal?.type==="editTerminal"  && <Modal title="Edit Terminal"    onClose={()=>setModal(null)} wide><TerminalForm onSave={handleSaveTerminal} onClose={()=>setModal(null)} existing={modal.data}/></Modal>}
 

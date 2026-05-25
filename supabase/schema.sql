@@ -119,6 +119,12 @@ create unique index if not exists users_one_active_per_terminal
   on users (terminal)
   where status = 'active' and terminal is not null;
 
+-- Email List (per-module recipient addresses)
+create table if not exists email_list (
+  module  text primary key,
+  emails  text not null default ''
+);
+
 -- Row Level Security
 alter table terminals      enable row level security;
 alter table road_tests     enable row level security;
@@ -130,6 +136,7 @@ alter table hiring_requests    enable row level security;
 alter table insurance_requests enable row level security;
 alter table dot_cards          enable row level security;
 alter table users              enable row level security;
+alter table email_list         enable row level security;
 
 -- Allow full access via the anon key (internal tool).
 create policy "allow_all" on terminals           for all using (true) with check (true);
@@ -142,6 +149,7 @@ create policy "allow_all" on hiring_requests     for all using (true) with check
 create policy "allow_all" on insurance_requests  for all using (true) with check (true);
 create policy "allow_all" on dot_cards           for all using (true) with check (true);
 create policy "allow_all" on users               for all using (true) with check (true);
+create policy "allow_all" on email_list          for all using (true) with check (true);
 
 -- Seed master admin user (admin / admin)
 insert into users (name, username, password, role, status)

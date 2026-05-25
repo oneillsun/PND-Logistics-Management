@@ -4,18 +4,10 @@ import { login, logout, getSession, fetchUsers, createUser, updateUser } from ".
 import { fetchTerminals, createTerminal, updateTerminal, uploadTerminalPdf } from "./src/lib/terminals.js";
 import { sendEmail, buildOutcomeHtml } from "./src/lib/email.js";
 import { fetchEmailSettings, saveEmailSettings, DEFAULT_SETTINGS } from "./src/lib/settings.js";
+import { fetchEmailList, saveEmailList, EMAIL_LIST_MODULES } from "./src/lib/emailList.js";
 import { generateRoadTestPDF } from "./src/lib/pdfRecord.js";
 import { uploadDotCardFile } from "./src/lib/dotCards.js";
 
-const TERMINAL_DATA = {
-"Fort Worth Terminal - 761":      { address: "4901 Village Creek Rd, Fort Worth TX 76119",        manager: "Alexis Rodriguez", phone: "+1 (787) 672-8847" },
-"North Fort Worth Terminal - 762": { address: "2701 Texas Longhorn Way, Fort Worth, TX 76177",    manager: "Rebeca Davila",    phone: "+1 (775) 440-3156" },
-"Arlington Terminal - 764":       { address: "2251 E Bardin Rd, Arlington, TX 76018",             manager: "Anthony Tapia",    phone: "+1 (920) 866-0324" },
-"Irving Terminal - 752":          { address: "3215 Spur 482, Irving, TX 75062",                   manager: "Albert Ochoa",     phone: "+1 (972) 966-9619" },
-"North Kentucky Terminal - 410":  { address: "11000 Toebben Dr, Independence, KY 41051",         manager: "Carson Lafavers",  phone: "+1 (469) 601-1992" },
-"Savannah Terminal - 314":        { address: "135 Coleman Blvd, Savannah, GA 31408",              manager: "Jeremy Gonzalez",  phone: "+1 (786) 302-8160" },
-};
-const TERMINALS = Object.keys(TERMINAL_DATA);
 const UNIFORM_TYPES = ["Polo Shirt","T-Shirt","Jacket","Safety Vest","Pants","Shorts","Cap / Hat","Steel-Toe Boots","Rain Gear","Winter Coat"];
 const BOTTOM_TYPES  = ["Pants","Shorts"];
 const BOTTOM_SIZES  = Array.from({length:13},(_,i)=>String(24+i*2));
@@ -86,13 +78,15 @@ function daysUntil(d){ if(!d) return null; return Math.ceil((new Date(d+"T12:00:
 function expStatus(d){ const n=daysUntil(d); if(n===null)return"none"; if(n<0)return"expired"; if(n<=30)return"warning"; return"ok"; }
 function expLabel(d) { const n=daysUntil(d); if(n===null)return"-"; if(n<0)return`Expired ${Math.abs(n)}d ago`; if(n===0)return"Expires TODAY"; return`${n}d remaining`; }
 
-function buildSms(f) {
-  const t=TERMINAL_DATA[f.terminal]||{};
+function findTerm(terminals,label){return terminals.find(t=>`${t.name} - ${t.code}`===label)||{};}
+
+function buildSms(f,terminals=[]) {
+  const t=findTerm(terminals,f.terminal);
   const d=f.date?new Date(f.date+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",year:"numeric",month:"long",day:"numeric"}):"[date]";
   return "Hello "+(f.candidateName||"[Candidate]")+",\n\nYour road test has been scheduled:\n\nTerminal: "+f.terminal+"\n"+(t.address||"")+"\n\nDate: "+d+"\nTime: "+(f.time||"")+"\n\nManager: "+(t.manager||"")+"\nPhone: "+(t.phone||"")+"\n\nPlease arrive 10 min early with a valid driver's license.\n\nBRING TO YOUR ROAD TEST:\n- Driver License\n- Birth Certificate OR Social Security Card\n- Permanent Resident Card (if applicable)\n- Work Permit (if applicable)\n\nGood luck!\n- PND Logistics HR Team";
 }
-function buildHiringSMS(f) {
-  const t=TERMINAL_DATA[f.terminal]||{};
+function buildHiringSMS(f,terminals=[]) {
+  const t=findTerm(terminals,f.terminal);
   const u=URGENCY.find(x=>x.v===f.urgency)||URGENCY[1];
   const action=f.action==="start"?"START HIRING REQUEST":"PAUSE HIRING REQUEST";
   return action+"\n\nTerminal: "+f.terminal+"\n"+(t.address||"")
@@ -101,8 +95,8 @@ function buildHiringSMS(f) {
     +(f.reason?"\n\nReason:\n"+f.reason:"")
     +"\n\n- PND Logistics System";
 }
-function buildInsuranceEmail(f) {
-  const t=TERMINAL_DATA[f.terminal]||{};
+function buildInsuranceEmail(f,terminals=[]) {
+  const t=findTerm(terminals,f.terminal);
   const date=new Date(f.createdAt||new Date()).toLocaleDateString("en-US",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
   const line="------------------";
   const eligible=f.has30Days==="yes"?"YES - Employee meets the eligibility requirement":"NO - Employee has not yet reached 30 days";
@@ -240,8 +234,8 @@ function Badge({status}) {
 const Bdg = Badge;
 
 // ─── Terminal Info ────────────────────────────────────────────────────────────
-function TInfo({tk,col}) {
-  const t=TERMINAL_DATA[tk]; if(!t) return null;
+function TInfo({tk,col,terminals=[]}) {
+  const t=findTerm(terminals,tk); if(!t.name) return null;
   return (
     <div style={{background:"#f8fafc",border:"1px solid #e5e7eb",borderRadius:8,padding:"10px 14px",marginBottom:14,fontSize:12,color:"#374151",fontFamily:"inherit"}}>
       <div style={{fontWeight:600,color:"#111827",marginBottom:2}}>{tk}</div>
@@ -256,11 +250,11 @@ function Grid({children}){return <div style={{display:"grid",gridTemplateColumns
 function Empty({msg}){return <div style={{textAlign:"center",padding:80,color:"#9ca3af",fontSize:14}}>{msg}</div>;}
 
 // ─── SMS Modal ────────────────────────────────────────────────────────────────
-function SmsModal({test,onClose}) {
+function SmsModal({test,onClose,terminals=[]}) {
   const cc=FC.rt;
   const [copied,setCopied]=useState(false);
   const [sent,setSent]=useState(false);
-  const msg=buildSms(test);
+  const msg=buildSms(test,terminals);
   const digits=(test.phone||"").replace(/\D/g,"");
   const openSms=()=>{window.location.href="sms:"+digits+"?body="+encodeURIComponent(msg);setSent(true);};
   const openWa=()=>{window.open("https://wa.me/"+digits+"?text="+encodeURIComponent(msg),"_blank");setSent(true);};
@@ -299,7 +293,7 @@ function RTForm({onSave,onClose,existing,terminals=[]}) {
   const cc=FC.rt;
   const now=new Date(); const pad=n=>String(n).padStart(2,"0");
   const activeTerminals=terminals.filter(t=>(t.status||"Active")==="Active");
-  const [form,setForm]=useState(existing||{candidateName:"",phone:"",fedexId:"",dln:"",dlnState:"",terminal:activeTerminals[0]?`${activeTerminals[0].name} - ${activeTerminals[0].code}`:"",date:`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`,time:`${pad(now.getHours())}:${pad(now.getMinutes())}`,duration:"60",notes:"",paylocityOnboarding:false});
+  const [form,setForm]=useState(existing?{...existing,terminal_id:existing.terminal_id||activeTerminals.find(t=>`${t.name} - ${t.code}`===existing.terminal)?.id||""}:{candidateName:"",phone:"",fedexId:"",dln:"",dlnState:"",terminal:activeTerminals[0]?`${activeTerminals[0].name} - ${activeTerminals[0].code}`:"",terminal_id:activeTerminals[0]?.id||"",date:`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`,time:`${pad(now.getHours())}:${pad(now.getMinutes())}`,duration:"60",notes:"",paylocityOnboarding:false});
   const [prev,setPrev]=useState(false);
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const doSave=withSms=>{
@@ -313,9 +307,9 @@ function RTForm({onSave,onClose,existing,terminals=[]}) {
       <Field label="FedEx ID *"><input style={INP} value={form.fedexId} onChange={e=>set("fedexId",e.target.value)} placeholder="FX-000000"/></Field>
       <Field label="Candidate License Number"><input style={INP} value={form.dln||""} onChange={e=>set("dln",e.target.value)} placeholder="DLN-000000"/></Field>
       <Field label="DLN State"><select style={INP} value={form.dlnState||""} onChange={e=>set("dlnState",e.target.value)}><option value="">— Select —</option>{US_STATES.map(s=><option key={s} value={s}>{s}</option>)}</select></Field>
-      <Field label="Terminal Location"><select style={INP} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>{activeTerminals.length===0&&<option value="">Loading terminals…</option>}{activeTerminals.map(t=><option key={t.id} value={`${t.name} - ${t.code}`}>{t.name} - {t.code}</option>)}</select></Field>
+      <Field label="Terminal Location"><select style={INP} value={form.terminal} onChange={e=>{const sel=activeTerminals.find(t=>`${t.name} - ${t.code}`===e.target.value);set("terminal",e.target.value);set("terminal_id",sel?.id||"");}}>{activeTerminals.length===0&&<option value="">Loading terminals…</option>}{activeTerminals.map(t=><option key={t.id} value={`${t.name} - ${t.code}`}>{t.name} - {t.code}</option>)}</select></Field>
     </div>
-    <TInfo tk={form.terminal}/>
+    <TInfo tk={form.terminal} terminals={terminals}/>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0 14px"}}>
       <Field label="Test Date"><input style={INP} type="date" value={form.date} onChange={e=>set("date",e.target.value)}/></Field>
       <Field label="Start Time"><input style={INP} type="time" value={form.time} onChange={e=>set("time",e.target.value)}/></Field>
@@ -381,7 +375,7 @@ function RTCard({test,onEdit,onOutcome,onDelete,onSms,users=[],terminals=[],onEr
   const start=new Date(`${test.date}T${test.time}`);
   const end=new Date(start.getTime()+parseInt(test.duration||60)*60000);
   const needsOutcome=new Date()>=end&&test.status==="Scheduled";
-  const t=TERMINAL_DATA[test.terminal]||{};
+  const t=findTerm(terminals,test.terminal);
   const [downloading,setDownloading]=useState(false);
   const [expanded,setExpanded]=useState(false);
   const handleDownload=async()=>{
@@ -462,7 +456,7 @@ function UniForm({onSave,onClose,existing,terminals=[]}) {
       <Field label="Terminal Location"><select style={INP} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>{activeTerminals.length===0&&<option value="">Loading terminals…</option>}{activeTerminals.map(t=><option key={t.id} value={`${t.name} - ${t.code}`}>{t.name} - {t.code}</option>)}</select></Field>
       <Field label="Requested By *"><input style={INP} value={form.requestedBy} onChange={e=>set("requestedBy",e.target.value)} placeholder="Manager name"/></Field>
     </div>
-    <TInfo tk={form.terminal}/>
+    <TInfo tk={form.terminal} terminals={terminals}/>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
       <label style={{fontSize:11,color:"#6b7280",fontWeight:600,textTransform:"uppercase",letterSpacing:.5}}>Drivers and Items</label>
       <button onClick={addDrv} style={{...Btn("outline",cc.h),padding:"5px 12px",fontSize:12}}>+ Add Driver</button>
@@ -498,35 +492,48 @@ function UniForm({onSave,onClose,existing,terminals=[]}) {
 }
 
 // ─── Uniform Card ─────────────────────────────────────────────────────────────
-function UniCard({req,onEdit,onDelete,onFulfill,onView}) {
+function UniCard({req,onEdit,onDelete,onFulfill,onView,terminals=[]}) {
   const cc=FC.uni;
+  const [open,setOpen]=useState(false);
   const drivers=req.drivers||[];
   const totalItems=drivers.reduce((s,d)=>s+(d.items?.length||0),0);
-  const t=TERMINAL_DATA[req.terminal]||{};
+  const t=findTerm(terminals,req.terminal);
   return (
     <div style={{background:"#fff",border:"1.5px solid "+cc.bd,borderLeft:"4px solid "+cc.h,borderRadius:14,padding:18,boxShadow:"0 1px 6px rgba(0,0,0,.06)"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
-        <div><div style={{fontSize:15,fontWeight:700,color:"#111827"}}>{req.terminal}</div><div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>By: {req.requestedBy}</div></div>
+      <div onClick={()=>setOpen(o=>!o)} style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",cursor:"pointer",userSelect:"none",marginBottom:10}}>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontSize:10,color:"#9ca3af",flexShrink:0,display:"inline-block",transform:open?"rotate(90deg)":"rotate(0deg)",transition:"transform .2s"}}>&#9654;</span>
+            <div style={{fontSize:15,fontWeight:700,color:"#111827"}}>{req.terminal}</div>
+          </div>
+          <div style={{fontSize:11,color:"#9ca3af",marginTop:4,paddingLeft:18,display:"flex",flexWrap:"wrap",gap:"0 6px"}}>
+            <span>By: {req.requestedBy}</span>
+            <span style={{opacity:.4}}>·</span>
+            <span>{drivers.length} driver{drivers.length!==1?"s":""}</span>
+            <span style={{opacity:.4}}>·</span>
+            <span>{totalItems} item{totalItems!==1?"s":""}</span>
+            <span style={{opacity:.4}}>·</span>
+            <span>{new Date(req.createdAt).toLocaleDateString()}</span>
+          </div>
+        </div>
         <Badge status={req.status}/>
       </div>
-      {t.address&&<div style={{fontSize:11,color:"#9ca3af",marginBottom:10}}>{t.address}</div>}
-      <div style={{background:cc.bg,borderRadius:8,padding:"10px 12px",marginBottom:10}}>
-        {drivers.slice(0,3).map((drv,di)=>(
-          <div key={di} style={{marginBottom:di<Math.min(drivers.length,3)-1?10:0,paddingBottom:di<Math.min(drivers.length,3)-1?10:0,borderBottom:di<Math.min(drivers.length,3)-1?"1px solid "+cc.bd:"none"}}>
-            <div style={{fontSize:13,fontWeight:700,color:"#111827",marginBottom:3}}>{drv.name}</div>
-            {drv.items?.map((item,ii)=><div key={ii} style={{fontSize:12,color:"#6b7280",paddingLeft:8,lineHeight:1.8}}>{item.type} <span style={{color:cc.h,fontWeight:600}}>{BOTTOM_TYPES.includes(item.type)?"W"+item.size:item.size}</span></div>)}
-          </div>
-        ))}
-        {drivers.length>3&&<div style={{fontSize:11,color:cc.h,fontWeight:600,marginTop:8}}>+{drivers.length-3} more drivers</div>}
-        <div style={{marginTop:8,paddingTop:8,borderTop:"1px solid "+cc.bd,display:"flex",justifyContent:"space-between",fontSize:11,color:"#9ca3af"}}>
-          <span>{drivers.length} driver{drivers.length!==1?"s":""}</span><span>{totalItems} items</span>
+      {open&&<>
+        {t.address&&<div style={{fontSize:11,color:"#9ca3af",marginBottom:10}}>{t.address}</div>}
+        <div style={{background:cc.bg,borderRadius:8,padding:"10px 12px",marginBottom:10}}>
+          {drivers.map((drv,di)=>(
+            <div key={di} style={{marginBottom:di<drivers.length-1?10:0,paddingBottom:di<drivers.length-1?10:0,borderBottom:di<drivers.length-1?"1px solid "+cc.bd:"none"}}>
+              <div style={{fontSize:13,fontWeight:700,color:"#111827",marginBottom:3}}>{drv.name}</div>
+              {drv.items?.map((item,ii)=><div key={ii} style={{fontSize:12,color:"#6b7280",paddingLeft:8,lineHeight:1.8}}>{item.type} <span style={{color:cc.h,fontWeight:600}}>{BOTTOM_TYPES.includes(item.type)?"W"+item.size:item.size}</span></div>)}
+            </div>
+          ))}
         </div>
-      </div>
-      <div style={{fontSize:10,color:"#9ca3af",marginBottom:8}}>Submitted {new Date(req.createdAt).toLocaleDateString()}</div>
+        {req.notes&&<div style={{fontSize:12,color:"#6b7280",marginBottom:10,fontStyle:"italic"}}>{req.notes}</div>}
+      </>}
       <div style={{display:"flex",gap:6,flexWrap:"wrap",paddingTop:10,borderTop:"1px solid #f3f4f6"}}>
-        {req.status==="Pending"&&<><button onClick={()=>onEdit(req)} style={Btn("ghost")}>Edit</button><button onClick={()=>onFulfill(req.id)} style={Btn("primary","#16a34a")}>Fulfilled</button></>}
-        {onView&&<button onClick={()=>onView(req)} style={Btn("outline",cc.h)}>View Order</button>}
-        <button onClick={()=>onDelete(req.id)} style={{...Btn("ghost"),marginLeft:"auto",color:"#dc2626",borderColor:"#fecaca"}}><Ico n="trash" s={13}/></button>
+        {req.status==="Pending"&&<><button onClick={e=>{e.stopPropagation();onEdit(req);}} style={Btn("ghost")}>Edit</button><button onClick={e=>{e.stopPropagation();onFulfill(req.id);}} style={Btn("primary","#16a34a")}>Fulfilled</button></>}
+        {onView&&<button onClick={e=>{e.stopPropagation();onView(req);}} style={Btn("outline",cc.h)}>View Order</button>}
+        <button onClick={e=>{e.stopPropagation();onDelete(req.id);}} style={{...Btn("ghost"),marginLeft:"auto",color:"#dc2626",borderColor:"#fecaca"}}><Ico n="trash" s={13}/></button>
       </div>
     </div>
   );
@@ -570,12 +577,12 @@ function TruckForm({onSave,onClose,existing,terminals=[]}) {
 }
 
 // ─── Truck Card ───────────────────────────────────────────────────────────────
-function TruckCard({truck,onEdit,onDelete}) {
+function TruckCard({truck,onEdit,onDelete,terminals=[]}) {
   const cc=FC.fleet;
   const rs=expStatus(truck.regExpiry),is=expStatus(truck.inspExpiry);
   const hasAlert=rs==="expired"||rs==="warning"||is==="expired"||is==="warning";
   const isExp=rs==="expired"||is==="expired";
-  const t=TERMINAL_DATA[truck.terminal]||{};
+  const t=findTerm(terminals,truck.terminal);
   return (
     <div style={{background:"#fff",border:"1.5px solid "+(hasAlert?(isExp?EXP.expired.bd:EXP.warning.bd):cc.bd),borderRadius:14,padding:18,boxShadow:"0 1px 6px rgba(0,0,0,.06)"}}>
       {hasAlert&&<div style={{background:isExp?EXP.expired.bg:EXP.warning.bg,border:"1px solid "+(isExp?EXP.expired.bd:EXP.warning.bd),borderRadius:8,padding:"7px 11px",marginBottom:12,fontSize:12,color:isExp?EXP.expired.tx:EXP.warning.tx,fontWeight:600}}>{isExp?"EXPIRED - action required":"Expiring within 30 days"}</div>}
@@ -672,8 +679,8 @@ function InjuryForm({onSave,onClose,existing,terminals=[]}) {
 }
 
 // ─── Injury Card ──────────────────────────────────────────────────────────────
-function InjuryCard({report,onView,onEdit,onDelete}) {
-  const cc=FC.inj; const t=TERMINAL_DATA[report.terminal]||{};
+function InjuryCard({report,onView,onEdit,onDelete,terminals=[]}) {
+  const cc=FC.inj; const t=findTerm(terminals,report.terminal);
   return (
     <div style={{background:"#fff",border:"1.5px solid "+cc.bd,borderLeft:"4px solid "+cc.h,borderRadius:14,padding:18,boxShadow:"0 1px 6px rgba(0,0,0,.06)"}}>
       <div style={{background:cc.bg,border:"1px solid "+cc.bd,borderRadius:8,padding:"8px 12px",marginBottom:12}}>
@@ -702,8 +709,8 @@ function InjuryCard({report,onView,onEdit,onDelete}) {
 }
 
 // ─── Injury Detail ────────────────────────────────────────────────────────────
-function InjuryDetail({report,onClose}) {
-  const cc=FC.inj; const t=TERMINAL_DATA[report.terminal]||{}; const [lb,setLb]=useState(null);
+function InjuryDetail({report,onClose,terminals=[]}) {
+  const cc=FC.inj; const t=findTerm(terminals,report.terminal); const [lb,setLb]=useState(null);
   const Row=({label,value})=>value?<div style={{marginBottom:12}}><div style={{fontSize:10,color:"#9ca3af",fontWeight:600,letterSpacing:.5,textTransform:"uppercase",marginBottom:3}}>{label}</div><div style={{fontSize:14,color:"#374151",lineHeight:1.6}}>{value}</div></div>:null;
   return (
     <Modal title="Full Injury Report" onClose={onClose} wide>
@@ -786,9 +793,9 @@ function UserForm({ onSave, onClose, existing, allUsers, terminals=[] }) {
     if (!form.name||!form.username) return alert("Name and username are required.");
     if (!existing && !form.password) return alert("Password is required for new users.");
     if (form.role==="bc" && !form.terminal) return alert("Terminal Location is required for BC role.");
-    if (form.status === "active" && form.terminal) {
-      const conflict = (allUsers||[]).find(u => u.terminal===form.terminal && u.status==="active" && u.id!==existing?.id);
-      if (conflict) return alert(`Terminal already has an active user: ${conflict.name}.\nDeactivate that user before assigning another one to this terminal.`);
+    if (form.role==="bc" && form.status === "active" && form.terminal) {
+      const conflict = (allUsers||[]).find(u => u.terminal===form.terminal && u.role==="bc" && u.status==="active" && u.id!==existing?.id);
+      if (conflict) return alert(`${form.terminal} already has an active BC user: ${conflict.name}.\nDeactivate that user before assigning another BC to this terminal.`);
     }
     onSave(form);
   };
@@ -806,7 +813,7 @@ function UserForm({ onSave, onClose, existing, allUsers, terminals=[] }) {
           <option value="">— Not assigned —</option>
           {terminals.filter(t=>(t.status||"Active")==="Active").map(t=>{
             const label=`${t.name} - ${t.code}`;
-            const occupied=(allUsers||[]).find(u=>u.terminal===label&&u.status==="active"&&u.id!==existing?.id);
+            const occupied=form.role==="bc"&&(allUsers||[]).find(u=>u.terminal===label&&u.role==="bc"&&u.status==="active"&&u.id!==existing?.id);
             return <option key={t.id} value={label}>{label}{occupied?" (active: "+occupied.name+")":""}</option>;
           })}
         </select>
@@ -1058,8 +1065,8 @@ function AccidentForm({onSave,onClose,existing,terminals=[]}) {
   </div>;
 }
 
-function AccidentCard({report,onView,onEdit,onDelete}) {
-  const cc=FC.acc; const t=TERMINAL_DATA[report.terminal]||{};
+function AccidentCard({report,onView,onEdit,onDelete,terminals=[]}) {
+  const cc=FC.acc; const t=findTerm(terminals,report.terminal);
   return <div style={{background:"#fff",border:"1.5px solid "+cc.bd,borderLeft:"4px solid "+cc.h,borderRadius:14,padding:18,boxShadow:"0 1px 6px rgba(0,0,0,.06)"}}>
     <div style={{background:cc.bg,border:"1px solid "+cc.bd,borderRadius:8,padding:"8px 12px",marginBottom:12}}>
       <div style={{fontSize:10,color:cc.tx,fontWeight:700,textTransform:"uppercase",marginBottom:2}}>Accident Report</div>
@@ -1084,8 +1091,8 @@ function AccidentCard({report,onView,onEdit,onDelete}) {
   </div>;
 }
 
-function AccidentDetail({report,onClose}) {
-  const cc=FC.acc; const t=TERMINAL_DATA[report.terminal]||{}; const [lb,setLb]=useState(null);
+function AccidentDetail({report,onClose,terminals=[]}) {
+  const cc=FC.acc; const t=findTerm(terminals,report.terminal); const [lb,setLb]=useState(null);
   const Row=({label,value})=>value?<div style={{marginBottom:12}}><div style={{fontSize:10,color:"#9ca3af",fontWeight:600,textTransform:"uppercase",marginBottom:3}}>{label}</div><div style={{fontSize:14,color:"#374151",lineHeight:1.6}}>{value}</div></div>:null;
   const SH=({label})=><div style={{fontSize:10,color:cc.tx,fontWeight:700,textTransform:"uppercase",borderBottom:"2px solid "+cc.bd,paddingBottom:5,marginBottom:12,marginTop:18}}>{label}</div>;
   return <Modal title="Full Accident Report" onClose={onClose} wide>
@@ -1115,9 +1122,9 @@ function AccidentDetail({report,onClose}) {
 }
 
 // ─── Hiring Form / Card / Notify Modal ───────────────────────────────────────
-function HRNotifyModal({req,onClose}) {
+function HRNotifyModal({req,onClose,terminals=[]}) {
   const cc=FC.hir; const [hrPhone,setHrPhone]=useState(""); const [sent,setSent]=useState(false); const [copied,setCopied]=useState(false);
-  const msg=buildHiringSMS(req); const digits=hrPhone.replace(/\D/g,"");
+  const msg=buildHiringSMS(req,terminals); const digits=hrPhone.replace(/\D/g,"");
   const openSMS=()=>{window.location.href="sms:"+digits+"?body="+encodeURIComponent(msg);setSent(true);};
   const openWA=()=>{window.open("https://wa.me/"+digits+"?text="+encodeURIComponent(msg),"_blank");setSent(true);};
   const copy=()=>{navigator.clipboard.writeText(msg).catch(()=>{const el=document.createElement("textarea");el.value=msg;document.body.appendChild(el);el.select();document.execCommand("copy");document.body.removeChild(el);});setCopied(true);setTimeout(()=>setCopied(false),3000);};
@@ -1168,7 +1175,7 @@ function HiringForm({onSave,onClose,existing,terminals=[]}) {
       <Field label="Terminal Location"><select style={INP} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>{activeTerminals.length===0&&<option value="">Loading terminals…</option>}{activeTerminals.map(t=><option key={t.id} value={`${t.name} - ${t.code}`}>{t.name} - {t.code}</option>)}</select></Field>
       <Field label="Your Name (Manager) *"><input style={INP} value={form.requestedBy} onChange={e=>set("requestedBy",e.target.value)} placeholder="Manager name"/></Field>
     </div>
-    <TInfo tk={form.terminal}/>
+    <TInfo tk={form.terminal} terminals={terminals}/>
     <Field label="Hiring Action *">
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
         <button type="button" onClick={()=>set("action","start")} style={{display:"flex",alignItems:"center",gap:12,padding:"16px",borderRadius:12,border:"2px solid "+(form.action==="start"?cc.h:"#e5e7eb"),background:form.action==="start"?cc.bg:"#fff",cursor:"pointer",textAlign:"left",fontFamily:"inherit"}}>
@@ -1203,8 +1210,8 @@ function HiringForm({onSave,onClose,existing,terminals=[]}) {
   </div>;
 }
 
-function HiringCard({req,onEdit,onDelete}) {
-  const cc=FC.hir; const t=TERMINAL_DATA[req.terminal]||{}; const urg=URGENCY.find(u=>u.v===req.urgency)||URGENCY[1]; const isStart=req.action==="start";
+function HiringCard({req,onEdit,onDelete,terminals=[]}) {
+  const cc=FC.hir; const t=findTerm(terminals,req.terminal); const urg=URGENCY.find(u=>u.v===req.urgency)||URGENCY[1]; const isStart=req.action==="start";
   return <div style={{background:"#fff",border:"1.5px solid "+(isStart?cc.bd:FC.inj.bd),borderLeft:"4px solid "+(isStart?cc.h:FC.inj.h),borderRadius:14,padding:18,boxShadow:"0 1px 6px rgba(0,0,0,.06)"}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
       <div>
@@ -1238,9 +1245,9 @@ function HiringCard({req,onEdit,onDelete}) {
 }
 
 // ─── Insurance Form / Card / Email Modal ─────────────────────────────────────
-function InsuranceEmailModal({req,onClose}) {
+function InsuranceEmailModal({req,onClose,terminals=[]}) {
   const cc=FC.ins; const [copied,setCopied]=useState(false); const [copiedSubj,setCopiedSubj]=useState(false);
-  const email=buildInsuranceEmail(req);
+  const email=buildInsuranceEmail(req,terminals);
   const copy=()=>{navigator.clipboard.writeText(email.body).catch(()=>{const el=document.createElement("textarea");el.value=email.body;document.body.appendChild(el);el.select();document.execCommand("copy");document.body.removeChild(el);});setCopied(true);setTimeout(()=>setCopied(false),3000);};
   const copySubj=()=>{navigator.clipboard.writeText(email.subject).catch(()=>{const el=document.createElement("textarea");el.value=email.subject;document.body.appendChild(el);el.select();document.execCommand("copy");document.body.removeChild(el);});setCopiedSubj(true);setTimeout(()=>setCopiedSubj(false),3000);};
   const openMail=()=>{window.location.href="mailto:?subject="+encodeURIComponent(email.subject)+"&body="+encodeURIComponent(email.body);};
@@ -1314,7 +1321,7 @@ function InsuranceForm({onSave,onClose,existing,terminals=[]}) {
       <Field label="Terminal Location"><select style={INP} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>{activeTerminals.length===0&&<option value="">Loading terminals…</option>}{activeTerminals.map(t=><option key={t.id} value={`${t.name} - ${t.code}`}>{t.name} - {t.code}</option>)}</select></Field>
       <Field label="Requested By (Manager) *"><input style={INP} value={form.requestedBy} onChange={e=>set("requestedBy",e.target.value)} placeholder="Your name"/></Field>
     </div>
-    <TInfo tk={form.terminal}/>
+    <TInfo tk={form.terminal} terminals={terminals}/>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
       <Field label="Employee Full Name *"><input style={INP} value={form.employeeName} onChange={e=>set("employeeName",e.target.value)} placeholder="First and Last Name"/></Field>
       <Field label="Employee Phone Number *"><input style={INP} value={form.employeePhone} onChange={e=>set("employeePhone",e.target.value)} placeholder="+1 (555) 000-0000"/></Field>
@@ -1346,8 +1353,8 @@ function InsuranceForm({onSave,onClose,existing,terminals=[]}) {
   </div>;
 }
 
-function InsuranceCard({req,onEdit,onDelete,onEmail}) {
-  const cc=FC.ins; const t=TERMINAL_DATA[req.terminal]||{};
+function InsuranceCard({req,onEdit,onDelete,onEmail,terminals=[]}) {
+  const cc=FC.ins; const t=findTerm(terminals,req.terminal);
   return <div style={{background:"#fff",border:"1.5px solid "+cc.bd,borderLeft:"4px solid "+cc.h,borderRadius:14,padding:18,boxShadow:"0 1px 6px rgba(0,0,0,.06)"}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
       <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -1505,11 +1512,16 @@ export default function App() {
     setEmailSettings(await fetchEmailSettings());
   },[]);
 
+  const [emailList,setEmailList]=useState({});
+  const loadEmailList=useCallback(async()=>{
+    setEmailList(await fetchEmailList());
+  },[]);
+
   useEffect(()=>{
     if(!currentUser) return;
     loadTerminals();
-    if(currentUser.role==="admin"){ loadUsers(); loadSettings(); }
-  },[currentUser,loadUsers,loadTerminals,loadSettings]);
+    if(currentUser.role==="admin"){ loadUsers(); loadSettings(); loadEmailList(); }
+  },[currentUser,loadUsers,loadTerminals,loadSettings,loadEmailList]);
 
   // ── Data ────────────────────────────────────────────────────────────────────
   const [tab,setTab]=useState("rt");
@@ -1529,6 +1541,7 @@ export default function App() {
   const [fDateFrom,setFDateFrom]=useState("");
   const [fDateTo,setFDateTo]=useState("");
   const [fTerminalStatus,setFTerminalStatus]=useState("Active");
+  const [fUserRole,setFUserRole]=useState("All");
   const [settingsTab,setSettingsTab]=useState("terminals");
   const [lastSync,setLastSync]=useState(null);
   const [syncing,setSyncing]=useState(false);
@@ -1574,18 +1587,21 @@ export default function App() {
     setModal(null);
     dbSave(SK.rt,upd);
     const creatorEmail=test.createdBy?.email||"";
-    if(!creatorEmail){toast("📧 Email skipped — road test creator has no email on file.","warn");}
+    const listEmails=(emailList.rt||"").split(",").map(e=>e.trim()).filter(Boolean);
+    const allTo=[...(creatorEmail?[creatorEmail]:[]),...listEmails];
+    if(!allTo.length){toast("📧 Email skipped — no recipients configured.","warn");}
     else{
+      if(!creatorEmail) toast("📧 Creator has no email — sending to module list only.","warn");
       const termRec=terminals.find(t=>`${t.name} - ${t.code}`===test.terminal||t.name===test.terminal)||{};
       const cc=emailSettings.roadTestOutcome?.cc||"";
       const subject="Road Test "+(test.status==="Passed"?"Passed":"Failed")+" - "+test.candidateName;
       const result=await sendEmail({
-        to:creatorEmail,
+        to:allTo.join(", "),
         ...(cc&&{cc}),
         subject,
         html:buildOutcomeHtml({...test,default_unit_number:termRec.default_unit_number||""}),
       });
-      if(result?.ok) toast("📧 Notification sent to "+creatorEmail+".","success");
+      if(result?.ok) toast("📧 Notification sent.","success");
       else if(result?.error) toast("📧 Email failed — check console.","warn");
     }
   };
@@ -1632,19 +1648,25 @@ export default function App() {
     setDots(upd);dbSave(SK.dot,upd);toast("Card file uploaded.","success");
   },[dots,toast]);
 
-  const pendingOut=rts.filter(r=>{const e=new Date(`${r.date}T${r.time}`);e.setMinutes(e.getMinutes()+parseInt(r.duration||60));return new Date()>=e&&r.status==="Scheduled";}).length;
-  const truckAlerts=trucks.filter(t=>(expStatus(t.regExpiry)!=="ok"&&expStatus(t.regExpiry)!=="none")||(expStatus(t.inspExpiry)!=="ok"&&expStatus(t.inspExpiry)!=="none")).length;
-  const activeHiring=hirs.filter(h=>h.action==="start"&&h.status==="Active").length;
+  const isBc = currentUser?.role === "bc";
+  const bcTerminal = currentUser?.terminal || "";
+  const effectiveFTerm = isBc ? bcTerminal : fTerm;
+  const visibleTerminals = isBc ? terminals.filter(t=>`${t.name} - ${t.code}`===bcTerminal) : terminals;
 
-  const fRts       =rts.filter(r=>(fTerm==="All"||r.terminal===fTerm)&&(fStatus==="All"||r.status===fStatus)&&(!fDateFrom||r.date>=fDateFrom)&&(!fDateTo||r.date<=fDateTo)).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const pendingOut=rts.filter(r=>{const e=new Date(`${r.date}T${r.time}`);e.setMinutes(e.getMinutes()+parseInt(r.duration||60));return new Date()>=e&&r.status==="Scheduled"&&(effectiveFTerm==="All"||r.terminal===effectiveFTerm);}).length;
+  const truckAlerts=trucks.filter(t=>((expStatus(t.regExpiry)!=="ok"&&expStatus(t.regExpiry)!=="none")||(expStatus(t.inspExpiry)!=="ok"&&expStatus(t.inspExpiry)!=="none"))&&(effectiveFTerm==="All"||t.terminal===effectiveFTerm)).length;
+  const activeHiring=hirs.filter(h=>h.action==="start"&&h.status==="Active"&&(effectiveFTerm==="All"||h.terminal===effectiveFTerm)).length;
+
+  const fRts       =rts.filter(r=>(effectiveFTerm==="All"||r.terminal===effectiveFTerm)&&(fStatus==="All"||r.status===fStatus)&&(!fDateFrom||r.date>=fDateFrom)&&(!fDateTo||r.date<=fDateTo)).sort((a,b)=>new Date(a.date)-new Date(b.date));
   const fTerminals =terminals.filter(t=>fTerminalStatus==="All"||(t.status||"Active")===fTerminalStatus).sort((a,b)=>a.name?.localeCompare(b.name));
-  const fUnis  =unis.filter(u=>fTerm==="All"||u.terminal===fTerm).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
-  const fTrucks=trucks.filter(t=>fTerm==="All"||t.terminal===fTerm).sort((a,b)=>{const u=x=>{const r=expStatus(x.regExpiry),i=expStatus(x.inspExpiry);if(r==="expired"||i==="expired")return 0;if(r==="warning"||i==="warning")return 1;return 2;};return u(a)-u(b);});
-  const fInjs  =injs.filter(r=>fTerm==="All"||r.terminal===fTerm).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
-  const fAccs  =accs.filter(r=>fTerm==="All"||r.terminal===fTerm).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
-  const fHirs  =hirs.filter(r=>fTerm==="All"||r.terminal===fTerm).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
-  const fInsrs =insrs.filter(r=>fTerm==="All"||r.terminal===fTerm).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
-  const fDots  =dots.filter(r=>fTerm==="All"||r.terminal===fTerm).sort((a,b)=>new Date(a.expirationDate)-new Date(b.expirationDate));
+  const fUsers     =users.filter(u=>fUserRole==="All"||u.role===fUserRole).sort((a,b)=>a.name?.localeCompare(b.name));
+  const fUnis  =unis.filter(u=>effectiveFTerm==="All"||u.terminal===effectiveFTerm).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  const fTrucks=trucks.filter(t=>effectiveFTerm==="All"||t.terminal===effectiveFTerm).sort((a,b)=>{const u=x=>{const r=expStatus(x.regExpiry),i=expStatus(x.inspExpiry);if(r==="expired"||i==="expired")return 0;if(r==="warning"||i==="warning")return 1;return 2;};return u(a)-u(b);});
+  const fInjs  =injs.filter(r=>effectiveFTerm==="All"||r.terminal===effectiveFTerm).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  const fAccs  =accs.filter(r=>effectiveFTerm==="All"||r.terminal===effectiveFTerm).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  const fHirs  =hirs.filter(r=>effectiveFTerm==="All"||r.terminal===effectiveFTerm).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  const fInsrs =insrs.filter(r=>effectiveFTerm==="All"||r.terminal===effectiveFTerm).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  const fDots  =dots.filter(r=>effectiveFTerm==="All"||r.terminal===effectiveFTerm).sort((a,b)=>new Date(a.expirationDate)-new Date(b.expirationDate));
 
   const TABS=[
     {key:"rt",    icon:"clip",   label:"Road Tests",     count:rts.filter(r=>r.status==="Scheduled").length, badgeColor:FC.rt.h},
@@ -1661,7 +1683,7 @@ export default function App() {
   ];
 
   const addLabel={rt:"Schedule Road Test",uni:"New Uniform Request",fleet:"Add Truck",inj:"File Injury Report",acc:"File Accident Report",hir:"New Hiring Request",ins:"New Insurance Request",dot:"+ DOT Card"};
-  const addType ={rt:"newRT",uni:"newUni",fleet:"newTruck",inj:"newInj",acc:"newAcc",hir:"newHir",ins:"newIns",dot:"newDot"};
+  const addType ={...(isBc?{}:{rt:"newRT"}),uni:"newUni",fleet:"newTruck",inj:"newInj",acc:"newAcc",hir:"newHir",ins:"newIns",dot:"newDot"};
 
   const STATS=[
     {l:"Scheduled Tests", v:rts.filter(r=>r.status==="Scheduled").length,  c:FC.rt.h},
@@ -1697,6 +1719,12 @@ export default function App() {
     if(error) toast("Failed to save settings.","warn");
     else toast("Email settings saved.","success");
   },[emailSettings,toast]);
+
+  const handleSaveEmailList=useCallback(async()=>{
+    const error=await saveEmailList(emailList);
+    if(error) toast("Failed to save email list.","warn");
+    else toast("Email list saved.","success");
+  },[emailList,toast]);
 
   const handleSaveTerminal=useCallback(async form=>{
     let error;
@@ -1782,10 +1810,11 @@ export default function App() {
       {/* ── MAIN ───────────────────────────────────────────── */}
       <div className="main-wrap">
         <div className="filter-bar">
-          {tab!=="settings"&&<select style={{...INP,width:"auto",minWidth:200}} value={fTerm} onChange={e=>setFTerm(e.target.value)}>
+          {tab!=="settings"&&!isBc&&<select style={{...INP,width:"auto",minWidth:200}} value={fTerm} onChange={e=>setFTerm(e.target.value)}>
             <option value="All">All Terminals</option>
             {terminals.filter(t=>(t.status||"Active")==="Active").map(t=><option key={t.id} value={`${t.name} - ${t.code}`}>{t.name} - {t.code}</option>)}
           </select>}
+          {tab!=="settings"&&isBc&&<span style={{fontSize:13,fontWeight:600,color:"#374151",padding:"7px 12px",background:"#f3f4f6",borderRadius:8,border:"1px solid #e5e7eb"}}>{bcTerminal||"No terminal assigned"}</span>}
           {tab==="rt"&&<select style={{...INP,width:"auto"}} value={fStatus} onChange={e=>setFStatus(e.target.value)}>{["All","Scheduled","Passed","Failed"].map(s=><option key={s} value={s}>{s}</option>)}</select>}
           {tab==="rt"&&<div style={{display:"flex",alignItems:"center",gap:6}}>
             <input type="date" style={{...INP,width:"auto"}} value={fDateFrom} onChange={e=>setFDateFrom(e.target.value)} title="From date"/>
@@ -1793,7 +1822,7 @@ export default function App() {
             <input type="date" style={{...INP,width:"auto"}} value={fDateTo} onChange={e=>setFDateTo(e.target.value)} title="To date"/>
             {(fDateFrom||fDateTo)&&<button onClick={()=>{setFDateFrom("");setFDateTo("");}} style={{...Btn("ghost"),padding:"4px 8px",fontSize:11,color:"#6b7280"}}>Clear</button>}
           </div>}
-          {tab!=="settings"||settingsTab!=="email"
+          {tab!=="settings"||(settingsTab!=="email"&&settingsTab!=="emailList")
             ?<button onClick={()=>{const d=tab==="settings"?(settingsTab==="users"?users:settingsTab==="terminals"?terminals:null):{rt:rts,uni:unis,fleet:trucks,inj:injs,acc:accs,hir:hirs,ins:insrs,dot:dots}[tab];const key=tab==="settings"?(settingsTab==="users"?"users":settingsTab==="terminals"?"terminals":null):tab;if(d&&key)downloadCSV(key,d);}} style={{...Btn("ghost"),display:"flex",alignItems:"center",gap:6,marginLeft:"auto",padding:"6px 14px",fontSize:12}}>
                 <Ico n="dl" s={14}/><span className="sync-label">Download CSV</span>
               </button>
@@ -1816,28 +1845,28 @@ export default function App() {
         ) : tab==="uni" ? (
           fUnis.length===0
             ?<Empty msg="No uniform requests yet."/>
-            :<Grid>{fUnis.map(u=><UniCard key={u.id} req={u} onEdit={r=>setModal({type:"editUni",data:r})} onDelete={delUni} onFulfill={fulfillUni}/>)}</Grid>
+            :<Grid>{fUnis.map(u=><UniCard key={u.id} req={u} onEdit={r=>setModal({type:"editUni",data:r})} onDelete={delUni} onFulfill={fulfillUni} terminals={terminals}/>)}</Grid>
         ) : tab==="fleet" ? (<>
           {truckAlerts>0&&<div style={{background:EXP.warning.bg,border:"1px solid "+EXP.warning.bd,borderRadius:9,padding:"11px 16px",marginBottom:16,display:"flex",alignItems:"center",gap:10}}><Ico n="warn" s={16}/><span style={{fontSize:14,color:EXP.warning.tx,fontWeight:700}}>{truckAlerts} truck{truckAlerts>1?"s":""} require attention — registration or inspection expiring soon / expired</span></div>}
           {fTrucks.length===0
             ?<Empty msg="No trucks yet. Click Add Truck to begin."/>
-            :<Grid>{fTrucks.map(t=><TruckCard key={t.id} truck={t} onEdit={t=>setModal({type:"editTruck",data:t})} onDelete={delTruck}/>)}</Grid>}
+            :<Grid>{fTrucks.map(t=><TruckCard key={t.id} truck={t} onEdit={t=>setModal({type:"editTruck",data:t})} onDelete={delTruck} terminals={terminals}/>)}</Grid>}
         </>) : tab==="inj" ? (
           fInjs.length===0
             ?<Empty msg="No injury reports filed yet. Click File Injury Report to begin."/>
-            :<Grid>{fInjs.map(r=><InjuryCard key={r.id} report={r} onView={r=>setModal({type:"viewInj",data:r})} onEdit={r=>setModal({type:"editInj",data:r})} onDelete={delInj}/>)}</Grid>
+            :<Grid>{fInjs.map(r=><InjuryCard key={r.id} report={r} onView={r=>setModal({type:"viewInj",data:r})} onEdit={r=>setModal({type:"editInj",data:r})} onDelete={delInj} terminals={terminals}/>)}</Grid>
         ) : tab==="acc" ? (
           fAccs.length===0
             ?<Empty msg="No accident reports filed yet. Click File Accident Report to begin."/>
-            :<Grid>{fAccs.map(r=><AccidentCard key={r.id} report={r} onView={r=>setModal({type:"viewAcc",data:r})} onEdit={r=>setModal({type:"editAcc",data:r})} onDelete={delAcc}/>)}</Grid>
+            :<Grid>{fAccs.map(r=><AccidentCard key={r.id} report={r} onView={r=>setModal({type:"viewAcc",data:r})} onEdit={r=>setModal({type:"editAcc",data:r})} onDelete={delAcc} terminals={terminals}/>)}</Grid>
         ) : tab==="hir" ? (
           fHirs.length===0
             ?<Empty msg="No hiring requests yet. Click New Hiring Request to begin."/>
-            :<Grid>{fHirs.map(r=><HiringCard key={r.id} req={r} onEdit={r=>setModal({type:"editHir",data:r})} onDelete={delHir}/>)}</Grid>
+            :<Grid>{fHirs.map(r=><HiringCard key={r.id} req={r} onEdit={r=>setModal({type:"editHir",data:r})} onDelete={delHir} terminals={terminals}/>)}</Grid>
         ) : tab==="ins" ? (
           fInsrs.length===0
             ?<Empty msg="No insurance requests yet. Click New Insurance Request to begin."/>
-            :<Grid>{fInsrs.map(r=><InsuranceCard key={r.id} req={r} onEdit={r=>setModal({type:"editIns",data:r})} onDelete={delInsr} onEmail={r=>setModal({type:"insEmail",data:r})}/>)}</Grid>
+            :<Grid>{fInsrs.map(r=><InsuranceCard key={r.id} req={r} onEdit={r=>setModal({type:"editIns",data:r})} onDelete={delInsr} onEmail={r=>setModal({type:"insEmail",data:r})} terminals={terminals}/>)}</Grid>
         ) : tab==="dot" ? (
           fDots.length===0
             ?<Empty msg="No DOT cards yet. Click + DOT Card to add one."/>
@@ -1845,7 +1874,7 @@ export default function App() {
         ) : tab==="settings"&&currentUser?.role==="admin" ? (
           <div>
             <div style={{display:"flex",gap:2,background:"#f3f4f6",borderRadius:10,padding:4,marginBottom:24,width:"fit-content"}}>
-              {[{key:"terminals",label:"Terminals"},{key:"users",label:"Users"},{key:"email",label:"Email Notifications"}].map(st=>(
+              {[{key:"terminals",label:"Terminals"},{key:"users",label:"Users"},{key:"email",label:"Email Notifications"},{key:"emailList",label:"Email List"}].map(st=>(
                 <button key={st.key} onClick={()=>setSettingsTab(st.key)} style={{padding:"7px 18px",borderRadius:8,border:"none",cursor:"pointer",fontSize:13,fontWeight:600,fontFamily:"inherit",background:settingsTab===st.key?"#fff":"transparent",color:settingsTab===st.key?"#111827":"#6b7280",boxShadow:settingsTab===st.key?"0 1px 4px rgba(0,0,0,.1)":undefined,transition:"all .15s"}}>
                   {st.label}
                 </button>
@@ -1859,11 +1888,15 @@ export default function App() {
                 ?<Empty msg={terminals.length===0?"No terminals yet. Click Add Terminal to create one.":"No terminals match the selected filter."}/>
                 :<Grid>{fTerminals.map(t=><TerminalCard key={t.id} terminal={t} onEdit={t=>setModal({type:"editTerminal",data:t})} onUploadPdf={handleUploadTerminalPdf}/>)}</Grid>
               }
-            </>) : settingsTab==="users" ? (
-              users.length===0
-                ?<Empty msg="No users yet. Click Add User to create one."/>
-                :<Grid>{users.map(u=><UserCard key={u.id} user={u} onEdit={u=>setModal({type:"editUser",data:u})} isSelf={u.id===currentUser?.id}/>)}</Grid>
-            ) : settingsTab==="email" ? (
+            </>) : settingsTab==="users" ? (<>
+              <div style={{marginBottom:16}}>
+                <select style={{...INP,width:"auto"}} value={fUserRole} onChange={e=>setFUserRole(e.target.value)}>{["All","admin","bc","user"].map(r=><option key={r} value={r}>{r==="All"?"All Roles":r==="admin"?"Admin":r==="bc"?"BC":"User"}</option>)}</select>
+              </div>
+              {fUsers.length===0
+                ?<Empty msg={users.length===0?"No users yet. Click Add User to create one.":"No users match the selected role."}/>
+                :<Grid>{fUsers.map(u=><UserCard key={u.id} user={u} onEdit={u=>setModal({type:"editUser",data:u})} isSelf={u.id===currentUser?.id}/>)}</Grid>
+              }
+            </>) : settingsTab==="email" ? (
               <div style={{maxWidth:640}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
                   <span style={{fontWeight:800,fontSize:22,color:"#111827"}}>Email Notifications</span>
@@ -1877,34 +1910,48 @@ export default function App() {
                   onChange={handleSettingsChange}
                 />
               </div>
+            ) : settingsTab==="emailList" ? (
+              <div style={{maxWidth:640}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+                  <span style={{fontWeight:800,fontSize:22,color:"#111827"}}>Email List</span>
+                  <button style={Btn("primary")} onClick={handleSaveEmailList}>Save</button>
+                </div>
+                <div style={{fontSize:13,color:"#6b7280",marginBottom:20}}>Set one or more recipient emails per module. Separate multiple addresses with a comma.</div>
+                {EMAIL_LIST_MODULES.map(({key,label})=>(
+                  <div key={key} style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:10,marginBottom:12,padding:"14px 18px"}}>
+                    <div style={{fontWeight:700,fontSize:15,color:"#111827",marginBottom:10}}>{label}</div>
+                    <Field label="Recipient Emails (comma-separated)" span><input style={INP} value={emailList[key]||""} onChange={e=>setEmailList(prev=>({...prev,[key]:e.target.value}))} placeholder="email1@company.com, email2@company.com"/></Field>
+                  </div>
+                ))}
+              </div>
             ) : null}
           </div>
         ) : null}
       </div>
 
       {/* ── MODALS ─────────────────────────────────────────── */}
-      {modal?.type==="newRT"     && <Modal title="Schedule Road Test"        onClose={()=>setModal(null)} wide><RTForm      onSave={saveRT}      onClose={()=>setModal(null)} terminals={terminals}/></Modal>}
-      {modal?.type==="editRT"    && <Modal title="Edit Road Test"            onClose={()=>setModal(null)} wide><RTForm      onSave={saveRT}      onClose={()=>setModal(null)} existing={modal.data} terminals={terminals}/></Modal>}
+      {modal?.type==="newRT"     && <Modal title="Schedule Road Test"        onClose={()=>setModal(null)} wide><RTForm      onSave={saveRT}      onClose={()=>setModal(null)} terminals={visibleTerminals}/></Modal>}
+      {modal?.type==="editRT"    && <Modal title="Edit Road Test"            onClose={()=>setModal(null)} wide><RTForm      onSave={saveRT}      onClose={()=>setModal(null)} existing={modal.data} terminals={visibleTerminals}/></Modal>}
       {modal?.type==="outcome"   && <Modal title="Enter Road Test Outcome"   onClose={()=>setModal(null)}     ><OutcomeForm onSave={saveOutcome} onClose={()=>setModal(null)} test={modal.data}/></Modal>}
-      {modal?.type==="sms"       && <SmsModal test={modal.data} onClose={()=>setModal(null)}/>}
-      {modal?.type==="newUni"    && <Modal title="New Uniform Order"         onClose={()=>setModal(null)} wide><UniForm    onSave={saveUni}     onClose={()=>setModal(null)} terminals={terminals}/></Modal>}
-      {modal?.type==="editUni"   && <Modal title="Edit Uniform Request"      onClose={()=>setModal(null)} wide><UniForm    onSave={saveUni}     onClose={()=>setModal(null)} existing={modal.data} terminals={terminals}/></Modal>}
-      {modal?.type==="newTruck"  && <Modal title="Add Truck to Fleet"        onClose={()=>setModal(null)} wide><TruckForm  onSave={saveTruck}   onClose={()=>setModal(null)} terminals={terminals}/></Modal>}
-      {modal?.type==="editTruck" && <Modal title="Edit Truck"                onClose={()=>setModal(null)} wide><TruckForm  onSave={saveTruck}   onClose={()=>setModal(null)} existing={modal.data} terminals={terminals}/></Modal>}
-      {modal?.type==="newInj"    && <Modal title="File Work Injury Report"   onClose={()=>setModal(null)} wide><InjuryForm onSave={saveInj}     onClose={()=>setModal(null)} terminals={terminals}/></Modal>}
-      {modal?.type==="editInj"   && <Modal title="Edit Injury Report"        onClose={()=>setModal(null)} wide><InjuryForm onSave={saveInj}     onClose={()=>setModal(null)} existing={modal.data} terminals={terminals}/></Modal>}
-      {modal?.type==="viewInj"   && <InjuryDetail report={modal.data} onClose={()=>setModal(null)}/>}
-      {modal?.type==="newAcc"    && <Modal title="File Accident Report"     onClose={()=>setModal(null)} wide><AccidentForm  onSave={saveAcc}  onClose={()=>setModal(null)} terminals={terminals}/></Modal>}
-      {modal?.type==="editAcc"   && <Modal title="Edit Accident Report"     onClose={()=>setModal(null)} wide><AccidentForm  onSave={saveAcc}  onClose={()=>setModal(null)} existing={modal.data} terminals={terminals}/></Modal>}
-      {modal?.type==="viewAcc"   && <AccidentDetail report={modal.data} onClose={()=>setModal(null)}/>}
-      {modal?.type==="newHir"    && <Modal title="New Hiring Request"        onClose={()=>setModal(null)} wide><HiringForm    onSave={saveHir}  onClose={()=>setModal(null)} terminals={terminals}/></Modal>}
-      {modal?.type==="editHir"   && <Modal title="Edit Hiring Request"       onClose={()=>setModal(null)} wide><HiringForm    onSave={saveHir}  onClose={()=>setModal(null)} existing={modal.data} terminals={terminals}/></Modal>}
-      {modal?.type==="hirNotify" && <HRNotifyModal req={modal.data} onClose={()=>setModal(null)}/>}
-      {modal?.type==="newIns"    && <Modal title="New Insurance Request"     onClose={()=>setModal(null)} wide><InsuranceForm onSave={saveInsr} onClose={()=>setModal(null)} terminals={terminals}/></Modal>}
-      {modal?.type==="editIns"   && <Modal title="Edit Insurance Request"    onClose={()=>setModal(null)} wide><InsuranceForm onSave={saveInsr} onClose={()=>setModal(null)} existing={modal.data} terminals={terminals}/></Modal>}
-      {modal?.type==="insEmail"  && <InsuranceEmailModal req={modal.data} onClose={()=>setModal(null)}/>}
-      {modal?.type==="newDot"    && <Modal title="Add DOT Card"          onClose={()=>setModal(null)} wide><DOTCardForm onSave={saveDot}  onClose={()=>setModal(null)} terminals={terminals}/></Modal>}
-      {modal?.type==="editDot"   && <Modal title="Edit DOT Card"         onClose={()=>setModal(null)} wide><DOTCardForm onSave={saveDot}  onClose={()=>setModal(null)} existing={modal.data} terminals={terminals}/></Modal>}
+      {modal?.type==="sms"       && <SmsModal test={modal.data} onClose={()=>setModal(null)} terminals={terminals}/>}
+      {modal?.type==="newUni"    && <Modal title="New Uniform Order"         onClose={()=>setModal(null)} wide><UniForm    onSave={saveUni}     onClose={()=>setModal(null)} terminals={visibleTerminals}/></Modal>}
+      {modal?.type==="editUni"   && <Modal title="Edit Uniform Request"      onClose={()=>setModal(null)} wide><UniForm    onSave={saveUni}     onClose={()=>setModal(null)} existing={modal.data} terminals={visibleTerminals}/></Modal>}
+      {modal?.type==="newTruck"  && <Modal title="Add Truck to Fleet"        onClose={()=>setModal(null)} wide><TruckForm  onSave={saveTruck}   onClose={()=>setModal(null)} terminals={visibleTerminals}/></Modal>}
+      {modal?.type==="editTruck" && <Modal title="Edit Truck"                onClose={()=>setModal(null)} wide><TruckForm  onSave={saveTruck}   onClose={()=>setModal(null)} existing={modal.data} terminals={visibleTerminals}/></Modal>}
+      {modal?.type==="newInj"    && <Modal title="File Work Injury Report"   onClose={()=>setModal(null)} wide><InjuryForm onSave={saveInj}     onClose={()=>setModal(null)} terminals={visibleTerminals}/></Modal>}
+      {modal?.type==="editInj"   && <Modal title="Edit Injury Report"        onClose={()=>setModal(null)} wide><InjuryForm onSave={saveInj}     onClose={()=>setModal(null)} existing={modal.data} terminals={visibleTerminals}/></Modal>}
+      {modal?.type==="viewInj"   && <InjuryDetail report={modal.data} onClose={()=>setModal(null)} terminals={terminals}/>}
+      {modal?.type==="newAcc"    && <Modal title="File Accident Report"     onClose={()=>setModal(null)} wide><AccidentForm  onSave={saveAcc}  onClose={()=>setModal(null)} terminals={visibleTerminals}/></Modal>}
+      {modal?.type==="editAcc"   && <Modal title="Edit Accident Report"     onClose={()=>setModal(null)} wide><AccidentForm  onSave={saveAcc}  onClose={()=>setModal(null)} existing={modal.data} terminals={visibleTerminals}/></Modal>}
+      {modal?.type==="viewAcc"   && <AccidentDetail report={modal.data} onClose={()=>setModal(null)} terminals={terminals}/>}
+      {modal?.type==="newHir"    && <Modal title="New Hiring Request"        onClose={()=>setModal(null)} wide><HiringForm    onSave={saveHir}  onClose={()=>setModal(null)} terminals={visibleTerminals}/></Modal>}
+      {modal?.type==="editHir"   && <Modal title="Edit Hiring Request"       onClose={()=>setModal(null)} wide><HiringForm    onSave={saveHir}  onClose={()=>setModal(null)} existing={modal.data} terminals={visibleTerminals}/></Modal>}
+      {modal?.type==="hirNotify" && <HRNotifyModal req={modal.data} onClose={()=>setModal(null)} terminals={terminals}/>}
+      {modal?.type==="newIns"    && <Modal title="New Insurance Request"     onClose={()=>setModal(null)} wide><InsuranceForm onSave={saveInsr} onClose={()=>setModal(null)} terminals={visibleTerminals}/></Modal>}
+      {modal?.type==="editIns"   && <Modal title="Edit Insurance Request"    onClose={()=>setModal(null)} wide><InsuranceForm onSave={saveInsr} onClose={()=>setModal(null)} existing={modal.data} terminals={visibleTerminals}/></Modal>}
+      {modal?.type==="insEmail"  && <InsuranceEmailModal req={modal.data} onClose={()=>setModal(null)} terminals={terminals}/>}
+      {modal?.type==="newDot"    && <Modal title="Add DOT Card"          onClose={()=>setModal(null)} wide><DOTCardForm onSave={saveDot}  onClose={()=>setModal(null)} terminals={visibleTerminals}/></Modal>}
+      {modal?.type==="editDot"   && <Modal title="Edit DOT Card"         onClose={()=>setModal(null)} wide><DOTCardForm onSave={saveDot}  onClose={()=>setModal(null)} existing={modal.data} terminals={visibleTerminals}/></Modal>}
       {modal?.type==="newUser"       && <Modal title="Create User"      onClose={()=>setModal(null)} wide><UserForm     onSave={handleSaveUser}     onClose={()=>setModal(null)} allUsers={users} terminals={terminals}/></Modal>}
       {modal?.type==="editUser"      && <Modal title="Edit User"        onClose={()=>setModal(null)} wide><UserForm     onSave={handleSaveUser}     onClose={()=>setModal(null)} existing={modal.data} allUsers={users} terminals={terminals}/></Modal>}
       {modal?.type==="newTerminal"   && <Modal title="Add Terminal"     onClose={()=>setModal(null)} wide><TerminalForm onSave={handleSaveTerminal} onClose={()=>setModal(null)}/></Modal>}

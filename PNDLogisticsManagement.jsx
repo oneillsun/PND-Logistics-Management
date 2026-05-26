@@ -80,10 +80,11 @@ function expLabel(d) { const n=daysUntil(d); if(n===null)return"-"; if(n<0)retur
 
 function findTerm(terminals,label){return terminals.find(t=>`${t.name} - ${t.code}`===label)||{};}
 
-function buildSms(f,terminals=[]) {
+function buildSms(f,terminals=[],users=[]) {
   const t=findTerm(terminals,f.terminal);
+  const bc=users.find(u=>u.role==="bc"&&u.terminal===f.terminal&&u.status==="active");
   const d=f.date?new Date(f.date+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",year:"numeric",month:"long",day:"numeric"}):"[date]";
-  return "Hello "+(f.candidateName||"[Candidate]")+",\n\nYour road test has been scheduled:\n\nTerminal: "+f.terminal+"\n"+(t.address||"")+"\n\nDate: "+d+"\nTime: "+(f.time||"")+"\n\nManager: "+(t.manager||"")+"\nPhone: "+(t.phone||"")+"\n\nPlease arrive 10 min early with a valid driver's license.\n\nBRING TO YOUR ROAD TEST:\n- Driver License\n- Birth Certificate OR Social Security Card\n- Permanent Resident Card (if applicable)\n- Work Permit (if applicable)\n\nGood luck!\n- PND Logistics HR Team";
+  return "Hello "+(f.candidateName||"[Candidate]")+",\n\nYour road test has been scheduled:\n\nTerminal: "+f.terminal+"\n"+(t.address||"")+"\n\nDate: "+d+"\nTime: "+(f.time||"")+"\n\nManager: "+(bc?.name||"")+"\nPhone: "+(bc?.phone||"")+"\n\nPlease arrive 10 min early with a valid driver's license.\n\nBRING TO YOUR ROAD TEST:\n- Driver License\n- Birth Certificate OR Social Security Card\n- Permanent Resident Card (if applicable)\n- Work Permit (if applicable)\n\nGood luck!\n- PND Logistics HR Team";
 }
 function buildHiringSMS(f,terminals=[]) {
   const t=findTerm(terminals,f.terminal);
@@ -225,6 +226,32 @@ function downloadCSV(tab, data) {
   URL.revokeObjectURL(url);
 }
 
+function downloadPendingUniCSV(orders) {
+  const rows = [];
+  for (const order of orders) {
+    for (const drv of (order.drivers || [])) {
+      for (const item of (drv.items || [])) {
+        rows.push({
+          Terminal: order.terminal,
+          Driver: drv.name,
+          Type: item.type,
+          Size: BOTTOM_TYPES.includes(item.type) ? "W" + item.size : item.size,
+          Quantity: item.qty || 1,
+        });
+      }
+    }
+  }
+  if (!rows.length) return;
+  const csv = "\ufeff" + toCSV(rows, ["Terminal","Driver","Type","Size","Quantity"]);
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `pnd_uniforms_pending_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 // ─── Badge ────────────────────────────────────────────────────────────────────
 function Badge({status}) {
   const c=STC[status]||{bg:"#f3f4f6",tx:"#6b7280",bd:"#e5e7eb"};
@@ -250,11 +277,11 @@ function Grid({children}){return <div style={{display:"grid",gridTemplateColumns
 function Empty({msg}){return <div style={{textAlign:"center",padding:80,color:"#9ca3af",fontSize:14}}>{msg}</div>;}
 
 // ─── SMS Modal ────────────────────────────────────────────────────────────────
-function SmsModal({test,onClose,terminals=[]}) {
+function SmsModal({test,onClose,terminals=[],users=[]}) {
   const cc=FC.rt;
   const [copied,setCopied]=useState(false);
   const [sent,setSent]=useState(false);
-  const msg=buildSms(test,terminals);
+  const msg=buildSms(test,terminals,users);
   const digits=(test.phone||"").replace(/\D/g,"");
   const openSms=()=>{window.location.href="sms:"+digits+"?body="+encodeURIComponent(msg);setSent(true);};
   const openWa=()=>{window.open("https://wa.me/"+digits+"?text="+encodeURIComponent(msg),"_blank");setSent(true);};
@@ -492,31 +519,35 @@ function UniForm({onSave,onClose,existing,terminals=[]}) {
 }
 
 // ─── Uniform Card ─────────────────────────────────────────────────────────────
-function UniCard({req,onEdit,onDelete,onFulfill,onView,terminals=[]}) {
+function UniCard({req,onEdit,onDelete,onFulfill,onView,terminals=[],selected=false,onSelect}) {
   const cc=FC.uni;
   const [open,setOpen]=useState(false);
   const drivers=req.drivers||[];
   const totalItems=drivers.reduce((s,d)=>s+(d.items?.length||0),0);
   const t=findTerm(terminals,req.terminal);
+  const isPending=req.status==="Pending";
   return (
-    <div style={{background:"#fff",border:"1.5px solid "+cc.bd,borderLeft:"4px solid "+cc.h,borderRadius:14,padding:18,boxShadow:"0 1px 6px rgba(0,0,0,.06)"}}>
+    <div style={{background:selected?cc.bg:"#fff",border:"1.5px solid "+(selected?cc.h:cc.bd),borderLeft:"4px solid "+cc.h,borderRadius:14,padding:18,boxShadow:selected?"0 0 0 3px "+cc.ring:"0 1px 6px rgba(0,0,0,.06)"}}>
       <div onClick={()=>setOpen(o=>!o)} style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",cursor:"pointer",userSelect:"none",marginBottom:10}}>
-        <div style={{flex:1,minWidth:0}}>
-          <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <span style={{fontSize:10,color:"#9ca3af",flexShrink:0,display:"inline-block",transform:open?"rotate(90deg)":"rotate(0deg)",transition:"transform .2s"}}>&#9654;</span>
+        <div style={{flex:1,minWidth:0,display:"flex",alignItems:"flex-start",gap:8}}>
+          {isPending&&onSelect&&<input type="checkbox" checked={selected} onChange={()=>{}} onClick={e=>{e.stopPropagation();onSelect(req.id);}} style={{marginTop:2,width:15,height:15,cursor:"pointer",accentColor:cc.h,flexShrink:0}}/>}
+          <div style={{flex:1,minWidth:0}}>
             <div style={{fontSize:15,fontWeight:700,color:"#111827"}}>{req.terminal}</div>
-          </div>
-          <div style={{fontSize:11,color:"#9ca3af",marginTop:4,paddingLeft:18,display:"flex",flexWrap:"wrap",gap:"0 6px"}}>
-            <span>By: {req.requestedBy}</span>
-            <span style={{opacity:.4}}>·</span>
-            <span>{drivers.length} driver{drivers.length!==1?"s":""}</span>
-            <span style={{opacity:.4}}>·</span>
-            <span>{totalItems} item{totalItems!==1?"s":""}</span>
-            <span style={{opacity:.4}}>·</span>
-            <span>{new Date(req.createdAt).toLocaleDateString()}</span>
+            <div style={{fontSize:11,color:"#9ca3af",marginTop:4,display:"flex",flexWrap:"wrap",gap:"0 6px"}}>
+              <span>By: {req.requestedBy}</span>
+              <span style={{opacity:.4}}>·</span>
+              <span>{drivers.length} driver{drivers.length!==1?"s":""}</span>
+              <span style={{opacity:.4}}>·</span>
+              <span>{totalItems} item{totalItems!==1?"s":""}</span>
+              <span style={{opacity:.4}}>·</span>
+              <span>{new Date(req.createdAt).toLocaleDateString()}</span>
+            </div>
           </div>
         </div>
-        <Badge status={req.status}/>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <Badge status={req.status}/>
+          <span style={{color:"#9ca3af",fontSize:12,lineHeight:1}}>{open?"▲":"▼"}</span>
+        </div>
       </div>
       {open&&<>
         {t.address&&<div style={{fontSize:11,color:"#9ca3af",marginBottom:10}}>{t.address}</div>}
@@ -1527,6 +1558,7 @@ export default function App() {
   const [tab,setTab]=useState("rt");
   const [rts,setRts]=useState([]);
   const [unis,setUnis]=useState([]);
+  const [selUnis,setSelUnis]=useState(new Set());
   const [trucks,setTrucks]=useState([]);
   const [injs,setInjs]=useState([]);
   const [accs,setAccs]=useState([]);
@@ -1538,6 +1570,7 @@ export default function App() {
   const [toasts,setToasts]=useState([]);
   const [fTerm,setFTerm]=useState("All");
   const [fStatus,setFStatus]=useState("Scheduled");
+  const [fUniStatus,setFUniStatus]=useState("Pending");
   const [fDateFrom,setFDateFrom]=useState("");
   const [fDateTo,setFDateTo]=useState("");
   const [fTerminalStatus,setFTerminalStatus]=useState("Active");
@@ -1660,7 +1693,7 @@ export default function App() {
   const fRts       =rts.filter(r=>(effectiveFTerm==="All"||r.terminal===effectiveFTerm)&&(fStatus==="All"||r.status===fStatus)&&(!fDateFrom||r.date>=fDateFrom)&&(!fDateTo||r.date<=fDateTo)).sort((a,b)=>new Date(a.date)-new Date(b.date));
   const fTerminals =terminals.filter(t=>fTerminalStatus==="All"||(t.status||"Active")===fTerminalStatus).sort((a,b)=>a.name?.localeCompare(b.name));
   const fUsers     =users.filter(u=>fUserRole==="All"||u.role===fUserRole).sort((a,b)=>a.name?.localeCompare(b.name));
-  const fUnis  =unis.filter(u=>effectiveFTerm==="All"||u.terminal===effectiveFTerm).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  const fUnis  =unis.filter(u=>(effectiveFTerm==="All"||u.terminal===effectiveFTerm)&&(fUniStatus==="All"||u.status===fUniStatus)).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
   const fTrucks=trucks.filter(t=>effectiveFTerm==="All"||t.terminal===effectiveFTerm).sort((a,b)=>{const u=x=>{const r=expStatus(x.regExpiry),i=expStatus(x.inspExpiry);if(r==="expired"||i==="expired")return 0;if(r==="warning"||i==="warning")return 1;return 2;};return u(a)-u(b);});
   const fInjs  =injs.filter(r=>effectiveFTerm==="All"||r.terminal===effectiveFTerm).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
   const fAccs  =accs.filter(r=>effectiveFTerm==="All"||r.terminal===effectiveFTerm).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
@@ -1816,14 +1849,18 @@ export default function App() {
           </select>}
           {tab!=="settings"&&isBc&&<span style={{fontSize:13,fontWeight:600,color:"#374151",padding:"7px 12px",background:"#f3f4f6",borderRadius:8,border:"1px solid #e5e7eb"}}>{bcTerminal||"No terminal assigned"}</span>}
           {tab==="rt"&&<select style={{...INP,width:"auto"}} value={fStatus} onChange={e=>setFStatus(e.target.value)}>{["All","Scheduled","Passed","Failed"].map(s=><option key={s} value={s}>{s}</option>)}</select>}
+          {tab==="uni"&&<select style={{...INP,width:"auto"}} value={fUniStatus} onChange={e=>setFUniStatus(e.target.value)}>{["Pending","Completed","All"].map(s=><option key={s} value={s}>{s}</option>)}</select>}
           {tab==="rt"&&<div style={{display:"flex",alignItems:"center",gap:6}}>
             <input type="date" style={{...INP,width:"auto"}} value={fDateFrom} onChange={e=>setFDateFrom(e.target.value)} title="From date"/>
             <span style={{fontSize:12,color:"#9ca3af"}}>to</span>
             <input type="date" style={{...INP,width:"auto"}} value={fDateTo} onChange={e=>setFDateTo(e.target.value)} title="To date"/>
             {(fDateFrom||fDateTo)&&<button onClick={()=>{setFDateFrom("");setFDateTo("");}} style={{...Btn("ghost"),padding:"4px 8px",fontSize:11,color:"#6b7280"}}>Clear</button>}
           </div>}
+          {tab==="uni"&&selUnis.size>0&&<button onClick={()=>{const orders=unis.filter(u=>selUnis.has(u.id));downloadPendingUniCSV(orders);}} style={{...Btn("outline",FC.uni.h),display:"flex",alignItems:"center",gap:6,marginLeft:"auto",padding:"6px 14px",fontSize:12}}>
+            <Ico n="dl" s={14}/><span>Download pending CSV list</span>
+          </button>}
           {tab!=="settings"||(settingsTab!=="email"&&settingsTab!=="emailList")
-            ?<button onClick={()=>{const d=tab==="settings"?(settingsTab==="users"?users:settingsTab==="terminals"?terminals:null):{rt:rts,uni:unis,fleet:trucks,inj:injs,acc:accs,hir:hirs,ins:insrs,dot:dots}[tab];const key=tab==="settings"?(settingsTab==="users"?"users":settingsTab==="terminals"?"terminals":null):tab;if(d&&key)downloadCSV(key,d);}} style={{...Btn("ghost"),display:"flex",alignItems:"center",gap:6,marginLeft:"auto",padding:"6px 14px",fontSize:12}}>
+            ?<button onClick={()=>{const d=tab==="settings"?(settingsTab==="users"?users:settingsTab==="terminals"?terminals:null):{rt:rts,uni:unis,fleet:trucks,inj:injs,acc:accs,hir:hirs,ins:insrs,dot:dots}[tab];const key=tab==="settings"?(settingsTab==="users"?"users":settingsTab==="terminals"?"terminals":null):tab;if(d&&key)downloadCSV(key,d);}} style={{...Btn("ghost"),display:"flex",alignItems:"center",gap:6,...(tab==="uni"&&selUnis.size>0?{}:{marginLeft:"auto"}),padding:"6px 14px",fontSize:12}}>
                 <Ico n="dl" s={14}/><span className="sync-label">Download CSV</span>
               </button>
             :<div style={{marginLeft:"auto"}}/>}
@@ -1845,7 +1882,7 @@ export default function App() {
         ) : tab==="uni" ? (
           fUnis.length===0
             ?<Empty msg="No uniform requests yet."/>
-            :<Grid>{fUnis.map(u=><UniCard key={u.id} req={u} onEdit={r=>setModal({type:"editUni",data:r})} onDelete={delUni} onFulfill={fulfillUni} terminals={terminals}/>)}</Grid>
+            :<Grid>{fUnis.map(u=><UniCard key={u.id} req={u} onEdit={r=>setModal({type:"editUni",data:r})} onDelete={delUni} onFulfill={fulfillUni} terminals={terminals} selected={selUnis.has(u.id)} onSelect={id=>setSelUnis(s=>{const n=new Set(s);n.has(id)?n.delete(id):n.add(id);return n;})}/>)}</Grid>
         ) : tab==="fleet" ? (<>
           {truckAlerts>0&&<div style={{background:EXP.warning.bg,border:"1px solid "+EXP.warning.bd,borderRadius:9,padding:"11px 16px",marginBottom:16,display:"flex",alignItems:"center",gap:10}}><Ico n="warn" s={16}/><span style={{fontSize:14,color:EXP.warning.tx,fontWeight:700}}>{truckAlerts} truck{truckAlerts>1?"s":""} require attention — registration or inspection expiring soon / expired</span></div>}
           {fTrucks.length===0
@@ -1933,7 +1970,7 @@ export default function App() {
       {modal?.type==="newRT"     && <Modal title="Schedule Road Test"        onClose={()=>setModal(null)} wide><RTForm      onSave={saveRT}      onClose={()=>setModal(null)} terminals={visibleTerminals}/></Modal>}
       {modal?.type==="editRT"    && <Modal title="Edit Road Test"            onClose={()=>setModal(null)} wide><RTForm      onSave={saveRT}      onClose={()=>setModal(null)} existing={modal.data} terminals={visibleTerminals}/></Modal>}
       {modal?.type==="outcome"   && <Modal title="Enter Road Test Outcome"   onClose={()=>setModal(null)}     ><OutcomeForm onSave={saveOutcome} onClose={()=>setModal(null)} test={modal.data}/></Modal>}
-      {modal?.type==="sms"       && <SmsModal test={modal.data} onClose={()=>setModal(null)} terminals={terminals}/>}
+      {modal?.type==="sms"       && <SmsModal test={modal.data} onClose={()=>setModal(null)} terminals={terminals} users={users}/>}
       {modal?.type==="newUni"    && <Modal title="New Uniform Order"         onClose={()=>setModal(null)} wide><UniForm    onSave={saveUni}     onClose={()=>setModal(null)} terminals={visibleTerminals}/></Modal>}
       {modal?.type==="editUni"   && <Modal title="Edit Uniform Request"      onClose={()=>setModal(null)} wide><UniForm    onSave={saveUni}     onClose={()=>setModal(null)} existing={modal.data} terminals={visibleTerminals}/></Modal>}
       {modal?.type==="newTruck"  && <Modal title="Add Truck to Fleet"        onClose={()=>setModal(null)} wide><TruckForm  onSave={saveTruck}   onClose={()=>setModal(null)} terminals={visibleTerminals}/></Modal>}

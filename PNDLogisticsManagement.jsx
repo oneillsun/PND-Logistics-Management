@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { dbLoad, dbSave } from "./src/lib/db.js";
 import { login, logout, getSession, fetchUsers, createUser, updateUser } from "./src/lib/auth.js";
 import { fetchTerminals, createTerminal, updateTerminal, uploadTerminalPdf } from "./src/lib/terminals.js";
-import { sendEmail, buildOutcomeHtml } from "./src/lib/email.js";
+import { sendEmail, buildOutcomeHtml, sendModuleEmail } from "./src/lib/email.js";
 import { fetchEmailSettings, saveEmailSettings, DEFAULT_SETTINGS } from "./src/lib/settings.js";
 import { fetchEmailList, saveEmailList, EMAIL_LIST_MODULES } from "./src/lib/emailList.js";
 import { generateRoadTestPDF } from "./src/lib/pdfRecord.js";
@@ -1639,17 +1639,100 @@ export default function App() {
     }
   };
 
-  const saveUni=async req=>{const isNew=!unis.some(u=>u.id===req.id);const upd=isNew?[...unis,req]:unis.map(u=>u.id===req.id?req:u);setUnis(upd);toast("Uniform order saved!","success");setModal(null);dbSave(SK.uni,upd);};
+  const saveUni=async req=>{
+    const isNew=!unis.some(u=>u.id===req.id);
+    const upd=isNew?[...unis,req]:unis.map(u=>u.id===req.id?req:u);
+    setUnis(upd);toast("Uniform order saved!","success");setModal(null);dbSave(SK.uni,upd);
+    if(isNew){
+      const listEmails=(emailList.uni||"").split(",").map(e=>e.trim()).filter(Boolean);
+      if(listEmails.length){
+        const driverNames=(req.drivers||[]).map(d=>d.name).filter(Boolean).join(", ");
+        const itemSummary=(req.drivers||[]).map(d=>`${d.name}: `+(d.items||[]).map(i=>`${i.type} (${i.size})`).join(", ")).join("\n");
+        const result=await sendModuleEmail("uniformOrderNew",{
+          terminal:req.terminal||"",
+          requestedBy:req.requestedBy||"",
+          driverCount:String((req.drivers||[]).length),
+          driverNames,
+          itemSummary,
+          notes:req.notes||"",
+          createdAt:new Date(req.createdAt).toLocaleString("en-US"),
+        },emailSettings,listEmails.join(", "));
+        if(result?.ok) toast("📧 Uniform order notification sent.","success");
+        else if(result?.error) toast("📧 Email failed — check console.","warn");
+      }
+    }
+  };
   const delUni=async id=>{if(!confirm("Delete?"))return;const upd=unis.filter(u=>u.id!==id);setUnis(upd);toast("Removed.");dbSave(SK.uni,upd);};
   const fulfillUni=async id=>{const upd=unis.map(u=>u.id===id?{...u,status:"Completed",fulfilledAt:new Date().toISOString()}:u);setUnis(upd);toast("✅ Order fulfilled!","success");dbSave(SK.uni,upd);};
 
   const saveTruck=async truck=>{const isNew=!trucks.some(t=>t.id===truck.id);const upd=isNew?[...trucks,truck]:trucks.map(t=>t.id===truck.id?truck:t);setTrucks(upd);toast(isNew?"🚚 Truck added!":"Truck updated.","success");setModal(null);dbSave(SK.tr,upd);};
   const delTruck=async id=>{if(!confirm("Remove truck?"))return;const upd=trucks.filter(t=>t.id!==id);setTrucks(upd);toast("Truck removed.");dbSave(SK.tr,upd);};
 
-  const saveInj=async r=>{const isNew=!injs.some(x=>x.id===r.id);const upd=isNew?[...injs,r]:injs.map(x=>x.id===r.id?r:x);setInjs(upd);toast(isNew?"Injury report filed.":"Report updated.","warn");setModal(null);dbSave(SK.inj,upd);};
+  const saveInj=async r=>{
+    const isNew=!injs.some(x=>x.id===r.id);
+    const upd=isNew?[...injs,r]:injs.map(x=>x.id===r.id?r:x);
+    setInjs(upd);toast(isNew?"Injury report filed.":"Report updated.","warn");setModal(null);dbSave(SK.inj,upd);
+    if(isNew){
+      const listEmails=(emailList.inj||"").split(",").map(e=>e.trim()).filter(Boolean);
+      if(listEmails.length){
+        const result=await sendModuleEmail("injuryReportNew",{
+          terminal:r.terminal||"",
+          employeeName:r.employeeName||"",
+          bodyPart:r.bodyPart||"",
+          injuryDate:r.injuryDate||"",
+          injuryTime:r.injuryTime||"",
+          injuryAddress:r.injuryAddress||"",
+          description:r.description||"",
+          medicalAttention:r.medicalAttention||"",
+          medicalProvider:r.medicalProvider||"",
+          missedWork:r.missedWork||"",
+          missedDays:r.missedDays||"",
+          witnesses:r.witnesses||"",
+          reportedBy:r.reportedBy||"",
+          createdAt:new Date(r.createdAt).toLocaleString("en-US"),
+        },emailSettings,listEmails.join(", "));
+        if(result?.ok) toast("📧 Injury report notification sent.","success");
+        else if(result?.error) toast("📧 Email failed — check console.","warn");
+      }
+    }
+  };
   const delInj=async id=>{if(!confirm("Delete this injury report?"))return;const upd=injs.filter(r=>r.id!==id);setInjs(upd);toast("Report deleted.");dbSave(SK.inj,upd);};
 
-  const saveAcc=async r=>{const isNew=!accs.some(x=>x.id===r.id);const upd=isNew?[...accs,r]:accs.map(x=>x.id===r.id?r:x);setAccs(upd);toast(isNew?"Accident report filed.":"Report updated.","warn");setModal(null);dbSave(SK.acc,upd);};
+  const saveAcc=async r=>{
+    const isNew=!accs.some(x=>x.id===r.id);
+    const upd=isNew?[...accs,r]:accs.map(x=>x.id===r.id?r:x);
+    setAccs(upd);toast(isNew?"Accident report filed.":"Report updated.","warn");setModal(null);dbSave(SK.acc,upd);
+    if(isNew){
+      const listEmails=(emailList.acc||"").split(",").map(e=>e.trim()).filter(Boolean);
+      if(listEmails.length){
+        const result=await sendModuleEmail("accidentReportNew",{
+          terminal:r.terminal||"",
+          reportedBy:r.reportedBy||"",
+          driverName:r.driverName||"",
+          fedexId:r.fedexId||"",
+          vehicleId:r.vehicleId||"",
+          vehicleYear:r.vehicleYear||"",
+          vehicleMake:r.vehicleMake||"",
+          vehicleModel:r.vehicleModel||"",
+          accidentDate:r.accidentDate||"",
+          accidentTime:r.accidentTime||"",
+          accidentAddress:r.accidentAddress||"",
+          description:r.description||"",
+          victimName:r.victimName||"",
+          victimPhone:r.victimPhone||"",
+          victimPlate:r.victimPlate||"",
+          victimMake:r.victimMake||"",
+          victimModel:r.victimModel||"",
+          victimColor:r.victimColor||"",
+          vderWorking:r.vderWorking||"",
+          v360Working:r.v360Working||"",
+          createdAt:new Date(r.createdAt).toLocaleString("en-US"),
+        },emailSettings,listEmails.join(", "));
+        if(result?.ok) toast("📧 Accident report notification sent.","success");
+        else if(result?.error) toast("📧 Email failed — check console.","warn");
+      }
+    }
+  };
   const delAcc=async id=>{if(!confirm("Delete this accident report?"))return;const upd=accs.filter(r=>r.id!==id);setAccs(upd);toast("Report deleted.");dbSave(SK.acc,upd);};
 
   const saveHir=async r=>{
@@ -1659,6 +1742,22 @@ export default function App() {
     setHirs(upd);toast(isNew?"Hiring request submitted.":"Request updated.","success");
     setModal(showNotify?{type:"hirNotify",data:clean}:null);
     dbSave(SK.hir,upd);
+    if(isNew){
+      const listEmails=(emailList.hir||"").split(",").map(e=>e.trim()).filter(Boolean);
+      if(listEmails.length){
+        const result=await sendModuleEmail("hiringRequestNew",{
+          terminal:clean.terminal||"",
+          requestedBy:clean.requestedBy||"",
+          action:clean.action||"",
+          driversNeeded:String(clean.driversNeeded||""),
+          urgency:clean.urgency||"",
+          reason:clean.reason||"",
+          createdAt:new Date(clean.createdAt).toLocaleString("en-US"),
+        },emailSettings,listEmails.join(", "));
+        if(result?.ok) toast("📧 Hiring request notification sent.","success");
+        else if(result?.error) toast("📧 Email failed — check console.","warn");
+      }
+    }
   };
   const delHir=async id=>{if(!confirm("Delete this hiring request?"))return;const upd=hirs.filter(r=>r.id!==id);setHirs(upd);toast("Removed.");dbSave(SK.hir,upd);};
 
@@ -1669,10 +1768,45 @@ export default function App() {
     setInsrs(upd);toast(isNew?"Insurance request submitted.":"Request updated.","success");
     setModal(showEmail?{type:"insEmail",data:clean}:null);
     dbSave(SK.ins,upd);
+    if(isNew){
+      const listEmails=(emailList.ins||"").split(",").map(e=>e.trim()).filter(Boolean);
+      if(listEmails.length){
+        const result=await sendModuleEmail("insuranceRequestNew",{
+          terminal:clean.terminal||"",
+          requestedBy:clean.requestedBy||"",
+          employeeName:clean.employeeName||"",
+          employeePhone:clean.employeePhone||"",
+          has30Days:clean.has30Days||"",
+          notes:clean.notes||"",
+          createdAt:new Date(clean.createdAt).toLocaleString("en-US"),
+        },emailSettings,listEmails.join(", "));
+        if(result?.ok) toast("📧 Insurance request notification sent.","success");
+        else if(result?.error) toast("📧 Email failed — check console.","warn");
+      }
+    }
   };
   const delInsr=async id=>{if(!confirm("Delete this insurance request?"))return;const upd=insrs.filter(r=>r.id!==id);setInsrs(upd);toast("Removed.");dbSave(SK.ins,upd);};
 
-  const saveDot=async r=>{const isNew=!dots.some(x=>x.id===r.id);const upd=isNew?[...dots,r]:dots.map(x=>x.id===r.id?r:x);setDots(upd);toast(isNew?"DOT Card added.":"DOT Card updated.","success");setModal(null);dbSave(SK.dot,upd);};
+  const saveDot=async r=>{
+    const isNew=!dots.some(x=>x.id===r.id);
+    const upd=isNew?[...dots,r]:dots.map(x=>x.id===r.id?r:x);
+    setDots(upd);toast(isNew?"DOT Card added.":"DOT Card updated.","success");setModal(null);dbSave(SK.dot,upd);
+    if(isNew){
+      const listEmails=(emailList.dot||"").split(",").map(e=>e.trim()).filter(Boolean);
+      if(listEmails.length){
+        const result=await sendModuleEmail("dotCardNew",{
+          terminal:r.terminal||"",
+          firstName:r.firstName||"",
+          lastName:r.lastName||"",
+          fedexId:r.fedexId||"",
+          expirationDate:r.expirationDate||"",
+          createdAt:new Date(r.createdAt).toLocaleString("en-US"),
+        },emailSettings,listEmails.join(", "));
+        if(result?.ok) toast("📧 DOT card notification sent.","success");
+        else if(result?.error) toast("📧 Email failed — check console.","warn");
+      }
+    }
+  };
   const delDot=async id=>{if(!confirm("Delete this DOT card record?"))return;const upd=dots.filter(r=>r.id!==id);setDots(upd);toast("Removed.");dbSave(SK.dot,upd);};
   const handleUploadDotCardFile=useCallback(async(card,file)=>{
     const{url,error}=await uploadDotCardFile(card.id,file);
@@ -1944,6 +2078,48 @@ export default function App() {
                   label="Road Test Outcome"
                   placeholders={["candidateName","fedexId","phone","terminal","date","time","status","feedback","firstDay","completedAt"]}
                   config={emailSettings.roadTestOutcome}
+                  onChange={handleSettingsChange}
+                />
+                <EmailSettingsForm
+                  moduleKey="uniformOrderNew"
+                  label="New Uniform Order"
+                  placeholders={["terminal","requestedBy","driverCount","driverNames","itemSummary","notes","createdAt"]}
+                  config={emailSettings.uniformOrderNew||{}}
+                  onChange={handleSettingsChange}
+                />
+                <EmailSettingsForm
+                  moduleKey="injuryReportNew"
+                  label="New Injury Report"
+                  placeholders={["terminal","employeeName","bodyPart","injuryDate","injuryTime","injuryAddress","description","medicalAttention","medicalProvider","missedWork","missedDays","witnesses","reportedBy","createdAt"]}
+                  config={emailSettings.injuryReportNew||{}}
+                  onChange={handleSettingsChange}
+                />
+                <EmailSettingsForm
+                  moduleKey="dotCardNew"
+                  label="New DOT Card"
+                  placeholders={["terminal","firstName","lastName","fedexId","expirationDate","createdAt"]}
+                  config={emailSettings.dotCardNew||{}}
+                  onChange={handleSettingsChange}
+                />
+                <EmailSettingsForm
+                  moduleKey="insuranceRequestNew"
+                  label="New Insurance Request"
+                  placeholders={["terminal","requestedBy","employeeName","employeePhone","has30Days","notes","createdAt"]}
+                  config={emailSettings.insuranceRequestNew||{}}
+                  onChange={handleSettingsChange}
+                />
+                <EmailSettingsForm
+                  moduleKey="hiringRequestNew"
+                  label="New Hiring Request"
+                  placeholders={["terminal","requestedBy","action","driversNeeded","urgency","reason","createdAt"]}
+                  config={emailSettings.hiringRequestNew||{}}
+                  onChange={handleSettingsChange}
+                />
+                <EmailSettingsForm
+                  moduleKey="accidentReportNew"
+                  label="New Accident Report"
+                  placeholders={["terminal","reportedBy","driverName","fedexId","vehicleId","vehicleYear","vehicleMake","vehicleModel","accidentDate","accidentTime","accidentAddress","description","victimName","victimPhone","victimPlate","victimMake","victimModel","victimColor","vderWorking","v360Working","createdAt"]}
+                  config={emailSettings.accidentReportNew||{}}
                   onChange={handleSettingsChange}
                 />
               </div>

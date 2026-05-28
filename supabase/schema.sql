@@ -119,11 +119,25 @@ create unique index if not exists users_one_active_per_terminal
   on users (terminal)
   where status = 'active' and terminal is not null;
 
--- Email List (per-module recipient addresses)
+-- App Settings (email notification templates + recipient addresses per module)
+create table if not exists app_settings (
+  id    text primary key,
+  data  jsonb not null default '{}'
+);
+
+alter table app_settings enable row level security;
+create policy "allow_all" on app_settings for all using (true) with check (true);
+
+-- Email List (DEPRECATED — merged into app_settings JSON)
+-- Recipients are now stored as the "to" field inside each module config
+-- in the app_settings row with id = 'email_notifications'.
+-- Run the migration block below once to move existing data, then drop this table.
 create table if not exists email_list (
   module  text primary key,
   emails  text not null default ''
 );
+
+-- See supabase/migrate_email_list_to_app_settings.sql to migrate existing data.
 
 -- Row Level Security
 alter table terminals      enable row level security;

@@ -4,7 +4,6 @@ import { login, logout, getSession, fetchUsers, createUser, updateUser } from ".
 import { fetchTerminals, createTerminal, updateTerminal, uploadTerminalPdf } from "./src/lib/terminals.js";
 import { sendEmail, buildOutcomeHtml, sendModuleEmail } from "./src/lib/email.js";
 import { fetchEmailSettings, saveEmailSettings, DEFAULT_SETTINGS } from "./src/lib/settings.js";
-import { fetchEmailList, saveEmailList, EMAIL_LIST_MODULES } from "./src/lib/emailList.js";
 import { generateRoadTestPDF } from "./src/lib/pdfRecord.js";
 import { uploadDotCardFile } from "./src/lib/dotCards.js";
 
@@ -17,6 +16,14 @@ const defSize  = t => BOTTOM_TYPES.includes(t) ? "32" : "M";
 const BODY_PARTS = ["Head / Skull","Face","Eye(s)","Ear(s)","Neck","Shoulder(s)","Upper Arm","Elbow","Forearm","Wrist","Hand / Fingers","Upper Back","Lower Back","Chest / Ribs","Abdomen","Hip","Thigh","Knee","Lower Leg / Shin","Ankle","Foot / Toes","Multiple Areas","Other"];
 const US_STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
 const SK = { rt:"pnd_rt_v5", uni:"pnd_uni_v5", tr:"pnd_tr_v5", inj:"pnd_inj_v5", acc:"pnd_acc_v2", hir:"pnd_hir_v1", ins:"pnd_ins_v1", dot:"pnd_dot_v1" };
+const MODULE_LABELS = {
+  uniformOrderNew:    "Uniform order",
+  injuryReportNew:    "Injury report",
+  accidentReportNew:  "Accident report",
+  hiringRequestNew:   "Hiring request",
+  insuranceRequestNew:"Insurance request",
+  dotCardNew:         "DOT card",
+};
 const FC = {
   rt:    { h:"#2563eb", bg:"#eff6ff", bd:"#bfdbfe", tx:"#1e40af", ring:"#93c5fd", soft:"#dbeafe" },
   uni:   { h:"#7c3aed", bg:"#f5f3ff", bd:"#ddd6fe", tx:"#5b21b6", ring:"#c4b5fd", soft:"#ede9fe" },
@@ -461,12 +468,17 @@ function RTCard({test,onEdit,onOutcome,onDelete,onSms,users=[],terminals=[],onEr
 }
 
 // ─── Uniform Form ─────────────────────────────────────────────────────────────
-function UniForm({onSave,onClose,existing,terminals=[]}) {
+function UniForm({onSave,onClose,existing,terminals=[],users=[]}) {
   const cc=FC.uni;
   const activeTerminals=terminals.filter(t=>(t.status||"Active")==="Active");
   const newDrv=()=>({id:Date.now().toString()+Math.random(),name:"",items:[{type:UNIFORM_TYPES[0],size:defSize(UNIFORM_TYPES[0])}]});
-  const [form,setForm]=useState(existing||{terminal:activeTerminals[0]?`${activeTerminals[0].name} - ${activeTerminals[0].code}`:"",requestedBy:"",drivers:[newDrv()],notes:""});
+  const getBcName=termLabel=>users.find(u=>u.role==="bc"&&u.terminal===termLabel&&u.status==="active")?.name||"";
+  const defaultTerminal=activeTerminals[0]?`${activeTerminals[0].name} - ${activeTerminals[0].code}`:"";
+  const [form,setForm]=useState(existing
+    ?{...existing,requestedBy:getBcName(existing.terminal)||existing.requestedBy}
+    :{terminal:defaultTerminal,requestedBy:getBcName(defaultTerminal),drivers:[newDrv()],notes:""});
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
+  const handleTerminal=v=>setForm(f=>({...f,terminal:v,requestedBy:getBcName(v)}));
   const addDrv=()=>set("drivers",[...form.drivers,newDrv()]);
   const remDrv=id=>set("drivers",form.drivers.filter(d=>d.id!==id));
   const setName=(id,name)=>set("drivers",form.drivers.map(d=>d.id===id?{...d,name}:d));
@@ -474,14 +486,14 @@ function UniForm({onSave,onClose,existing,terminals=[]}) {
   const remItem=(id,i)=>set("drivers",form.drivers.map(d=>d.id===id?{...d,items:d.items.filter((_,j)=>j!==i)}:d));
   const setItem=(id,i,k,v)=>set("drivers",form.drivers.map(d=>{if(d.id!==id)return d;const items=d.items.map((item,j)=>{if(j!==i)return item;const n={...item,[k]:v};if(k==="type")n.size=defSize(v);return n;});return{...d,items};}));
   const doSave=()=>{
-    if(!form.requestedBy)return alert("Please enter the requester's name.");
+    if(!form.requestedBy)return alert("No active BC found for the selected terminal.");
     if(form.drivers.some(d=>!d.name.trim()))return alert("Fill in all driver names.");
     onSave({...form,id:existing?.id||Date.now().toString(),status:existing?.status||"Pending",createdAt:existing?.createdAt||new Date().toISOString()});
   };
   return <>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
-      <Field label="Terminal Location"><select style={INP} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>{activeTerminals.length===0&&<option value="">Loading terminals…</option>}{activeTerminals.map(t=><option key={t.id} value={`${t.name} - ${t.code}`}>{t.name} - {t.code}</option>)}</select></Field>
-      <Field label="Requested By *"><input style={INP} value={form.requestedBy} onChange={e=>set("requestedBy",e.target.value)} placeholder="Manager name"/></Field>
+      <Field label="Terminal Location"><select style={INP} value={form.terminal} onChange={e=>handleTerminal(e.target.value)}>{activeTerminals.length===0&&<option value="">Loading terminals…</option>}{activeTerminals.map(t=><option key={t.id} value={`${t.name} - ${t.code}`}>{t.name} - {t.code}</option>)}</select></Field>
+      <Field label="Requested By"><input style={{...INP,background:"#f3f4f6",color:form.requestedBy?"#111827":"#9ca3af",cursor:"default"}} value={form.requestedBy} readOnly placeholder="No active BC for this terminal"/></Field>
     </div>
     <TInfo tk={form.terminal} terminals={terminals}/>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
@@ -1017,7 +1029,8 @@ function EmailSettingsForm({moduleKey,label,placeholders,config,onChange}) {
             <span style={{fontSize:12,color:isOn?FC.hir.tx:"#9ca3af",fontWeight:600}}>{isOn?"Enabled":"Disabled"}</span>
           </label>
         </div>
-        <Field label="CC (optional)"><input style={INP} value={config.cc||""} onChange={e=>set("cc",e.target.value)} placeholder="manager@company.com"/></Field>
+        <Field label="Recipients (To)" span><input style={INP} value={config.to||""} onChange={e=>set("to",e.target.value)} placeholder="email1@company.com, email2@company.com"/></Field>
+        <Field label="CC (optional)" span><input style={INP} value={config.cc||""} onChange={e=>set("cc",e.target.value)} placeholder="manager@company.com"/></Field>
         <Field label="Subject" span><input style={INP} value={config.subject||""} onChange={e=>set("subject",e.target.value)}/></Field>
         <Field label="Body (leave blank for auto-generated)" span><textarea style={{...INP,height:90,resize:"vertical"}} value={config.body||""} onChange={e=>set("body",e.target.value)} placeholder="Leave blank to use the default branded layout."/></Field>
         <div style={{fontSize:11,color:"#9ca3af",marginTop:4}}>
@@ -1189,13 +1202,18 @@ function HRNotifyModal({req,onClose,terminals=[]}) {
   </Modal>;
 }
 
-function HiringForm({onSave,onClose,existing,terminals=[]}) {
+function HiringForm({onSave,onClose,existing,terminals=[],users=[]}) {
   const cc=FC.hir;
   const activeTerminals=terminals.filter(t=>(t.status||"Active")==="Active");
-  const [form,setForm]=useState(existing||{terminal:activeTerminals[0]?`${activeTerminals[0].name} - ${activeTerminals[0].code}`:"",requestedBy:"",action:"start",driversNeeded:"",urgency:"medium",reason:""});
+  const getBcName=termLabel=>users.find(u=>u.role==="bc"&&u.terminal===termLabel&&u.status==="active")?.name||"";
+  const defaultTerminal=activeTerminals[0]?`${activeTerminals[0].name} - ${activeTerminals[0].code}`:"";
+  const [form,setForm]=useState(existing
+    ?{...existing,requestedBy:getBcName(existing.terminal)||existing.requestedBy}
+    :{terminal:defaultTerminal,requestedBy:getBcName(defaultTerminal),action:"start",driversNeeded:"",urgency:"medium",reason:""});
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
+  const handleTerminal=v=>setForm(f=>({...f,terminal:v,requestedBy:getBcName(v)}));
   const doSave=()=>{
-    if(!form.requestedBy.trim())return alert("Enter your name.");
+    if(!form.requestedBy.trim())return alert("No active BC found for the selected terminal.");
     if(form.action==="start"&&(!form.driversNeeded||parseInt(form.driversNeeded)<1))return alert("Enter how many drivers are needed.");
     if(!form.reason.trim())return alert("Provide a reason.");
     onSave({...form,id:existing?.id||Date.now().toString(),status:form.action==="start"?"Active":"Paused",createdAt:existing?.createdAt||new Date().toISOString(),_notify:true});
@@ -1203,8 +1221,8 @@ function HiringForm({onSave,onClose,existing,terminals=[]}) {
   const urg=URGENCY.find(u=>u.v===form.urgency)||URGENCY[1];
   return <div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
-      <Field label="Terminal Location"><select style={INP} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>{activeTerminals.length===0&&<option value="">Loading terminals…</option>}{activeTerminals.map(t=><option key={t.id} value={`${t.name} - ${t.code}`}>{t.name} - {t.code}</option>)}</select></Field>
-      <Field label="Your Name (Manager) *"><input style={INP} value={form.requestedBy} onChange={e=>set("requestedBy",e.target.value)} placeholder="Manager name"/></Field>
+      <Field label="Terminal Location"><select style={INP} value={form.terminal} onChange={e=>handleTerminal(e.target.value)}>{activeTerminals.length===0&&<option value="">Loading terminals…</option>}{activeTerminals.map(t=><option key={t.id} value={`${t.name} - ${t.code}`}>{t.name} - {t.code}</option>)}</select></Field>
+      <Field label="Your Name (Manager)"><input style={{...INP,background:"#f3f4f6",color:form.requestedBy?"#111827":"#9ca3af",cursor:"default"}} value={form.requestedBy} readOnly placeholder="No active BC for this terminal"/></Field>
     </div>
     <TInfo tk={form.terminal} terminals={terminals}/>
     <Field label="Hiring Action *">
@@ -1543,16 +1561,11 @@ export default function App() {
     setEmailSettings(await fetchEmailSettings());
   },[]);
 
-  const [emailList,setEmailList]=useState({});
-  const loadEmailList=useCallback(async()=>{
-    setEmailList(await fetchEmailList());
-  },[]);
-
   useEffect(()=>{
     if(!currentUser) return;
     loadTerminals();
-    if(currentUser.role==="admin"){ loadUsers(); loadSettings(); loadEmailList(); }
-  },[currentUser,loadUsers,loadTerminals,loadSettings,loadEmailList]);
+    if(currentUser.role==="admin"){ loadUsers(); loadSettings(); }
+  },[currentUser,loadUsers,loadTerminals,loadSettings]);
 
   // ── Data ────────────────────────────────────────────────────────────────────
   const [tab,setTab]=useState("rt");
@@ -1580,6 +1593,13 @@ export default function App() {
   const [syncing,setSyncing]=useState(false);
 
   const toast=useCallback((msg,type="info")=>{const id=Date.now();setToasts(t=>[...t,{id,message:msg,type}]);setTimeout(()=>setToasts(t=>t.filter(x=>x.id!==id)),4500);},[]);
+
+  const sendNotification=useCallback(async(moduleKey,placeholders)=>{
+    const result=await sendModuleEmail(moduleKey,placeholders,emailSettings);
+    const label=MODULE_LABELS[moduleKey]||"Notification";
+    if(result?.ok) toast(`📧 ${label} notification sent.`,"success");
+    else if(result?.error) toast("📧 Email failed — check console.","warn");
+  },[emailSettings,toast]);
 
   const loadAll=useCallback(async()=>{
     const [a,b,c,d,e,f,g,h]=await Promise.all([dbLoad(SK.rt),dbLoad(SK.uni),dbLoad(SK.tr),dbLoad(SK.inj),dbLoad(SK.acc),dbLoad(SK.hir),dbLoad(SK.ins),dbLoad(SK.dot)]);
@@ -1620,7 +1640,7 @@ export default function App() {
     setModal(null);
     dbSave(SK.rt,upd);
     const creatorEmail=test.createdBy?.email||"";
-    const listEmails=(emailList.rt||"").split(",").map(e=>e.trim()).filter(Boolean);
+    const listEmails=(emailSettings.roadTestOutcome?.to||"").split(",").map(e=>e.trim()).filter(Boolean);
     const allTo=[...(creatorEmail?[creatorEmail]:[]),...listEmails];
     if(!allTo.length){toast("📧 Email skipped — no recipients configured.","warn");}
     else{
@@ -1644,22 +1664,17 @@ export default function App() {
     const upd=isNew?[...unis,req]:unis.map(u=>u.id===req.id?req:u);
     setUnis(upd);toast("Uniform order saved!","success");setModal(null);dbSave(SK.uni,upd);
     if(isNew){
-      const listEmails=(emailList.uni||"").split(",").map(e=>e.trim()).filter(Boolean);
-      if(listEmails.length){
-        const driverNames=(req.drivers||[]).map(d=>d.name).filter(Boolean).join(", ");
-        const itemSummary=(req.drivers||[]).map(d=>`${d.name}: `+(d.items||[]).map(i=>`${i.type} (${i.size})`).join(", ")).join("\n");
-        const result=await sendModuleEmail("uniformOrderNew",{
-          terminal:req.terminal||"",
-          requestedBy:req.requestedBy||"",
-          driverCount:String((req.drivers||[]).length),
-          driverNames,
-          itemSummary,
-          notes:req.notes||"",
-          createdAt:new Date(req.createdAt).toLocaleString("en-US"),
-        },emailSettings,listEmails.join(", "));
-        if(result?.ok) toast("📧 Uniform order notification sent.","success");
-        else if(result?.error) toast("📧 Email failed — check console.","warn");
-      }
+      const driverNames=(req.drivers||[]).map(d=>d.name).filter(Boolean).join(", ");
+      const itemSummary=(req.drivers||[]).map(d=>`${d.name}: `+(d.items||[]).map(i=>`${i.type} (${i.size})`).join(", ")).join("\n");
+      sendNotification("uniformOrderNew",{
+        terminal:req.terminal||"",
+        requestedBy:req.requestedBy||"",
+        driverCount:String((req.drivers||[]).length),
+        driverNames,
+        itemSummary,
+        notes:req.notes||"",
+        createdAt:new Date(req.createdAt).toLocaleString("en-US"),
+      });
     }
   };
   const delUni=async id=>{if(!confirm("Delete?"))return;const upd=unis.filter(u=>u.id!==id);setUnis(upd);toast("Removed.");dbSave(SK.uni,upd);};
@@ -1673,27 +1688,22 @@ export default function App() {
     const upd=isNew?[...injs,r]:injs.map(x=>x.id===r.id?r:x);
     setInjs(upd);toast(isNew?"Injury report filed.":"Report updated.","warn");setModal(null);dbSave(SK.inj,upd);
     if(isNew){
-      const listEmails=(emailList.inj||"").split(",").map(e=>e.trim()).filter(Boolean);
-      if(listEmails.length){
-        const result=await sendModuleEmail("injuryReportNew",{
-          terminal:r.terminal||"",
-          employeeName:r.employeeName||"",
-          bodyPart:r.bodyPart||"",
-          injuryDate:r.injuryDate||"",
-          injuryTime:r.injuryTime||"",
-          injuryAddress:r.injuryAddress||"",
-          description:r.description||"",
-          medicalAttention:r.medicalAttention||"",
-          medicalProvider:r.medicalProvider||"",
-          missedWork:r.missedWork||"",
-          missedDays:r.missedDays||"",
-          witnesses:r.witnesses||"",
-          reportedBy:r.reportedBy||"",
-          createdAt:new Date(r.createdAt).toLocaleString("en-US"),
-        },emailSettings,listEmails.join(", "));
-        if(result?.ok) toast("📧 Injury report notification sent.","success");
-        else if(result?.error) toast("📧 Email failed — check console.","warn");
-      }
+      sendNotification("injuryReportNew",{
+        terminal:r.terminal||"",
+        employeeName:r.employeeName||"",
+        bodyPart:r.bodyPart||"",
+        injuryDate:r.injuryDate||"",
+        injuryTime:r.injuryTime||"",
+        injuryAddress:r.injuryAddress||"",
+        description:r.description||"",
+        medicalAttention:r.medicalAttention||"",
+        medicalProvider:r.medicalProvider||"",
+        missedWork:r.missedWork||"",
+        missedDays:r.missedDays||"",
+        witnesses:r.witnesses||"",
+        reportedBy:r.reportedBy||"",
+        createdAt:new Date(r.createdAt).toLocaleString("en-US"),
+      });
     }
   };
   const delInj=async id=>{if(!confirm("Delete this injury report?"))return;const upd=injs.filter(r=>r.id!==id);setInjs(upd);toast("Report deleted.");dbSave(SK.inj,upd);};
@@ -1703,34 +1713,29 @@ export default function App() {
     const upd=isNew?[...accs,r]:accs.map(x=>x.id===r.id?r:x);
     setAccs(upd);toast(isNew?"Accident report filed.":"Report updated.","warn");setModal(null);dbSave(SK.acc,upd);
     if(isNew){
-      const listEmails=(emailList.acc||"").split(",").map(e=>e.trim()).filter(Boolean);
-      if(listEmails.length){
-        const result=await sendModuleEmail("accidentReportNew",{
-          terminal:r.terminal||"",
-          reportedBy:r.reportedBy||"",
-          driverName:r.driverName||"",
-          fedexId:r.fedexId||"",
-          vehicleId:r.vehicleId||"",
-          vehicleYear:r.vehicleYear||"",
-          vehicleMake:r.vehicleMake||"",
-          vehicleModel:r.vehicleModel||"",
-          accidentDate:r.accidentDate||"",
-          accidentTime:r.accidentTime||"",
-          accidentAddress:r.accidentAddress||"",
-          description:r.description||"",
-          victimName:r.victimName||"",
-          victimPhone:r.victimPhone||"",
-          victimPlate:r.victimPlate||"",
-          victimMake:r.victimMake||"",
-          victimModel:r.victimModel||"",
-          victimColor:r.victimColor||"",
-          vderWorking:r.vderWorking||"",
-          v360Working:r.v360Working||"",
-          createdAt:new Date(r.createdAt).toLocaleString("en-US"),
-        },emailSettings,listEmails.join(", "));
-        if(result?.ok) toast("📧 Accident report notification sent.","success");
-        else if(result?.error) toast("📧 Email failed — check console.","warn");
-      }
+      sendNotification("accidentReportNew",{
+        terminal:r.terminal||"",
+        reportedBy:r.reportedBy||"",
+        driverName:r.driverName||"",
+        fedexId:r.fedexId||"",
+        vehicleId:r.vehicleId||"",
+        vehicleYear:r.vehicleYear||"",
+        vehicleMake:r.vehicleMake||"",
+        vehicleModel:r.vehicleModel||"",
+        accidentDate:r.accidentDate||"",
+        accidentTime:r.accidentTime||"",
+        accidentAddress:r.accidentAddress||"",
+        description:r.description||"",
+        victimName:r.victimName||"",
+        victimPhone:r.victimPhone||"",
+        victimPlate:r.victimPlate||"",
+        victimMake:r.victimMake||"",
+        victimModel:r.victimModel||"",
+        victimColor:r.victimColor||"",
+        vderWorking:r.vderWorking||"",
+        v360Working:r.v360Working||"",
+        createdAt:new Date(r.createdAt).toLocaleString("en-US"),
+      });
     }
   };
   const delAcc=async id=>{if(!confirm("Delete this accident report?"))return;const upd=accs.filter(r=>r.id!==id);setAccs(upd);toast("Report deleted.");dbSave(SK.acc,upd);};
@@ -1743,20 +1748,15 @@ export default function App() {
     setModal(showNotify?{type:"hirNotify",data:clean}:null);
     dbSave(SK.hir,upd);
     if(isNew){
-      const listEmails=(emailList.hir||"").split(",").map(e=>e.trim()).filter(Boolean);
-      if(listEmails.length){
-        const result=await sendModuleEmail("hiringRequestNew",{
-          terminal:clean.terminal||"",
-          requestedBy:clean.requestedBy||"",
-          action:clean.action||"",
-          driversNeeded:String(clean.driversNeeded||""),
-          urgency:clean.urgency||"",
-          reason:clean.reason||"",
-          createdAt:new Date(clean.createdAt).toLocaleString("en-US"),
-        },emailSettings,listEmails.join(", "));
-        if(result?.ok) toast("📧 Hiring request notification sent.","success");
-        else if(result?.error) toast("📧 Email failed — check console.","warn");
-      }
+      sendNotification("hiringRequestNew",{
+        terminal:clean.terminal||"",
+        requestedBy:clean.requestedBy||"",
+        action:clean.action||"",
+        driversNeeded:String(clean.driversNeeded||""),
+        urgency:clean.urgency||"",
+        reason:clean.reason||"",
+        createdAt:new Date(clean.createdAt).toLocaleString("en-US"),
+      });
     }
   };
   const delHir=async id=>{if(!confirm("Delete this hiring request?"))return;const upd=hirs.filter(r=>r.id!==id);setHirs(upd);toast("Removed.");dbSave(SK.hir,upd);};
@@ -1769,20 +1769,15 @@ export default function App() {
     setModal(showEmail?{type:"insEmail",data:clean}:null);
     dbSave(SK.ins,upd);
     if(isNew){
-      const listEmails=(emailList.ins||"").split(",").map(e=>e.trim()).filter(Boolean);
-      if(listEmails.length){
-        const result=await sendModuleEmail("insuranceRequestNew",{
-          terminal:clean.terminal||"",
-          requestedBy:clean.requestedBy||"",
-          employeeName:clean.employeeName||"",
-          employeePhone:clean.employeePhone||"",
-          has30Days:clean.has30Days||"",
-          notes:clean.notes||"",
-          createdAt:new Date(clean.createdAt).toLocaleString("en-US"),
-        },emailSettings,listEmails.join(", "));
-        if(result?.ok) toast("📧 Insurance request notification sent.","success");
-        else if(result?.error) toast("📧 Email failed — check console.","warn");
-      }
+      sendNotification("insuranceRequestNew",{
+        terminal:clean.terminal||"",
+        requestedBy:clean.requestedBy||"",
+        employeeName:clean.employeeName||"",
+        employeePhone:clean.employeePhone||"",
+        has30Days:clean.has30Days||"",
+        notes:clean.notes||"",
+        createdAt:new Date(clean.createdAt).toLocaleString("en-US"),
+      });
     }
   };
   const delInsr=async id=>{if(!confirm("Delete this insurance request?"))return;const upd=insrs.filter(r=>r.id!==id);setInsrs(upd);toast("Removed.");dbSave(SK.ins,upd);};
@@ -1792,19 +1787,14 @@ export default function App() {
     const upd=isNew?[...dots,r]:dots.map(x=>x.id===r.id?r:x);
     setDots(upd);toast(isNew?"DOT Card added.":"DOT Card updated.","success");setModal(null);dbSave(SK.dot,upd);
     if(isNew){
-      const listEmails=(emailList.dot||"").split(",").map(e=>e.trim()).filter(Boolean);
-      if(listEmails.length){
-        const result=await sendModuleEmail("dotCardNew",{
-          terminal:r.terminal||"",
-          firstName:r.firstName||"",
-          lastName:r.lastName||"",
-          fedexId:r.fedexId||"",
-          expirationDate:r.expirationDate||"",
-          createdAt:new Date(r.createdAt).toLocaleString("en-US"),
-        },emailSettings,listEmails.join(", "));
-        if(result?.ok) toast("📧 DOT card notification sent.","success");
-        else if(result?.error) toast("📧 Email failed — check console.","warn");
-      }
+      sendNotification("dotCardNew",{
+        terminal:r.terminal||"",
+        firstName:r.firstName||"",
+        lastName:r.lastName||"",
+        fedexId:r.fedexId||"",
+        expirationDate:r.expirationDate||"",
+        createdAt:new Date(r.createdAt).toLocaleString("en-US"),
+      });
     }
   };
   const delDot=async id=>{if(!confirm("Delete this DOT card record?"))return;const upd=dots.filter(r=>r.id!==id);setDots(upd);toast("Removed.");dbSave(SK.dot,upd);};
@@ -1887,11 +1877,6 @@ export default function App() {
     else toast("Email settings saved.","success");
   },[emailSettings,toast]);
 
-  const handleSaveEmailList=useCallback(async()=>{
-    const error=await saveEmailList(emailList);
-    if(error) toast("Failed to save email list.","warn");
-    else toast("Email list saved.","success");
-  },[emailList,toast]);
 
   const handleSaveTerminal=useCallback(async form=>{
     let error;
@@ -2045,7 +2030,7 @@ export default function App() {
         ) : tab==="settings"&&currentUser?.role==="admin" ? (
           <div>
             <div style={{display:"flex",gap:2,background:"#f3f4f6",borderRadius:10,padding:4,marginBottom:24,width:"fit-content"}}>
-              {[{key:"terminals",label:"Terminals"},{key:"users",label:"Users"},{key:"email",label:"Email Notifications"},{key:"emailList",label:"Email List"}].map(st=>(
+              {[{key:"terminals",label:"Terminals"},{key:"users",label:"Users"},{key:"email",label:"Email Notifications"}].map(st=>(
                 <button key={st.key} onClick={()=>setSettingsTab(st.key)} style={{padding:"7px 18px",borderRadius:8,border:"none",cursor:"pointer",fontSize:13,fontWeight:600,fontFamily:"inherit",background:settingsTab===st.key?"#fff":"transparent",color:settingsTab===st.key?"#111827":"#6b7280",boxShadow:settingsTab===st.key?"0 1px 4px rgba(0,0,0,.1)":undefined,transition:"all .15s"}}>
                   {st.label}
                 </button>
@@ -2123,20 +2108,6 @@ export default function App() {
                   onChange={handleSettingsChange}
                 />
               </div>
-            ) : settingsTab==="emailList" ? (
-              <div style={{maxWidth:640}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-                  <span style={{fontWeight:800,fontSize:22,color:"#111827"}}>Email List</span>
-                  <button style={Btn("primary")} onClick={handleSaveEmailList}>Save</button>
-                </div>
-                <div style={{fontSize:13,color:"#6b7280",marginBottom:20}}>Set one or more recipient emails per module. Separate multiple addresses with a comma.</div>
-                {EMAIL_LIST_MODULES.map(({key,label})=>(
-                  <div key={key} style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:10,marginBottom:12,padding:"14px 18px"}}>
-                    <div style={{fontWeight:700,fontSize:15,color:"#111827",marginBottom:10}}>{label}</div>
-                    <Field label="Recipient Emails (comma-separated)" span><input style={INP} value={emailList[key]||""} onChange={e=>setEmailList(prev=>({...prev,[key]:e.target.value}))} placeholder="email1@company.com, email2@company.com"/></Field>
-                  </div>
-                ))}
-              </div>
             ) : null}
           </div>
         ) : null}
@@ -2147,8 +2118,8 @@ export default function App() {
       {modal?.type==="editRT"    && <Modal title="Edit Road Test"            onClose={()=>setModal(null)} wide><RTForm      onSave={saveRT}      onClose={()=>setModal(null)} existing={modal.data} terminals={visibleTerminals}/></Modal>}
       {modal?.type==="outcome"   && <Modal title="Enter Road Test Outcome"   onClose={()=>setModal(null)}     ><OutcomeForm onSave={saveOutcome} onClose={()=>setModal(null)} test={modal.data}/></Modal>}
       {modal?.type==="sms"       && <SmsModal test={modal.data} onClose={()=>setModal(null)} terminals={terminals} users={users}/>}
-      {modal?.type==="newUni"    && <Modal title="New Uniform Order"         onClose={()=>setModal(null)} wide><UniForm    onSave={saveUni}     onClose={()=>setModal(null)} terminals={visibleTerminals}/></Modal>}
-      {modal?.type==="editUni"   && <Modal title="Edit Uniform Request"      onClose={()=>setModal(null)} wide><UniForm    onSave={saveUni}     onClose={()=>setModal(null)} existing={modal.data} terminals={visibleTerminals}/></Modal>}
+      {modal?.type==="newUni"    && <Modal title="New Uniform Order"         onClose={()=>setModal(null)} wide><UniForm    onSave={saveUni}     onClose={()=>setModal(null)} terminals={visibleTerminals} users={users}/></Modal>}
+      {modal?.type==="editUni"   && <Modal title="Edit Uniform Request"      onClose={()=>setModal(null)} wide><UniForm    onSave={saveUni}     onClose={()=>setModal(null)} existing={modal.data} terminals={visibleTerminals} users={users}/></Modal>}
       {modal?.type==="newTruck"  && <Modal title="Add Truck to Fleet"        onClose={()=>setModal(null)} wide><TruckForm  onSave={saveTruck}   onClose={()=>setModal(null)} terminals={visibleTerminals}/></Modal>}
       {modal?.type==="editTruck" && <Modal title="Edit Truck"                onClose={()=>setModal(null)} wide><TruckForm  onSave={saveTruck}   onClose={()=>setModal(null)} existing={modal.data} terminals={visibleTerminals}/></Modal>}
       {modal?.type==="newInj"    && <Modal title="File Work Injury Report"   onClose={()=>setModal(null)} wide><InjuryForm onSave={saveInj}     onClose={()=>setModal(null)} terminals={visibleTerminals}/></Modal>}
@@ -2157,8 +2128,8 @@ export default function App() {
       {modal?.type==="newAcc"    && <Modal title="File Accident Report"     onClose={()=>setModal(null)} wide><AccidentForm  onSave={saveAcc}  onClose={()=>setModal(null)} terminals={visibleTerminals}/></Modal>}
       {modal?.type==="editAcc"   && <Modal title="Edit Accident Report"     onClose={()=>setModal(null)} wide><AccidentForm  onSave={saveAcc}  onClose={()=>setModal(null)} existing={modal.data} terminals={visibleTerminals}/></Modal>}
       {modal?.type==="viewAcc"   && <AccidentDetail report={modal.data} onClose={()=>setModal(null)} terminals={terminals}/>}
-      {modal?.type==="newHir"    && <Modal title="New Hiring Request"        onClose={()=>setModal(null)} wide><HiringForm    onSave={saveHir}  onClose={()=>setModal(null)} terminals={visibleTerminals}/></Modal>}
-      {modal?.type==="editHir"   && <Modal title="Edit Hiring Request"       onClose={()=>setModal(null)} wide><HiringForm    onSave={saveHir}  onClose={()=>setModal(null)} existing={modal.data} terminals={visibleTerminals}/></Modal>}
+      {modal?.type==="newHir"    && <Modal title="New Hiring Request"        onClose={()=>setModal(null)} wide><HiringForm    onSave={saveHir}  onClose={()=>setModal(null)} terminals={visibleTerminals} users={users}/></Modal>}
+      {modal?.type==="editHir"   && <Modal title="Edit Hiring Request"       onClose={()=>setModal(null)} wide><HiringForm    onSave={saveHir}  onClose={()=>setModal(null)} existing={modal.data} terminals={visibleTerminals} users={users}/></Modal>}
       {modal?.type==="hirNotify" && <HRNotifyModal req={modal.data} onClose={()=>setModal(null)} terminals={terminals}/>}
       {modal?.type==="newIns"    && <Modal title="New Insurance Request"     onClose={()=>setModal(null)} wide><InsuranceForm onSave={saveInsr} onClose={()=>setModal(null)} terminals={visibleTerminals}/></Modal>}
       {modal?.type==="editIns"   && <Modal title="Edit Insurance Request"    onClose={()=>setModal(null)} wide><InsuranceForm onSave={saveInsr} onClose={()=>setModal(null)} existing={modal.data} terminals={visibleTerminals}/></Modal>}

@@ -61,7 +61,9 @@ export async function fetchEmailSettings() {
     .eq('id', SETTINGS_ID)
     .single()
   if (error) return DEFAULT_SETTINGS
-  return { ...DEFAULT_SETTINGS, ...data.data }
+  return Object.fromEntries(
+    Object.keys(DEFAULT_SETTINGS).map(k => [k, { ...DEFAULT_SETTINGS[k], ...(data.data?.[k] || {}) }])
+  )
 }
 
 export async function saveEmailSettings(settings) {

@@ -8,7 +8,7 @@ on conflict (id) do nothing;
 
 -- Step 2: merge each email_list row into the matching module's "to" field
 update app_settings
-set data = (
+set data = data || (
   select jsonb_object_agg(
     module_key,
     coalesce(data->module_key, '{}'::jsonb) || jsonb_build_object('to', el.emails)

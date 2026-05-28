@@ -475,7 +475,7 @@ function UniForm({onSave,onClose,existing,terminals=[],users=[]}) {
   const getBcName=termLabel=>users.find(u=>u.role==="bc"&&u.terminal===termLabel&&u.status==="active")?.name||"";
   const defaultTerminal=activeTerminals[0]?`${activeTerminals[0].name} - ${activeTerminals[0].code}`:"";
   const [form,setForm]=useState(existing
-    ?{...existing,requestedBy:getBcName(existing.terminal)||existing.requestedBy}
+    ?{...existing,requestedBy:existing.requestedBy||getBcName(existing.terminal)}
     :{terminal:defaultTerminal,requestedBy:getBcName(defaultTerminal),drivers:[newDrv()],notes:""});
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const handleTerminal=v=>setForm(f=>({...f,terminal:v,requestedBy:getBcName(v)}));
@@ -486,7 +486,6 @@ function UniForm({onSave,onClose,existing,terminals=[],users=[]}) {
   const remItem=(id,i)=>set("drivers",form.drivers.map(d=>d.id===id?{...d,items:d.items.filter((_,j)=>j!==i)}:d));
   const setItem=(id,i,k,v)=>set("drivers",form.drivers.map(d=>{if(d.id!==id)return d;const items=d.items.map((item,j)=>{if(j!==i)return item;const n={...item,[k]:v};if(k==="type")n.size=defSize(v);return n;});return{...d,items};}));
   const doSave=()=>{
-    if(!form.requestedBy)return alert("No active BC found for the selected terminal.");
     if(form.drivers.some(d=>!d.name.trim()))return alert("Fill in all driver names.");
     onSave({...form,id:existing?.id||Date.now().toString(),status:existing?.status||"Pending",createdAt:existing?.createdAt||new Date().toISOString()});
   };
@@ -653,7 +652,7 @@ function InjuryForm({onSave,onClose,existing,terminals=[],users=[]}) {
   const getBcName=termLabel=>users.find(u=>u.role==="bc"&&u.terminal===termLabel&&u.status==="active")?.name||"";
   const defaultTerminal=activeTerminals[0]?`${activeTerminals[0].name} - ${activeTerminals[0].code}`:"";
   const [form,setForm]=useState(existing
-    ?{...existing,reportedBy:getBcName(existing.terminal)||existing.reportedBy}
+    ?{...existing,reportedBy:existing.reportedBy||getBcName(existing.terminal)}
     :{terminal:defaultTerminal,reportedBy:getBcName(defaultTerminal),employeeName:"",injuryDate:`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`,injuryTime:`${pad(now.getHours())}:${pad(now.getMinutes())}`,injuryAddress:"",description:"",bodyPart:BODY_PARTS[0],medicalAttention:"",medicalProvider:"",missedWork:"",missedDays:"",witnesses:""});
   const [attachments,setAttachments]=useState(existing?.attachments||[]);
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
@@ -1053,7 +1052,7 @@ function AccidentForm({onSave,onClose,existing,terminals=[],users=[]}) {
   const getBcName=termLabel=>users.find(u=>u.role==="bc"&&u.terminal===termLabel&&u.status==="active")?.name||"";
   const defaultTerminal=activeTerminals[0]?`${activeTerminals[0].name} - ${activeTerminals[0].code}`:"";
   const [form,setForm]=useState(existing
-    ?{...existing,reportedBy:getBcName(existing.terminal)||existing.reportedBy}
+    ?{...existing,reportedBy:existing.reportedBy||getBcName(existing.terminal)}
     :{terminal:defaultTerminal,reportedBy:getBcName(defaultTerminal),accidentDate:now.getFullYear()+"-"+pad(now.getMonth()+1)+"-"+pad(now.getDate()),accidentTime:pad(now.getHours())+":"+pad(now.getMinutes()),accidentAddress:"",description:"",victimName:"",victimPhone:"",victimPlate:"",victimMake:"",victimModel:"",victimColor:"",driverName:"",fedexId:"",vehicleId:"",vehicleYear:"",vehicleMake:"",vehicleModel:"",vderWorking:"",v360Working:""});
   const [photos,setPhotos]=useState(existing?.photos||[]);
   const [videos,setVideos]=useState(existing?.videos||[]);
@@ -1218,12 +1217,11 @@ function HiringForm({onSave,onClose,existing,terminals=[],users=[]}) {
   const getBcName=termLabel=>users.find(u=>u.role==="bc"&&u.terminal===termLabel&&u.status==="active")?.name||"";
   const defaultTerminal=activeTerminals[0]?`${activeTerminals[0].name} - ${activeTerminals[0].code}`:"";
   const [form,setForm]=useState(existing
-    ?{...existing,requestedBy:getBcName(existing.terminal)||existing.requestedBy}
+    ?{...existing,requestedBy:existing.requestedBy||getBcName(existing.terminal)}
     :{terminal:defaultTerminal,requestedBy:getBcName(defaultTerminal),action:"start",driversNeeded:"",urgency:"medium",reason:""});
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const handleTerminal=v=>setForm(f=>({...f,terminal:v,requestedBy:getBcName(v)}));
   const doSave=()=>{
-    if(!form.requestedBy.trim())return alert("No active BC found for the selected terminal.");
     if(form.action==="start"&&(!form.driversNeeded||parseInt(form.driversNeeded)<1))return alert("Enter how many drivers are needed.");
     if(!form.reason.trim())return alert("Provide a reason.");
     onSave({...form,id:existing?.id||Date.now().toString(),status:form.action==="start"?"Active":"Paused",createdAt:existing?.createdAt||new Date().toISOString(),_notify:true});
@@ -1362,7 +1360,7 @@ function InsuranceForm({onSave,onClose,existing,terminals=[],users=[]}) {
   const getBcName=termLabel=>users.find(u=>u.role==="bc"&&u.terminal===termLabel&&u.status==="active")?.name||"";
   const defaultTerminal=activeTerminals[0]?`${activeTerminals[0].name} - ${activeTerminals[0].code}`:"";
   const [form,setForm]=useState(existing
-    ?{...existing,requestedBy:getBcName(existing.terminal)||existing.requestedBy}
+    ?{...existing,requestedBy:existing.requestedBy||getBcName(existing.terminal)}
     :{terminal:defaultTerminal,requestedBy:getBcName(defaultTerminal),employeeName:"",employeePhone:"",has30Days:"",notes:""});
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const handleTerminal=v=>setForm(f=>({...f,terminal:v,requestedBy:getBcName(v)}));
@@ -1370,7 +1368,6 @@ function InsuranceForm({onSave,onClose,existing,terminals=[],users=[]}) {
     if(!form.employeeName.trim())return alert("Enter employee name.");
     if(!form.employeePhone.trim())return alert("Enter employee phone number.");
     if(!form.has30Days)return alert("Please indicate whether the employee has 30 days of employment.");
-    if(!form.requestedBy.trim())return alert("No active BC found for the selected terminal.");
     onSave({...form,id:existing?.id||Date.now().toString(),status:"Pending",createdAt:existing?.createdAt||new Date().toISOString(),_email:true});
   };
   return <div>
@@ -1579,7 +1576,8 @@ export default function App() {
   useEffect(()=>{
     if(!currentUser) return;
     loadTerminals();
-    if(currentUser.role==="admin"){ loadUsers(); loadSettings(); }
+    loadSettings();
+    if(currentUser.role==="admin"){ loadUsers(); }
   },[currentUser,loadUsers,loadTerminals,loadSettings]);
 
   // ── Data ────────────────────────────────────────────────────────────────────

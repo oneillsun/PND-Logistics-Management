@@ -1,0 +1,11 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "o,n": true,
+        "p.write_text(t,'utf-8')": true,
+        "print('done')": true,
+        "/^cd c:\\\\APPs\\\\PNDLogisticsManagement; python - <<'PY'\nimport os\nfrom pathlib import Path\npath = Path\\('docs/OP104PDrev111320\\.pdf'\\)\nprint\\('exists', path\\.exists\\(\\)\\)\ntry:\n    import PyPDF2\n    reader = PyPDF2\\.PdfReader\\(str\\(path\\)\\)\n    print\\('pages', len\\(reader\\.pages\\)\\)\n    fields = reader\\.get_fields\\(\\)\n    print\\('fields', fields if fields else 'no form fields or empty'\\)\nexcept Exception as e:\n    print\\('PyPDF2 err', type\\(e\\)\\.__name__, e\\)\nPY$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}

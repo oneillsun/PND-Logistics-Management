@@ -1576,8 +1576,8 @@ export default function App() {
   useEffect(()=>{
     if(!currentUser) return;
     loadTerminals();
-    loadSettings();
-    if(currentUser.role==="admin"){ loadUsers(); }
+    loadUsers();
+    if(currentUser.role==="admin"){ loadSettings(); }
   },[currentUser,loadUsers,loadTerminals,loadSettings]);
 
   // ── Data ────────────────────────────────────────────────────────────────────

@@ -68,3 +68,52 @@ export async function updateUser(id, updates) {
   const { error } = await supabase.from('users').update(payload).eq('id', id)
   return error
 }
+
+// ── Password Reset ─────────────────────────────────────────────────────────────
+export async function requestPasswordReset(email) {
+  const { data: user } = await supabase
+    .from('users')
+    .select('id, email, name, username')
+    .ilike('email', email.trim())
+    .eq('status', 'active')
+    .single()
+
+  if (!user?.email) return { ok: true } // silent — don't reveal whether the email exists
+
+  const token = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '')
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+
+  const { error: insertError } = await supabase
+    .from('password_reset_tokens')
+    .insert({ token, user_id: user.id, expires_at: expiresAt })
+
+  if (insertError) return { error: insertError.message }
+
+  const resetUrl = `${window.location.origin}${window.location.pathname}?reset_token=${token}`
+  return { ok: true, resetUrl, userEmail: user.email, userName: user.name, userUsername: user.username }
+}
+
+export async function resetPassword(token, newPassword) {
+  const { data, error } = await supabase
+    .from('password_reset_tokens')
+    .select('user_id, expires_at')
+    .eq('token', token)
+    .single()
+
+  if (error || !data) return { error: 'Invalid or expired reset link.' }
+
+  if (new Date(data.expires_at) < new Date()) {
+    await supabase.from('password_reset_tokens').delete().eq('token', token)
+    return { error: 'This reset link has expired. Please request a new one.' }
+  }
+
+  const { error: updateError } = await supabase
+    .from('users')
+    .update({ password: newPassword })
+    .eq('id', data.user_id)
+
+  if (updateError) return { error: 'Failed to update password. Please try again.' }
+
+  await supabase.from('password_reset_tokens').delete().eq('token', token)
+  return { ok: true }
+}

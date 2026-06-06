@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { dbLoad, dbSave } from "./src/lib/db.js";
-import { login, logout, getSession, fetchUsers, createUser, updateUser } from "./src/lib/auth.js";
+import { login, logout, getSession, fetchUsers, createUser, updateUser, requestPasswordReset, resetPassword } from "./src/lib/auth.js";
 import { fetchTerminals, createTerminal, updateTerminal, uploadTerminalPdf } from "./src/lib/terminals.js";
 import { sendEmail, buildOutcomeHtml, sendModuleEmail } from "./src/lib/email.js";
 import { fetchEmailSettings, saveEmailSettings, DEFAULT_SETTINGS } from "./src/lib/settings.js";
@@ -783,11 +783,49 @@ function InjuryDetail({report,onClose,terminals=[]}) {
 }
 
 // ─── Auth Modal ───────────────────────────────────────────────────────────────
+function buildResetEmailHtml(name, resetUrl, username) {
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"/></head>
+<body style="margin:0;padding:0;background:#080812;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#080812;padding:32px 0;">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0" style="background:#0d0d22;border:1px solid #262642;border-radius:12px;overflow:hidden;max-width:100%;">
+        <tr>
+          <td style="background:#0a0a1e;padding:24px 28px;border-bottom:1px solid #1e1e3a;">
+            <span style="font-size:11px;color:#ff6200;font-family:monospace;letter-spacing:2px;text-transform:uppercase;">PND Logistics Management</span>
+            <div style="font-size:22px;font-weight:800;color:#eeeeff;margin-top:6px;">Password Reset Request</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px 28px 8px;">
+            <p style="color:#d1d5db;font-size:14px;margin:0 0 18px;">Hi ${name || "there"},</p>
+            <p style="color:#d1d5db;font-size:14px;margin:0 0 8px;">We received a request to reset the password for your account${username ? ` (<strong style="color:#eeeeff;">${username}</strong>)` : ""}. Click the button below to choose a new password. This link will expire in <strong style="color:#eeeeff;">24 hours</strong>.</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:8px 28px 28px;text-align:center;">
+            <a href="${resetUrl}" style="display:inline-block;background:#111827;color:#fff;text-decoration:none;padding:14px 32px;border-radius:8px;font-size:15px;font-weight:700;letter-spacing:.3px;">Reset My Password</a>
+            <p style="color:#6b7280;font-size:11px;margin:18px 0 0;word-break:break-all;">Or copy this link: <span style="color:#9ca3af;">${resetUrl}</span></p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:16px 28px 24px;border-top:1px solid #1e1e3a;">
+            <p style="color:#44447a;font-size:11px;font-family:monospace;margin:0;">If you did not request a password reset, you can safely ignore this email. Your password will not change.</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`
+}
+
 function AuthModal({ onLogin }) {
+  const [view,     setView]     = useState("login"); // "login" | "forgot" | "sent"
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError]       = useState("");
-  const [loading, setLoading]   = useState(false);
+  const [email,    setEmail]    = useState("");
+  const [error,    setError]    = useState("");
+  const [loading,  setLoading]  = useState(false);
 
   const doLogin = async () => {
     if (!username || !password) return setError("Please enter your username and password.");
@@ -798,28 +836,165 @@ function AuthModal({ onLogin }) {
     onLogin(user);
   };
 
-  const onKey = e => { if (e.key === "Enter") doLogin(); };
+  const doForgot = async () => {
+    if (!email.trim()) return setError("Please enter your email address.");
+    setLoading(true); setError("");
+    const result = await requestPasswordReset(email.trim());
+    if (result.error) { setLoading(false); return setError("Could not process request. Please try again later."); }
+    if (result.userEmail) {
+      await sendEmail({
+        to: result.userEmail,
+        subject: "Reset your PND Logistics password",
+        html: buildResetEmailHtml(result.userName, result.resetUrl, result.userUsername),
+      });
+    }
+    setLoading(false);
+    setView("sent");
+  };
+
+  const onKey = e => {
+    if (e.key !== "Enter") return;
+    if (view === "login") doLogin();
+    else if (view === "forgot") doForgot();
+  };
+
+  const brand = (
+    <div style={{display:"flex",alignItems:"center",gap:13,marginBottom:32}}>
+      <div style={{background:"#111827",borderRadius:12,width:44,height:44,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:800,fontSize:20,flexShrink:0}}>P</div>
+      <div>
+        <div style={{fontSize:20,fontWeight:800,color:"#111827",letterSpacing:-.3,lineHeight:1}}>PND Logistics</div>
+        <div style={{fontSize:11,color:"#9ca3af",marginTop:2,fontWeight:500}}>Management Portal</div>
+      </div>
+    </div>
+  );
+
+  const errBox = error && (
+    <div style={{color:"#dc2626",fontSize:12,marginBottom:14,background:"#fef2f2",border:"1px solid #fecaca",borderRadius:7,padding:"9px 12px"}}>{error}</div>
+  );
+
+  const wrap = children => (
+    <div style={{position:"fixed",inset:0,zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(15,23,42,0.6)",backdropFilter:"blur(8px)"}}>
+      <div style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:18,padding:"40px 36px",width:"100%",maxWidth:400,boxShadow:"0 24px 80px rgba(0,0,0,.15)"}}>
+        {children}
+      </div>
+    </div>
+  );
+
+  if (view === "sent") return wrap(
+    <>
+      {brand}
+      <div style={{textAlign:"center",padding:"8px 0 24px"}}>
+        <div style={{width:52,height:52,background:"#f0fdf4",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px"}}>
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div style={{fontSize:17,fontWeight:800,color:"#111827",marginBottom:8}}>Check your email</div>
+        <div style={{fontSize:13,color:"#6b7280",lineHeight:1.5}}>If an account exists for <strong>{email}</strong>, we sent a password reset link. The link expires in 24 hours.</div>
+      </div>
+      <button onClick={()=>{ setView("login"); setError(""); setEmail(""); }} style={{...Btn("outline","#111827"),width:"100%",fontSize:14,padding:"11px 18px"}}>
+        Back to Sign In
+      </button>
+    </>
+  );
+
+  if (view === "forgot") return wrap(
+    <>
+      {brand}
+      <div style={{fontSize:13,color:"#6b7280",marginBottom:20,lineHeight:1.5}}>Enter the email address on your account and we will send you a reset link.</div>
+      <Field label="Email Address">
+        <input style={INP} type="email" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={onKey} placeholder="you@example.com" autoFocus/>
+      </Field>
+      {errBox}
+      <button onClick={doForgot} disabled={loading} style={{...Btn("primary","#111827"),width:"100%",marginTop:4,fontSize:15,padding:"12px 18px",opacity:loading?.65:1}}>
+        {loading?"Sending...":"Send Reset Link"}
+      </button>
+      <button onClick={()=>{ setView("login"); setError(""); }} style={{...Btn("ghost","#6b7280"),width:"100%",marginTop:8,fontSize:13}}>
+        Back to Sign In
+      </button>
+    </>
+  );
+
+  return wrap(
+    <>
+      {brand}
+      <Field label="Username">
+        <input style={INP} value={username} onChange={e=>setUsername(e.target.value)} onKeyDown={onKey} placeholder="Enter your username" autoFocus/>
+      </Field>
+      <Field label="Password">
+        <input style={INP} type="password" value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={onKey} placeholder="Enter your password"/>
+      </Field>
+      {errBox}
+      <button onClick={doLogin} disabled={loading} style={{...Btn("primary","#111827"),width:"100%",marginTop:4,fontSize:15,padding:"12px 18px",opacity:loading?.65:1}}>
+        {loading?"Signing in...":"Sign In"}
+      </button>
+      <div style={{textAlign:"center",marginTop:14}}>
+        <button onClick={()=>{ setView("forgot"); setError(""); }} style={{background:"none",border:"none",color:"#4b5563",fontSize:12,cursor:"pointer",textDecoration:"underline",textUnderlineOffset:2}}>
+          Forgot password?
+        </button>
+      </div>
+    </>
+  );
+}
+
+// ─── Reset Password Modal (from email link) ────────────────────────────────────
+function ResetPasswordModal({ token, onDone }) {
+  const [password, setPassword] = useState("");
+  const [confirm,  setConfirm]  = useState("");
+  const [error,    setError]    = useState("");
+  const [loading,  setLoading]  = useState(false);
+  const [done,     setDone]     = useState(false);
+
+  const doReset = async () => {
+    if (!password) return setError("Please enter a new password.");
+    if (password.length < 6) return setError("Password must be at least 6 characters.");
+    if (password !== confirm) return setError("Passwords do not match.");
+    setLoading(true); setError("");
+    const result = await resetPassword(token, password);
+    setLoading(false);
+    if (result.error) return setError(result.error);
+    setDone(true);
+  };
+
+  const onKey = e => { if (e.key === "Enter") doReset(); };
+
+  const brand = (
+    <div style={{display:"flex",alignItems:"center",gap:13,marginBottom:32}}>
+      <div style={{background:"#111827",borderRadius:12,width:44,height:44,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:800,fontSize:20,flexShrink:0}}>P</div>
+      <div>
+        <div style={{fontSize:20,fontWeight:800,color:"#111827",letterSpacing:-.3,lineHeight:1}}>PND Logistics</div>
+        <div style={{fontSize:11,color:"#9ca3af",marginTop:2,fontWeight:500}}>Management Portal</div>
+      </div>
+    </div>
+  );
 
   return (
     <div style={{position:"fixed",inset:0,zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(15,23,42,0.6)",backdropFilter:"blur(8px)"}}>
       <div style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:18,padding:"40px 36px",width:"100%",maxWidth:400,boxShadow:"0 24px 80px rgba(0,0,0,.15)"}}>
-        <div style={{display:"flex",alignItems:"center",gap:13,marginBottom:32}}>
-          <div style={{background:"#111827",borderRadius:12,width:44,height:44,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:800,fontSize:20,flexShrink:0}}>P</div>
-          <div>
-            <div style={{fontSize:20,fontWeight:800,color:"#111827",letterSpacing:-.3,lineHeight:1}}>PND Logistics</div>
-            <div style={{fontSize:11,color:"#9ca3af",marginTop:2,fontWeight:500}}>Management Portal</div>
+        {brand}
+        {done ? (
+          <div style={{textAlign:"center",padding:"8px 0 24px"}}>
+            <div style={{width:52,height:52,background:"#f0fdf4",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px"}}>
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div style={{fontSize:17,fontWeight:800,color:"#111827",marginBottom:8}}>Password updated!</div>
+            <div style={{fontSize:13,color:"#6b7280",marginBottom:24,lineHeight:1.5}}>Your password has been changed. You can now sign in with your new password.</div>
+            <button onClick={onDone} style={{...Btn("primary","#111827"),width:"100%",fontSize:15,padding:"12px 18px"}}>Sign In</button>
           </div>
-        </div>
-        <Field label="Username">
-          <input style={INP} value={username} onChange={e=>setUsername(e.target.value)} onKeyDown={onKey} placeholder="Enter your username" autoFocus/>
-        </Field>
-        <Field label="Password">
-          <input style={INP} type="password" value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={onKey} placeholder="Enter your password"/>
-        </Field>
-        {error&&<div style={{color:"#dc2626",fontSize:12,marginBottom:14,background:"#fef2f2",border:"1px solid #fecaca",borderRadius:7,padding:"9px 12px"}}>{error}</div>}
-        <button onClick={doLogin} disabled={loading} style={{...Btn("primary","#111827"),width:"100%",marginTop:4,fontSize:15,padding:"12px 18px",opacity:loading?.65:1}}>
-          {loading?"Signing in...":"Sign In"}
-        </button>
+        ) : (
+          <>
+            <div style={{fontSize:15,fontWeight:700,color:"#111827",marginBottom:6}}>Set a new password</div>
+            <div style={{fontSize:12,color:"#6b7280",marginBottom:20}}>Choose a new password for your account. The link expires 24 hours after it was sent.</div>
+            <Field label="New Password">
+              <input style={INP} type="password" value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={onKey} placeholder="At least 6 characters" autoFocus/>
+            </Field>
+            <Field label="Confirm New Password">
+              <input style={INP} type="password" value={confirm} onChange={e=>setConfirm(e.target.value)} onKeyDown={onKey} placeholder="Repeat your new password"/>
+            </Field>
+            {error&&<div style={{color:"#dc2626",fontSize:12,marginBottom:14,background:"#fef2f2",border:"1px solid #fecaca",borderRadius:7,padding:"9px 12px"}}>{error}</div>}
+            <button onClick={doReset} disabled={loading} style={{...Btn("primary","#111827"),width:"100%",marginTop:4,fontSize:15,padding:"12px 18px",opacity:loading?.65:1}}>
+              {loading?"Saving...":"Reset Password"}
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
@@ -1552,6 +1727,16 @@ export default function App() {
   const [authChecked,  setAuthChecked]  = useState(false);
   const [users,        setUsers]        = useState([]);
 
+  const [resetToken, setResetToken] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("reset_token") || null;
+  });
+
+  const clearResetToken = useCallback(() => {
+    setResetToken(null);
+    window.history.replaceState({}, "", window.location.pathname);
+  }, []);
+
   useEffect(()=>{ setCurrentUser(getSession()); setAuthChecked(true); },[]);
 
   const handleLogin  = useCallback(user => { setCurrentUser(user); if(user?.role!=="admin") setTab(t=>t==="settings"?"rt":t); }, []);
@@ -1924,7 +2109,8 @@ export default function App() {
     <div style={{minHeight:"100vh",background:"#f8fafc",fontFamily:"'Barlow Condensed',sans-serif",color:"#111827"}}>
 
       {/* ── AUTH MODAL ─────────────────────────────────────── */}
-      {!currentUser && <AuthModal onLogin={handleLogin}/>}
+      {resetToken && <ResetPasswordModal token={resetToken} onDone={clearResetToken}/>}
+      {!currentUser && !resetToken && <AuthModal onLogin={handleLogin}/>}
 
       {/* ── HEADER ─────────────────────────────────────────── */}
       <div className="app-header" style={{background:"#fff",borderBottom:"1px solid #e5e7eb",boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>

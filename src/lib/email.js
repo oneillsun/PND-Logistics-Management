@@ -87,43 +87,148 @@ function interpolate(template, data) {
   return (template || '').replace(/\{\{(\w+)\}\}/g, (_, k) => data[k] ?? '')
 }
 
-function buildFallbackHtml(placeholders) {
-  const rows = Object.entries(placeholders)
-    .filter(([, v]) => v !== '' && v != null)
+const MODULE_TITLES = {
+  roadTestNew:         'Road Test Scheduled',
+  uniformOrderNew:     'Uniform Order',
+  injuryReportNew:     'Work Injury Report',
+  dotCardNew:          'DOT Card',
+  insuranceRequestNew: 'Insurance Enrollment',
+  hiringRequestNew:    'Hiring Request',
+  accidentReportNew:   'Accident Report',
+  roadTestOutcome:     'Road Test Outcome',
+}
+
+const LABEL_MAP = {
+  terminal:        'Terminal',
+  terminalAddress: 'Terminal Address',
+  requestedBy:     'Requested By',
+  createdAt:       'Date',
+  candidateName:   'Candidate Name',
+  phone:           'Phone',
+  date:            'Test Date',
+  time:            'Test Time',
+  duration:        'Duration',
+  manager:         'Manager',
+  managerPhone:    'Manager Phone',
+  driverCount:     'Driver Count',
+  driverNames:     'Drivers',
+  itemSummary:     'Items Ordered',
+  notes:           'Notes',
+  employeeName:    'Employee',
+  employeePhone:   'Employee Phone',
+  has30Days:       '30-Day Window',
+  bodyPart:        'Body Part Injured',
+  injuryDate:      'Date of Injury',
+  injuryTime:      'Time of Injury',
+  injuryAddress:   'Location',
+  description:     'Description',
+  medicalAttention:'Medical Attention',
+  medicalProvider: 'Medical Provider',
+  missedWork:      'Will Miss Work',
+  missedDays:      'Days Missed',
+  witnesses:       'Witnesses',
+  reportedBy:      'Reported By',
+  driverName:      'Driver',
+  fedexId:         'FedEx ID',
+  vehicleId:       'Vehicle ID',
+  vehicleYear:     'Vehicle Year',
+  vehicleMake:     'Vehicle Make',
+  vehicleModel:    'Vehicle Model',
+  accidentDate:    'Date of Accident',
+  accidentTime:    'Time of Accident',
+  accidentAddress: 'Location',
+  victimName:      'Victim Name',
+  victimPhone:     'Victim Phone',
+  victimYear:      'Victim Vehicle Year',
+  victimMake:      'Victim Vehicle Make',
+  victimModel:     'Victim Vehicle Model',
+  victimColor:     'Victim Vehicle Color',
+  victimPlate:     'Victim License Plate',
+  vderWorking:     'VDER Working',
+  v360Working:     '360 Camera Working',
+  action:          'Action',
+  driversNeeded:   'Drivers Needed',
+  urgency:         'Urgency',
+  reason:          'Reason',
+  firstName:       'First Name',
+  lastName:        'Last Name',
+  expirationDate:  'Expiration Date',
+}
+
+function humanizeKey(k) {
+  return LABEL_MAP[k] || k.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase())
+}
+
+function buildModuleHtml(title, placeholders, bodyText) {
+  const calendarUrl = placeholders._calendarUrl || ''
+  const tableRows = Object.entries(placeholders)
+    .filter(([k, v]) => !k.startsWith('_') && v !== '' && v != null && String(v).trim() !== '')
     .map(([k, v]) => `
-      <tr>
-        <td style="padding:7px 14px;color:#8888aa;font-size:12px;font-family:monospace;white-space:nowrap;vertical-align:top;">${k}</td>
-        <td style="padding:7px 14px;color:#eeeeff;font-size:13px;font-family:monospace;vertical-align:top;">${v}</td>
-      </tr>`).join('')
+    <tr>
+      <td style="padding:8px 14px;color:#8888aa;font-size:12px;font-family:monospace;white-space:nowrap;vertical-align:top;">${humanizeKey(k)}</td>
+      <td style="padding:8px 14px;color:#eeeeff;font-size:13px;font-family:monospace;vertical-align:top;">${String(v).replace(/\n/g, '<br/>')}</td>
+    </tr>`).join('')
+
+  const bodySection = bodyText ? `
+        <!-- Custom message -->
+        <tr>
+          <td style="padding:20px 28px 0;">
+            <div style="color:#cccce8;font-size:14px;font-family:Arial,sans-serif;line-height:1.7;white-space:pre-wrap;">${bodyText.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+          </td>
+        </tr>` : ''
+
+  const calendarSection = calendarUrl ? `
+        <!-- Add to Calendar -->
+        <tr>
+          <td style="padding:0 28px 24px;">
+            <a href="${calendarUrl}" target="_blank"
+               style="display:inline-block;background:#4338ca;color:#ffffff;font-family:Arial,sans-serif;font-size:13px;font-weight:700;padding:12px 22px;border-radius:8px;text-decoration:none;letter-spacing:0.5px;">
+              &#128197; Add to Google Calendar
+            </a>
+          </td>
+        </tr>` : ''
 
   return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"/></head>
+<html>
+<head><meta charset="utf-8"/></head>
 <body style="margin:0;padding:0;background:#080812;font-family:Arial,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#080812;padding:32px 0;">
     <tr><td align="center">
       <table width="560" cellpadding="0" cellspacing="0" style="background:#0d0d22;border:1px solid #262642;border-radius:12px;overflow:hidden;max-width:100%;">
+
+        <!-- Header -->
         <tr>
           <td style="background:#0a0a1e;padding:24px 28px;border-bottom:1px solid #1e1e3a;">
             <span style="font-size:11px;color:#ff6200;font-family:monospace;letter-spacing:2px;text-transform:uppercase;">PND Logistics Management</span>
-            <div style="font-size:20px;font-weight:800;color:#eeeeff;margin-top:6px;">Notification</div>
+            <div style="font-size:22px;font-weight:800;color:#eeeeff;margin-top:6px;letter-spacing:1px;">${title}</div>
           </td>
         </tr>
+
+        ${bodySection}
+
+        <!-- Detail table -->
         <tr>
-          <td style="padding:20px 28px;">
+          <td style="padding:20px 28px 16px;">
             <table width="100%" cellpadding="0" cellspacing="0" style="background:#111128;border:1px solid #1e1e3a;border-radius:8px;overflow:hidden;">
-              ${rows}
+              ${tableRows}
             </table>
           </td>
         </tr>
+
+        ${calendarSection}
+
+        <!-- Footer -->
         <tr>
-          <td style="padding:12px 28px 20px;border-top:1px solid #1e1e3a;">
+          <td style="padding:16px 28px 24px;border-top:1px solid #1e1e3a;">
             <span style="font-size:11px;color:#44447a;font-family:monospace;">This is an automated notification from PND Logistics Management.</span>
           </td>
         </tr>
+
       </table>
     </td></tr>
   </table>
-</body></html>`
+</body>
+</html>`
 }
 
 export async function sendEmail({ to, cc, subject, html }) {
@@ -144,6 +249,31 @@ export async function sendEmail({ to, cc, subject, html }) {
   return { ok: true }
 }
 
+export function buildCalendarUrl(test, terminalAddress) {
+  if (!test.date || !test.time) return ''
+  const pad = n => String(n).padStart(2, '0')
+  const [y, m, d] = test.date.split('-')
+  const [h, min] = test.time.split(':')
+  const start = `${y}${m}${d}T${h}${min}00`
+  const endMs = new Date(`${test.date}T${test.time}:00`).getTime() + parseInt(test.duration || 60) * 60000
+  const e = new Date(endMs)
+  const end = `${e.getFullYear()}${pad(e.getMonth()+1)}${pad(e.getDate())}T${pad(e.getHours())}${pad(e.getMinutes())}00`
+  const details = [
+    test.candidateName ? `Candidate: ${test.candidateName}` : '',
+    test.fedexId       ? `FedEx ID: ${test.fedexId}`        : '',
+    test.phone         ? `Phone: ${test.phone}`             : '',
+    test.terminal      ? `Terminal: ${test.terminal}`       : '',
+  ].filter(Boolean).join('\n')
+  const params = new URLSearchParams({
+    action:   'TEMPLATE',
+    text:     `Road Test - ${test.candidateName || 'Candidate'}`,
+    dates:    `${start}/${end}`,
+    details,
+    location: terminalAddress || test.terminal || '',
+  })
+  return 'https://calendar.google.com/calendar/render?' + params.toString()
+}
+
 export async function sendModuleEmail(moduleKey, placeholders, settings, toOverride) {
   const cfg = settings?.[moduleKey]
   console.log(`[email] sendModuleEmail(${moduleKey}) cfg:`, JSON.stringify(cfg))
@@ -151,9 +281,9 @@ export async function sendModuleEmail(moduleKey, placeholders, settings, toOverr
   const to = toOverride?.trim() || cfg.to?.trim()
   if (!to) return { skipped: true }
   const subject = interpolate(cfg.subject, placeholders)
-  const html = cfg.body
-    ? `<div style="font-family:Arial,sans-serif;background:#080812;color:#eeeeff;padding:24px;">${interpolate(cfg.body, placeholders).replace(/\n/g, '<br/>')}</div>`
-    : buildFallbackHtml(placeholders)
+  const title = MODULE_TITLES[moduleKey] || subject || 'Notification'
+  const bodyText = cfg.body ? interpolate(cfg.body, placeholders) : ''
+  const html = buildModuleHtml(title, placeholders, bodyText)
   try {
     return await sendEmail({ to, cc: cfg.cc, subject, html })
   } catch (err) {

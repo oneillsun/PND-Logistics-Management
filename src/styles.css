@@ -63,18 +63,17 @@ button:hover { opacity: 0.82; }
 /* ── Tabs ────────────────────────────────────── */
 .tabs-row {
   display: flex;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+  flex-wrap: wrap;
+  border-bottom: 2px solid #e5e7eb;
 }
-.tabs-row::-webkit-scrollbar { display: none; }
 
 .tab-btn {
   background: none;
   border: none;
-  border-bottom: 2px solid transparent;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
   cursor: pointer;
-  padding: 10px 20px;
+  padding: 10px 18px;
   font-family: 'Barlow Condensed', sans-serif;
   font-weight: 700;
   font-size: 15px;

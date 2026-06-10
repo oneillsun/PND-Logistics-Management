@@ -53,6 +53,8 @@ create table if not exists insurance_requests (
   inserted_at  timestamptz default now()
 );
 
+-- Drivers — see add_drivers_table.sql
+
 -- DOT Cards
 create table if not exists dot_cards (
   id           text primary key,

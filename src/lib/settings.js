@@ -3,6 +3,13 @@ import { supabase } from './supabase'
 const SETTINGS_ID = 'email_notifications'
 
 export const DEFAULT_SETTINGS = {
+  roadTestNew: {
+    enabled: false,
+    to: '',
+    cc: '',
+    subject: 'Road Test Scheduled - {{candidateName}} at {{terminal}}',
+    body: 'Hello,\n\nA new road test has been scheduled at your terminal. Please review the details below and make sure you are available at the indicated time.\n\nCANDIDATE\n{{candidateName}}\nFedEx ID: {{fedexId}}\nPhone: {{phone}}\n\nROAD TEST\nTerminal: {{terminal}}\nAddress: {{terminalAddress}}\nDate: {{date}}\nTime: {{time}}\nDuration: {{duration}}\n\nPlease have the test vehicle ready and be at the terminal a few minutes before the scheduled time.\n\n— PND Logistics Management',
+  },
   roadTestOutcome: {
     enabled: false,
     to: '',
@@ -62,7 +69,12 @@ export async function fetchEmailSettings() {
     .single()
   if (error) return DEFAULT_SETTINGS
   return Object.fromEntries(
-    Object.keys(DEFAULT_SETTINGS).map(k => [k, { ...DEFAULT_SETTINGS[k], ...(data.data?.[k] || {}) }])
+    Object.keys(DEFAULT_SETTINGS).map(k => {
+      const stored = data.data?.[k] || {}
+      const merged = { ...DEFAULT_SETTINGS[k], ...stored }
+      if (!stored.body && DEFAULT_SETTINGS[k].body) merged.body = DEFAULT_SETTINGS[k].body
+      return [k, merged]
+    })
   )
 }
 

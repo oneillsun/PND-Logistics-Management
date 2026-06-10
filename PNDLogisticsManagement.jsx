@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { dbLoad, dbSave } from "./src/lib/db.js";
 import { login, logout, getSession, fetchUsers, createUser, updateUser, requestPasswordReset, resetPassword } from "./src/lib/auth.js";
 import { fetchTerminals, createTerminal, updateTerminal, uploadTerminalPdf } from "./src/lib/terminals.js";
-import { sendEmail, buildOutcomeHtml, sendModuleEmail } from "./src/lib/email.js";
+import { sendEmail, buildOutcomeHtml, sendModuleEmail, buildCalendarUrl } from "./src/lib/email.js";
 import { fetchEmailSettings, saveEmailSettings, DEFAULT_SETTINGS } from "./src/lib/settings.js";
 import { generateRoadTestPDF } from "./src/lib/pdfRecord.js";
 import { uploadDotCardFile } from "./src/lib/dotCards.js";
@@ -15,8 +15,9 @@ const getSizes = t => BOTTOM_TYPES.includes(t) ? BOTTOM_SIZES : TOP_SIZES;
 const defSize  = t => BOTTOM_TYPES.includes(t) ? "32" : "M";
 const BODY_PARTS = ["Head / Skull","Face","Eye(s)","Ear(s)","Neck","Shoulder(s)","Upper Arm","Elbow","Forearm","Wrist","Hand / Fingers","Upper Back","Lower Back","Chest / Ribs","Abdomen","Hip","Thigh","Knee","Lower Leg / Shin","Ankle","Foot / Toes","Multiple Areas","Other"];
 const US_STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
-const SK = { rt:"pnd_rt_v5", uni:"pnd_uni_v5", tr:"pnd_tr_v5", inj:"pnd_inj_v5", acc:"pnd_acc_v2", hir:"pnd_hir_v1", ins:"pnd_ins_v1", dot:"pnd_dot_v1" };
+const SK = { rt:"pnd_rt_v5", uni:"pnd_uni_v5", tr:"pnd_tr_v5", inj:"pnd_inj_v5", acc:"pnd_acc_v2", hir:"pnd_hir_v1", ins:"pnd_ins_v1", dot:"pnd_dot_v1", drv:"pnd_drv_v1" };
 const MODULE_LABELS = {
+  roadTestNew:        "Road test notification",
   uniformOrderNew:    "Uniform order",
   injuryReportNew:    "Injury report",
   accidentReportNew:  "Accident report",
@@ -33,6 +34,7 @@ const FC = {
   hir:   { h:"#059669", bg:"#ecfdf5", bd:"#a7f3d0", tx:"#064e3b", ring:"#6ee7b7", soft:"#d1fae5" },
   ins:   { h:"#0369a1", bg:"#f0f9ff", bd:"#bae6fd", tx:"#0c4a6e", ring:"#7dd3fc", soft:"#e0f2fe" },
   dot:   { h:"#d97706", bg:"#fffbeb", bd:"#fde68a", tx:"#92400e", ring:"#fcd34d", soft:"#fef3c7" },
+  drv:   { h:"#4338ca", bg:"#eef2ff", bd:"#c7d2fe", tx:"#312e81", ring:"#a5b4fc", soft:"#e0e7ff" },
 };
 const STC = {
   Scheduled:{ bg:"#eff6ff", tx:"#1e40af", bd:"#bfdbfe" },
@@ -145,6 +147,7 @@ function Ico({n,s=16}){
   if(n==="gear")    return <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>;
   if(n==="eye")     return <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>;
   if(n==="badge")   return <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="M8 7h8M8 11h6M8 15h4"/></svg>;
+  if(n==="id")      return <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="8" cy="12" r="2.5"/><path d="M13 9h5M13 12h5M13 15h3"/></svg>;
   return null;
 }
 
@@ -192,6 +195,7 @@ const CSV_COLS = {
   fleet: ["id","terminal","truckNumber","licensePlate","regState","regExpiry","inspExpiry","vin","notes","createdAt","updatedAt"],
   inj:   ["id","terminal","employeeName","injuryDate","injuryTime","injuryAddress","description","bodyPart","medicalAttention","medicalProvider","missedWork","missedDays","witnesses","reportedBy","createdAt"],
   dot:       ["id","terminal","firstName","lastName","fedexId","expirationDate","file_url","createdAt"],
+  drivers:   ["id","terminal","firstName","lastName","fedexId","status","createdAt","updatedAt"],
   users:     ["id","name","username","role","terminal","phone","email","fedex_id","status","created_at"],
   terminals: ["id","name","code","address","city","state","zipcode","fulladdress","status","rt_employer_name"],
 };
@@ -1186,7 +1190,7 @@ function TerminalCard({terminal,onEdit,onUploadPdf}) {
 }
 
 // ─── Email Settings Form (admin) ──────────────────────────────────────────────
-function EmailSettingsForm({moduleKey,label,placeholders,config,onChange}) {
+function EmailSettingsForm({moduleKey,label,placeholders,config,onChange,toNote}) {
   const set=(k,v)=>onChange(moduleKey,{...config,[k]:v});
   const isOn=config?.enabled||false;
   const [open,setOpen]=useState(false);
@@ -1208,7 +1212,10 @@ function EmailSettingsForm({moduleKey,label,placeholders,config,onChange}) {
             <span style={{fontSize:12,color:isOn?FC.hir.tx:"#9ca3af",fontWeight:600}}>{isOn?"Enabled":"Disabled"}</span>
           </label>
         </div>
-        <Field label="Recipients (To)" span><input style={INP} value={config.to||""} onChange={e=>set("to",e.target.value)} placeholder="email1@company.com, email2@company.com"/></Field>
+        <Field label="Recipients (To)" span>
+          <input style={INP} value={config.to||""} onChange={e=>set("to",e.target.value)} placeholder="email1@company.com, email2@company.com"/>
+          {toNote&&<div style={{fontSize:11,color:"#6b7280",marginTop:5,lineHeight:1.5,padding:"6px 10px",background:"#f8fafc",borderRadius:6,border:"1px solid #e5e7eb"}}>{toNote}</div>}
+        </Field>
         <Field label="CC (optional)" span><input style={INP} value={config.cc||""} onChange={e=>set("cc",e.target.value)} placeholder="manager@company.com"/></Field>
         <Field label="Subject" span><input style={INP} value={config.subject||""} onChange={e=>set("subject",e.target.value)}/></Field>
         <Field label="Body (leave blank for auto-generated)" span><textarea style={{...INP,height:90,resize:"vertical"}} value={config.body||""} onChange={e=>set("body",e.target.value)} placeholder="Leave blank to use the default branded layout."/></Field>
@@ -1720,6 +1727,80 @@ function DOTCard({card,onEdit,onDelete,onUpload}) {
   </div>;
 }
 
+// ─── Driver Form ──────────────────────────────────────────────────────────────
+function DriverForm({onSave, onClose, existing, terminals=[], isBc=false, bcTerminal=""}) {
+  const cc = FC.drv;
+  const firstNameRef = useRef(null);
+  useEffect(() => { firstNameRef.current?.focus(); }, []);
+  const activeTerminals = terminals.filter(t => (t.status||"Active") === "Active");
+  const defaultTerminal = existing?.terminal || (isBc ? bcTerminal : (activeTerminals[0] ? `${activeTerminals[0].name} - ${activeTerminals[0].code}` : ""));
+  const [form, setForm] = useState({
+    terminal: defaultTerminal,
+    firstName: existing?.firstName || "",
+    lastName:  existing?.lastName  || "",
+    fedexId:   existing?.fedexId   || "",
+    status:    existing?.status    || "Active",
+  });
+  const set = (k,v) => setForm(f => ({...f,[k]:v}));
+  const doSave = () => {
+    if (!form.firstName.trim()) return alert("First name is required.");
+    if (!form.lastName.trim())  return alert("Last name is required.");
+    if (!form.terminal)         return alert("Terminal is required.");
+    onSave({...form, id: existing?.id || Date.now().toString(), createdAt: existing?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString()});
+  };
+  return <>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
+      <Field label="Terminal *" span>
+        {isBc
+          ? <input style={{...INP,background:"#f3f4f6",color:"#6b7280"}} value={form.terminal} readOnly/>
+          : <select style={INP} value={form.terminal} onChange={e=>set("terminal",e.target.value)}>
+              <option value="">— Select terminal —</option>
+              {activeTerminals.map(t=><option key={t.id} value={`${t.name} - ${t.code}`}>{t.name} - {t.code}</option>)}
+            </select>
+        }
+      </Field>
+      <Field label="First Name *"><input ref={firstNameRef} style={INP} value={form.firstName} onChange={e=>set("firstName",e.target.value.toLowerCase())} placeholder="john"/></Field>
+      <Field label="Last Name *"><input style={INP} value={form.lastName} onChange={e=>set("lastName",e.target.value.toLowerCase())} placeholder="smith"/></Field>
+      <Field label="FedEx ID"><input style={INP} value={form.fedexId} onChange={e=>set("fedexId",e.target.value)} placeholder="FX-000000"/></Field>
+      <Field label="Status">
+        <select style={INP} value={form.status} onChange={e=>set("status",e.target.value)}>
+          <option value="Active">Active</option>
+          <option value="Inactive">Inactive</option>
+        </select>
+      </Field>
+    </div>
+    <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:10}}>
+      <button style={Btn("ghost")} onClick={onClose}>Cancel</button>
+      <button style={Btn("primary",cc.h)} onClick={doSave}>{existing?"Update Driver":"Add Driver"}</button>
+    </div>
+  </>;
+}
+
+// ─── Driver Card ──────────────────────────────────────────────────────────────
+function DriverCard({driver, onEdit}) {
+  const cc = FC.drv;
+  const st = driver.status || "Active";
+  const sc = STC[st] || STC.Active;
+  return <div style={{background:"#fff",border:"1.5px solid "+cc.bd,borderLeft:"4px solid "+cc.h,borderRadius:14,padding:18,boxShadow:"0 1px 6px rgba(0,0,0,.06)"}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+      <div style={{display:"flex",alignItems:"center",gap:10}}>
+        <div style={{width:38,height:38,borderRadius:10,background:cc.bg,border:"1px solid "+cc.bd,display:"flex",alignItems:"center",justifyContent:"center",color:cc.h,fontWeight:800,fontSize:17,flexShrink:0}}>
+          {(driver.firstName?.charAt(0)||"").toUpperCase()}
+        </div>
+        <div>
+          <div style={{fontSize:15,fontWeight:700,color:"#111827"}}>{driver.firstName} {driver.lastName}</div>
+          <div style={{fontSize:12,color:cc.h,fontWeight:600,marginTop:1}}>{driver.fedexId}</div>
+        </div>
+      </div>
+      <span style={{background:sc.bg,color:sc.tx,border:"1px solid "+sc.bd,padding:"3px 10px",borderRadius:99,fontSize:11,fontWeight:600,whiteSpace:"nowrap"}}>{st}</span>
+    </div>
+    <div style={{fontSize:12,color:cc.h,fontWeight:500,marginBottom:12}}>{driver.terminal}</div>
+    <div style={{paddingTop:10,borderTop:"1px solid #f3f4f6"}}>
+      <button onClick={()=>onEdit(driver)} style={Btn("ghost")}>Edit</button>
+    </div>
+  </div>;
+}
+
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
   // ── Auth ────────────────────────────────────────────────────────────────────
@@ -1776,12 +1857,15 @@ export default function App() {
   const [hirs,setHirs]=useState([]);
   const [insrs,setInsrs]=useState([]);
   const [dots,setDots]=useState([]);
+  const [drivers,setDrivers]=useState([]);
   const [loading,setLoading]=useState(true);
   const [modal,setModal]=useState(null);
   const [toasts,setToasts]=useState([]);
   const [fTerm,setFTerm]=useState("All");
   const [fStatus,setFStatus]=useState("Scheduled");
   const [fUniStatus,setFUniStatus]=useState("Pending");
+  const [fDrvStatus,setFDrvStatus]=useState("Active");
+  const [fDrvName,setFDrvName]=useState("");
   const [fDateFrom,setFDateFrom]=useState("");
   const [fDateTo,setFDateTo]=useState("");
   const [fTerminalStatus,setFTerminalStatus]=useState("Active");
@@ -1792,16 +1876,16 @@ export default function App() {
 
   const toast=useCallback((msg,type="info")=>{const id=Date.now();setToasts(t=>[...t,{id,message:msg,type}]);setTimeout(()=>setToasts(t=>t.filter(x=>x.id!==id)),4500);},[]);
 
-  const sendNotification=useCallback(async(moduleKey,placeholders)=>{
-    const result=await sendModuleEmail(moduleKey,placeholders,emailSettings);
+  const sendNotification=useCallback(async(moduleKey,placeholders,toOverride="")=>{
+    const result=await sendModuleEmail(moduleKey,placeholders,emailSettings,toOverride||undefined);
     const label=MODULE_LABELS[moduleKey]||"Notification";
     if(result?.ok) toast(`📧 ${label} notification sent.`,"success");
     else if(result?.error) toast("📧 Email failed — check console.","warn");
   },[emailSettings,toast]);
 
   const loadAll=useCallback(async()=>{
-    const [a,b,c,d,e,f,g,h]=await Promise.all([dbLoad(SK.rt),dbLoad(SK.uni),dbLoad(SK.tr),dbLoad(SK.inj),dbLoad(SK.acc),dbLoad(SK.hir),dbLoad(SK.ins),dbLoad(SK.dot)]);
-    setRts(a);setUnis(b);setTrucks(c);setInjs(d);setAccs(e);setHirs(f);setInsrs(g);setDots(h);setLastSync(new Date());setLoading(false);
+    const [a,b,c,d,e,f,g,h,i]=await Promise.all([dbLoad(SK.rt),dbLoad(SK.uni),dbLoad(SK.tr),dbLoad(SK.inj),dbLoad(SK.acc),dbLoad(SK.hir),dbLoad(SK.ins),dbLoad(SK.dot),dbLoad(SK.drv)]);
+    setRts(a);setUnis(b);setTrucks(c);setInjs(d);setAccs(e);setHirs(f);setInsrs(g);setDots(h);setDrivers(i);setLastSync(new Date());setLoading(false);
   },[]);
 
   const handleSync=useCallback(async()=>{
@@ -1829,6 +1913,22 @@ export default function App() {
     toast(isNew?"✅ Road test scheduled!":"Road test updated.","success");
     setModal(showSms?{type:"sms",data:clean}:null);
     dbSave(SK.rt,upd);
+    if(isNew){
+      const bcUser=users.find(u=>u.role==="bc"&&u.terminal===clean.terminal&&u.status==="active");
+      const termRec=terminals.find(t=>`${t.name} - ${t.code}`===clean.terminal)||{};
+      sendNotification("roadTestNew",{
+        candidateName:clean.candidateName||"",
+        fedexId:clean.fedexId||"",
+        phone:clean.phone||"",
+        terminal:clean.terminal||"",
+        terminalAddress:termRec.address||"",
+        date:clean.date?new Date(clean.date+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",year:"numeric",month:"long",day:"numeric"}):"",
+        time:clean.time||"",
+        duration:clean.duration?`${clean.duration} min`:"",
+        createdAt:new Date(clean.createdAt).toLocaleString("en-US"),
+        _calendarUrl:buildCalendarUrl(clean,termRec.address||""),
+      },bcUser?.email||"");
+    }
   };
   const delRT=async id=>{if(!confirm("Delete this road test?"))return;const upd=rts.filter(r=>r.id!==id);setRts(upd);toast("Road test removed.");dbSave(SK.rt,upd);};
   const saveOutcome=async test=>{
@@ -2003,6 +2103,12 @@ export default function App() {
     setDots(upd);dbSave(SK.dot,upd);toast("Card file uploaded.","success");
   },[dots,toast]);
 
+  const saveDriver=async r=>{
+    const isNew=!drivers.some(x=>x.id===r.id);
+    const upd=isNew?[...drivers,r]:drivers.map(x=>x.id===r.id?r:x);
+    setDrivers(upd);toast(isNew?"Driver added.":"Driver updated.","success");setModal(null);dbSave(SK.drv,upd);
+  };
+
   const isBc = currentUser?.role === "bc";
   const bcTerminal = currentUser?.terminal || "";
   const effectiveFTerm = isBc ? bcTerminal : fTerm;
@@ -2022,6 +2128,7 @@ export default function App() {
   const fHirs  =hirs.filter(r=>effectiveFTerm==="All"||r.terminal===effectiveFTerm).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
   const fInsrs =insrs.filter(r=>effectiveFTerm==="All"||r.terminal===effectiveFTerm).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
   const fDots  =dots.filter(r=>effectiveFTerm==="All"||r.terminal===effectiveFTerm).sort((a,b)=>new Date(a.expirationDate)-new Date(b.expirationDate));
+  const fDrivers=drivers.filter(r=>(effectiveFTerm==="All"||r.terminal===effectiveFTerm)&&(fDrvStatus==="All"||(r.status||"Active")===fDrvStatus)&&(!fDrvName.trim()||(r.firstName||"").includes(fDrvName.trim().toLowerCase()))).sort((a,b)=>{const ln=(a.lastName||"").localeCompare(b.lastName||"");return ln!==0?ln:(a.firstName||"").localeCompare(b.firstName||"");});
 
   const TABS=[
     {key:"rt",    icon:"clip",   label:"Road Tests",     count:rts.filter(r=>r.status==="Scheduled").length, badgeColor:FC.rt.h},
@@ -2032,13 +2139,16 @@ export default function App() {
     {key:"hir",   icon:"user",   label:"Hiring",         count:activeHiring,                                  badgeColor:FC.hir.h},
     {key:"ins",   icon:"phone",  label:"Insurance",      count:insrs.length,                                  badgeColor:FC.ins.h},
     {key:"dot",   icon:"badge",  label:"DOT Cards",      count:dots.filter(d=>{const s=expStatus(d.expirationDate);return s==="expired"||s==="warning";}).length, badgeColor:FC.dot.h},
+    ...((currentUser?.role==="admin"||currentUser?.role==="bc")?[
+      {key:"drivers", icon:"id", label:"Drivers", count:drivers.filter(d=>(d.status||"Active")==="Active"&&(effectiveFTerm==="All"||d.terminal===effectiveFTerm)).length, badgeColor:FC.drv.h},
+    ]:[]),
     ...(currentUser?.role==="admin"?[
       {key:"settings", icon:"gear", label:"Settings", count:0, badgeColor:"#6b7280"},
     ]:[]),
   ];
 
-  const addLabel={rt:"Schedule Road Test",uni:"New Uniform Request",fleet:"Add Truck",inj:"File Injury Report",acc:"File Accident Report",hir:"New Hiring Request",ins:"New Insurance Request",dot:"+ DOT Card"};
-  const addType ={...(isBc?{}:{rt:"newRT"}),uni:"newUni",fleet:"newTruck",inj:"newInj",acc:"newAcc",hir:"newHir",ins:"newIns",dot:"newDot"};
+  const addLabel={rt:"Schedule Road Test",uni:"New Uniform Request",fleet:"Add Truck",inj:"File Injury Report",acc:"File Accident Report",hir:"New Hiring Request",ins:"New Insurance Request",dot:"+ DOT Card",drivers:"Add Driver"};
+  const addType ={...(isBc?{}:{rt:"newRT"}),uni:"newUni",fleet:"newTruck",inj:"newInj",acc:"newAcc",hir:"newHir",ins:"newIns",dot:"newDot",drivers:"newDrv"};
 
   const STATS=[
     {l:"Scheduled Tests", v:rts.filter(r=>r.status==="Scheduled").length,  c:FC.rt.h},
@@ -2049,6 +2159,7 @@ export default function App() {
     {l:"Accidents",       v:accs.length,                                    c:FC.acc.h},
     {l:"Active Hiring",   v:activeHiring,                                   c:FC.hir.h},
     {l:"Insurance Reqs",  v:insrs.length,                                   c:FC.ins.h},
+    ...((currentUser?.role==="admin"||currentUser?.role==="bc")?[{l:"Active Drivers",v:drivers.filter(d=>(d.status||"Active")==="Active"&&(effectiveFTerm==="All"||d.terminal===effectiveFTerm)).length,c:FC.drv.h}]:[]),
   ];
 
   // ── User save handlers (admin) ───────────────────────────────────────────────
@@ -2113,7 +2224,7 @@ export default function App() {
       {!currentUser && !resetToken && <AuthModal onLogin={handleLogin}/>}
 
       {/* ── HEADER ─────────────────────────────────────────── */}
-      <div className="app-header" style={{background:"#fff",borderBottom:"1px solid #e5e7eb",boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
+      <div className="app-header" style={{background:"#fff",boxShadow:"0 1px 3px rgba(0,0,0,.06)"}}>
         <div className="header-inner">
           <div className="header-top">
             <div className="header-brand">
@@ -2147,7 +2258,7 @@ export default function App() {
       </div>
 
       {/* ── STATS BAR ──────────────────────────────────────── */}
-      <div className="stats-bar" style={{background:"#fff",borderBottom:"1px solid #e5e7eb"}}>
+      <div className="stats-bar" style={{background:"#f8fafc",borderTop:"1px solid #e5e7eb",borderBottom:"1px solid #e5e7eb"}}>
         <div className="stats-inner">
           {STATS.map(s=>(
             <div key={s.l} className="stat-item">
@@ -2168,6 +2279,11 @@ export default function App() {
           {tab!=="settings"&&isBc&&<span style={{fontSize:13,fontWeight:600,color:"#374151",padding:"7px 12px",background:"#f3f4f6",borderRadius:8,border:"1px solid #e5e7eb"}}>{bcTerminal||"No terminal assigned"}</span>}
           {tab==="rt"&&<select style={{...INP,width:"auto"}} value={fStatus} onChange={e=>setFStatus(e.target.value)}>{["All","Scheduled","Passed","Failed"].map(s=><option key={s} value={s}>{s}</option>)}</select>}
           {tab==="uni"&&<select style={{...INP,width:"auto"}} value={fUniStatus} onChange={e=>setFUniStatus(e.target.value)}>{["Pending","Completed","All"].map(s=><option key={s} value={s}>{s}</option>)}</select>}
+          {tab==="drivers"&&<select style={{...INP,width:"auto"}} value={fDrvStatus} onChange={e=>setFDrvStatus(e.target.value)}>{["Active","Inactive","All"].map(s=><option key={s} value={s}>{s}</option>)}</select>}
+          {tab==="drivers"&&<div style={{position:"relative",display:"inline-flex",alignItems:"center"}}>
+            <input style={{...INP,width:"auto",minWidth:180,paddingRight:fDrvName?30:12}} value={fDrvName} onChange={e=>setFDrvName(e.target.value)} placeholder="Search by first name..."/>
+            {fDrvName&&<button onClick={()=>setFDrvName("")} style={{position:"absolute",right:6,background:"none",border:"none",cursor:"pointer",padding:2,color:"#9ca3af",display:"flex",alignItems:"center"}}><Ico n="x" s={13}/></button>}
+          </div>}
           {tab==="rt"&&<div style={{display:"flex",alignItems:"center",gap:6}}>
             <input type="date" style={{...INP,width:"auto"}} value={fDateFrom} onChange={e=>setFDateFrom(e.target.value)} title="From date"/>
             <span style={{fontSize:12,color:"#9ca3af"}}>to</span>
@@ -2178,7 +2294,7 @@ export default function App() {
             <Ico n="dl" s={14}/><span>Download pending CSV list</span>
           </button>}
           {tab!=="settings"||(settingsTab!=="email"&&settingsTab!=="emailList")
-            ?<button onClick={()=>{const d=tab==="settings"?(settingsTab==="users"?users:settingsTab==="terminals"?terminals:null):{rt:rts,uni:unis,fleet:trucks,inj:injs,acc:accs,hir:hirs,ins:insrs,dot:dots}[tab];const key=tab==="settings"?(settingsTab==="users"?"users":settingsTab==="terminals"?"terminals":null):tab;if(d&&key)downloadCSV(key,d);}} style={{...Btn("ghost"),display:"flex",alignItems:"center",gap:6,...(tab==="uni"&&selUnis.size>0?{}:{marginLeft:"auto"}),padding:"6px 14px",fontSize:12}}>
+            ?<button onClick={()=>{const d=tab==="settings"?(settingsTab==="users"?users:settingsTab==="terminals"?terminals:null):{rt:rts,uni:unis,fleet:trucks,inj:injs,acc:accs,hir:hirs,ins:insrs,dot:dots,drivers:fDrivers}[tab];const key=tab==="settings"?(settingsTab==="users"?"users":settingsTab==="terminals"?"terminals":null):tab;if(d&&key)downloadCSV(key,d);}} style={{...Btn("ghost"),display:"flex",alignItems:"center",gap:6,...(tab==="uni"&&selUnis.size>0?{}:{marginLeft:"auto"}),padding:"6px 14px",fontSize:12}}>
                 <Ico n="dl" s={14}/><span className="sync-label">Download CSV</span>
               </button>
             :<div style={{marginLeft:"auto"}}/>}
@@ -2190,6 +2306,7 @@ export default function App() {
         </div>
 
         {!loading&&tab==="rt"&&<div style={{fontSize:14,color:"#6b7280",padding:"4px 2px"}}>Showing <span style={{fontWeight:700,color:activeCC.h}}>{fRts.length}</span> road test{fRts.length!==1?"s":""}</div>}
+        {!loading&&tab==="drivers"&&<div style={{fontSize:14,color:"#6b7280",padding:"4px 2px"}}>Showing <span style={{fontWeight:700,color:activeCC.h}}>{fDrivers.length}</span> driver{fDrivers.length!==1?"s":""}</div>}
 
         {loading ? (
           <div style={{textAlign:"center",padding:80,color:"#9ca3af",fontFamily:"'DM Mono',monospace"}}>Loading shared data…</div>
@@ -2226,6 +2343,10 @@ export default function App() {
           fDots.length===0
             ?<Empty msg="No DOT cards yet. Click + DOT Card to add one."/>
             :<Grid>{fDots.map(r=><DOTCard key={r.id} card={r} onEdit={r=>setModal({type:"editDot",data:r})} onDelete={delDot} onUpload={handleUploadDotCardFile}/>)}</Grid>
+        ) : tab==="drivers"&&(currentUser?.role==="admin"||currentUser?.role==="bc") ? (
+          fDrivers.length===0
+            ?<Empty msg="No drivers yet. Click Add Driver to begin."/>
+            :<Grid>{fDrivers.map(r=><DriverCard key={r.id} driver={r} onEdit={r=>setModal({type:"editDrv",data:r})}/>)}</Grid>
         ) : tab==="settings"&&currentUser?.role==="admin" ? (
           <div>
             <div style={{display:"flex",gap:2,background:"#f3f4f6",borderRadius:10,padding:4,marginBottom:24,width:"fit-content"}}>
@@ -2257,6 +2378,14 @@ export default function App() {
                   <span style={{fontWeight:800,fontSize:22,color:"#111827"}}>Email Notifications</span>
                   <button style={Btn("primary")} onClick={handleSaveSettings}>Save Settings</button>
                 </div>
+                <EmailSettingsForm
+                  moduleKey="roadTestNew"
+                  label="New Road Test Scheduled"
+                  placeholders={["candidateName","fedexId","phone","terminal","terminalAddress","date","time","duration","createdAt"]}
+                  config={emailSettings.roadTestNew||{}}
+                  onChange={handleSettingsChange}
+                  toNote="Auto-sent to the BC user assigned to the terminal. Add a fallback address here if the BC user has no email configured. The email includes an Add to Google Calendar button."
+                />
                 <EmailSettingsForm
                   moduleKey="roadTestOutcome"
                   label="Road Test Outcome"
@@ -2335,6 +2464,8 @@ export default function App() {
       {modal?.type==="insEmail"  && <InsuranceEmailModal req={modal.data} onClose={()=>setModal(null)} terminals={terminals}/>}
       {modal?.type==="newDot"    && <Modal title="Add DOT Card"          onClose={()=>setModal(null)} wide><DOTCardForm onSave={saveDot}  onClose={()=>setModal(null)} terminals={visibleTerminals}/></Modal>}
       {modal?.type==="editDot"   && <Modal title="Edit DOT Card"         onClose={()=>setModal(null)} wide><DOTCardForm onSave={saveDot}  onClose={()=>setModal(null)} existing={modal.data} terminals={visibleTerminals}/></Modal>}
+      {modal?.type==="newDrv"    && <Modal title="Add Driver"            onClose={()=>setModal(null)} wide><DriverForm  onSave={saveDriver} onClose={()=>setModal(null)} terminals={visibleTerminals} isBc={isBc} bcTerminal={bcTerminal}/></Modal>}
+      {modal?.type==="editDrv"   && <Modal title="Edit Driver"           onClose={()=>setModal(null)} wide><DriverForm  onSave={saveDriver} onClose={()=>setModal(null)} existing={modal.data} terminals={visibleTerminals} isBc={isBc} bcTerminal={bcTerminal}/></Modal>}
       {modal?.type==="newUser"       && <Modal title="Create User"      onClose={()=>setModal(null)} wide><UserForm     onSave={handleSaveUser}     onClose={()=>setModal(null)} allUsers={users} terminals={terminals}/></Modal>}
       {modal?.type==="editUser"      && <Modal title="Edit User"        onClose={()=>setModal(null)} wide><UserForm     onSave={handleSaveUser}     onClose={()=>setModal(null)} existing={modal.data} allUsers={users} terminals={terminals}/></Modal>}
       {modal?.type==="newTerminal"   && <Modal title="Add Terminal"     onClose={()=>setModal(null)} wide><TerminalForm onSave={handleSaveTerminal} onClose={()=>setModal(null)}/></Modal>}

@@ -11,6 +11,7 @@ const TABLE = {
   pnd_ins_v1: 'insurance_requests',
   pnd_dot_v1: 'dot_cards',
   pnd_term_v1: 'terminals',
+  pnd_drv_v1:  'drivers',
 }
 
 // Load all records from a table. Returns an array matching the app's expected shape.

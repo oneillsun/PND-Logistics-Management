@@ -193,7 +193,7 @@ const CSV_COLS = {
   rt:    ["id","candidateName","phone","fedexId","dln","dlnState","terminal","date","time","duration","status","manager","notes","feedback","firstDay","completedAt","createdAt","paylocityOnboarding"],
   uni:   ["id","terminal","requestedBy","status","notes","items","createdAt","fulfilledAt"],
   fleet: ["id","terminal","truckNumber","licensePlate","regState","regExpiry","inspExpiry","vin","notes","createdAt","updatedAt"],
-  inj:   ["id","terminal","employeeName","injuryDate","injuryTime","injuryAddress","description","bodyPart","medicalAttention","medicalProvider","missedWork","missedDays","witnesses","reportedBy","createdAt"],
+  inj:   ["id","terminal","employeeName","injuryDate","injuryTime","injuryAddress","description","bodyPart","medicalAttention","medicalProvider","missedWork","missedDays","lastDayWorked","returnToWork","witnesses","reportedBy","createdAt"],
   dot:       ["id","terminal","firstName","lastName","fedexId","expirationDate","file_url","createdAt"],
   drivers:   ["id","terminal","firstName","lastName","fedexId","status","createdAt","updatedAt"],
   users:     ["id","name","username","role","terminal","phone","email","fedex_id","status","created_at"],
@@ -657,7 +657,7 @@ function InjuryForm({onSave,onClose,existing,terminals=[],users=[]}) {
   const defaultTerminal=activeTerminals[0]?`${activeTerminals[0].name} - ${activeTerminals[0].code}`:"";
   const [form,setForm]=useState(existing
     ?{...existing,reportedBy:existing.reportedBy||getBcName(existing.terminal)}
-    :{terminal:defaultTerminal,reportedBy:getBcName(defaultTerminal),employeeName:"",injuryDate:`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`,injuryTime:`${pad(now.getHours())}:${pad(now.getMinutes())}`,injuryAddress:"",description:"",bodyPart:BODY_PARTS[0],medicalAttention:"",medicalProvider:"",missedWork:"",missedDays:"",witnesses:""});
+    :{terminal:defaultTerminal,reportedBy:getBcName(defaultTerminal),employeeName:"",injuryDate:`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`,injuryTime:`${pad(now.getHours())}:${pad(now.getMinutes())}`,injuryAddress:"",description:"",bodyPart:BODY_PARTS[0],medicalAttention:"",medicalProvider:"",missedWork:"",missedDays:"",lastDayWorked:"",returnToWork:"",witnesses:""});
   const [attachments,setAttachments]=useState(existing?.attachments||[]);
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const handleTerminal=v=>setForm(f=>({...f,terminal:v,reportedBy:getBcName(v)}));
@@ -700,7 +700,9 @@ function InjuryForm({onSave,onClose,existing,terminals=[],users=[]}) {
           <option value="Yes">Yes - missed or expected to miss work</option>
         </select>
       </Field>
-      {form.missedWork==="Yes"&&<Field label="Days Missed (or Expected)"><input style={INP} type="number" min="1" value={form.missedDays} onChange={e=>set("missedDays",e.target.value)} placeholder="e.g. 3"/></Field>}
+      {form.missedWork==="Yes"&&<Field label="How Many Days?"><input style={INP} type="number" min="1" value={form.missedDays} onChange={e=>set("missedDays",e.target.value)} placeholder="e.g. 3"/></Field>}
+      {form.missedWork==="Yes"&&<Field label="Last Day Worked"><input style={INP} type="date" value={form.lastDayWorked} onChange={e=>set("lastDayWorked",e.target.value)}/></Field>}
+      {form.missedWork==="Yes"&&<Field label="Return to Work"><input style={INP} type="date" value={form.returnToWork} onChange={e=>set("returnToWork",e.target.value)}/></Field>}
     </div>
     <Field label="Witnesses (Names or None)" span><textarea style={{...INP,height:60,resize:"vertical"}} value={form.witnesses} onChange={e=>set("witnesses",e.target.value)} placeholder="List witness names, or write 'None'..."/></Field>
     <div style={{marginBottom:14}}>
@@ -778,6 +780,8 @@ function InjuryDetail({report,onClose,terminals=[]}) {
         {report.medicalProvider&&<Row label="Medical Provider" value={report.medicalProvider}/>}
         <Row label="Missed Work" value={report.missedWork||"Not specified"}/>
         {report.missedDays&&<Row label="Days Missed" value={report.missedDays+" day(s)"}/>}
+        {report.lastDayWorked&&<Row label="Last Day Worked" value={new Date(report.lastDayWorked+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}/>}
+        {report.returnToWork&&<Row label="Return to Work" value={new Date(report.returnToWork+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}/>}
       </div>
       <Row label="Witnesses" value={report.witnesses||"None reported"}/>
       {report.attachments?.length>0&&<div style={{marginTop:16}}><div style={{fontSize:10,color:"#9ca3af",fontWeight:600,textTransform:"uppercase",marginBottom:8}}>Attachments</div><div style={{display:"flex",flexWrap:"wrap",gap:8}}>{report.attachments.map((a,i)=>a.type.startsWith("image")?<img key={i} src={a.data} alt="" onClick={()=>setLb(a)} style={{width:80,height:80,objectFit:"cover",borderRadius:6,border:"1px solid #e5e7eb",cursor:"pointer"}}/>:<a key={i} href={a.data} download={a.name} style={{background:"#f3f4f6",border:"1px solid #e5e7eb",borderRadius:8,padding:"10px 14px",textDecoration:"none",fontSize:12,color:"#374151"}}>{a.name}</a>)}</div></div>}
@@ -1998,6 +2002,8 @@ export default function App() {
         medicalProvider:r.medicalProvider||"",
         missedWork:r.missedWork||"",
         missedDays:r.missedDays||"",
+        lastDayWorked:r.lastDayWorked||"",
+        returnToWork:r.returnToWork||"",
         witnesses:r.witnesses||"",
         reportedBy:r.reportedBy||"",
         createdAt:new Date(r.createdAt).toLocaleString("en-US"),
@@ -2403,7 +2409,7 @@ export default function App() {
                 <EmailSettingsForm
                   moduleKey="injuryReportNew"
                   label="New Injury Report"
-                  placeholders={["terminal","employeeName","bodyPart","injuryDate","injuryTime","injuryAddress","description","medicalAttention","medicalProvider","missedWork","missedDays","witnesses","reportedBy","createdAt"]}
+                  placeholders={["terminal","employeeName","bodyPart","injuryDate","injuryTime","injuryAddress","description","medicalAttention","medicalProvider","missedWork","missedDays","lastDayWorked","returnToWork","witnesses","reportedBy","createdAt"]}
                   config={emailSettings.injuryReportNew||{}}
                   onChange={handleSettingsChange}
                 />

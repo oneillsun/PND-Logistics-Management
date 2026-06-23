@@ -24,6 +24,55 @@ export async function dbLoad(key) {
   return (data || []).map(row => ({ ...row.data, id: row.id }))
 }
 
+// Upsert a single record. Preferred over dbSave for individual module saves.
+export async function dbSaveOne(key, record) {
+  const table = TABLE[key]
+  const { error } = await supabase
+    .from(table)
+    .upsert({ id: record.id, data: record }, { onConflict: 'id' })
+  if (error) { console.error('dbSaveOne:', error.message); return false }
+  return true
+}
+
+// Delete a single record by id.
+export async function dbDeleteOne(key, id) {
+  const table = TABLE[key]
+  const { error } = await supabase.from(table).delete().eq('id', id)
+  if (error) { console.error('dbDeleteOne:', error.message); return false }
+  return true
+}
+
+// ─── Injury Attachments (Supabase Storage) ────────────────────────────────────
+
+const INJURY_BUCKET = 'injury-files'
+
+export async function uploadInjuryFile(reportId, file) {
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+  const path = `${reportId}/${Date.now()}_${safeName}`
+  const { error } = await supabase.storage
+    .from(INJURY_BUCKET)
+    .upload(path, file, { upsert: true })
+  if (error) {
+    console.error('uploadInjuryFile:', error.message)
+    return { error: error.message }
+  }
+  const { data } = supabase.storage.from(INJURY_BUCKET).getPublicUrl(path)
+  return { url: data?.publicUrl, path }
+}
+
+export async function deleteInjuryFiles(reportId) {
+  const { data: files } = await supabase.storage.from(INJURY_BUCKET).list(reportId)
+  if (files?.length) {
+    const paths = files.map(f => `${reportId}/${f.name}`)
+    await supabase.storage.from(INJURY_BUCKET).remove(paths)
+  }
+}
+
+export async function deleteInjuryFile(path) {
+  const { error } = await supabase.storage.from(INJURY_BUCKET).remove([path])
+  if (error) console.error('deleteInjuryFile:', error.message)
+}
+
 // Persist the full updated array to Supabase.
 // Upserts all current records, then deletes any rows that were removed.
 export async function dbSave(key, records) {

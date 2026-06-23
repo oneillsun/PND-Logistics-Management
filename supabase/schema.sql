@@ -236,6 +236,27 @@ create policy "dot_cards_delete" on storage.objects
   for delete
   using (bucket_id = 'dot-cards');
 
+-- ───── injury-files Storage Bucket ─────
+insert into storage.buckets (id, name, public)
+values ('injury-files', 'injury-files', true)
+on conflict (id) do nothing;
+
+create policy "injury_files_upload" on storage.objects
+  for insert
+  with check (bucket_id = 'injury-files');
+
+create policy "injury_files_update" on storage.objects
+  for update
+  with check (bucket_id = 'injury-files');
+
+create policy "injury_files_read" on storage.objects
+  for select
+  using (bucket_id = 'injury-files');
+
+create policy "injury_files_delete" on storage.objects
+  for delete
+  using (bucket_id = 'injury-files');
+
 /*
 -- Seed terminals from TERMINAL_DATA
 insert into terminals (name, code, fulladdress, address, city, state, zipcode, status, rt_employer_name) values

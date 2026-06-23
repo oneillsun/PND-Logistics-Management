@@ -68,7 +68,7 @@ VITE_SUPABASE_STORAGE_BUCKET=terminal-pdfs   # optional, defaults to 'terminal-p
 | `rt` | Road Tests | Schedule tests, SMS candidates, record pass/fail, generate PDF |
 | `uni` | Uniforms | Uniform/equipment orders per terminal (Pending → Completed) |
 | `fleet` | Fleet | Truck registry with registration/inspection expiry tracking |
-| `inj` | Injuries | Injury reports with file attachments (base64 in jsonb) |
+| `inj` | Injuries | Injury reports with file attachments (Supabase Storage bucket `injury-files`) |
 | `acc` | Accidents | Accident reports with victim/vehicle info and media |
 | `hir` | Hiring | Hiring start/pause requests with HR SMS/WhatsApp notification |
 | `ins` | Insurance | Health insurance enrollment requests with email generation |
@@ -108,4 +108,4 @@ Light theme with per-module accent colors. Key constants at the top of the file:
 - JSX must use straight ASCII quotes (`"` `'`) — Unicode curly quotes break the build
 - `getSizes(type)` returns waist sizes (W24–W48) for pants/shorts, XS–4XL for everything else
 - Terminal lookup for PDF: `terminals.find(t => \`${t.name} - ${t.code}\` === test.terminal)`
-- Injury attachments stored as base64 in jsonb — large files may cause performance issues
+- Injury attachments stored in Supabase Storage bucket `injury-files`; only metadata (name, type, size, url, path) is kept in jsonb

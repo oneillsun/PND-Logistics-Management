@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { dbLoad, dbSave } from "./src/lib/db.js";
+import { dbLoad, dbSave, dbSaveOne, dbDeleteOne, uploadInjuryFile, deleteInjuryFiles } from "./src/lib/db.js";
 import { login, logout, getSession, fetchUsers, createUser, updateUser, requestPasswordReset, resetPassword } from "./src/lib/auth.js";
 import { fetchTerminals, createTerminal, updateTerminal, uploadTerminalPdf } from "./src/lib/terminals.js";
 import { sendEmail, buildOutcomeHtml, sendModuleEmail, buildCalendarUrl } from "./src/lib/email.js";
@@ -658,12 +658,30 @@ function InjuryForm({onSave,onClose,existing,terminals=[],users=[]}) {
   const [form,setForm]=useState(existing
     ?{...existing,reportedBy:existing.reportedBy||getBcName(existing.terminal)}
     :{terminal:defaultTerminal,reportedBy:getBcName(defaultTerminal),employeeName:"",injuryDate:`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`,injuryTime:`${pad(now.getHours())}:${pad(now.getMinutes())}`,injuryAddress:"",description:"",bodyPart:BODY_PARTS[0],medicalAttention:"",medicalProvider:"",missedWork:"",missedDays:"",lastDayWorked:"",returnToWork:"",witnesses:""});
-  const [attachments,setAttachments]=useState(existing?.attachments||[]);
+  const [uploaded,setUploaded]=useState((existing?.attachments||[]).filter(a=>a.url));
+  const [pending,setPending]=useState([]);
+  const [saving,setSaving]=useState(false);
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const handleTerminal=v=>setForm(f=>({...f,terminal:v,reportedBy:getBcName(v)}));
   const fmtSize=b=>b>1048576?`${(b/1048576).toFixed(1)}MB`:`${(b/1024).toFixed(0)}KB`;
-  const handleFiles=e=>{Array.from(e.target.files).forEach(file=>{const r=new FileReader();r.onload=ev=>setAttachments(p=>[...p,{id:Date.now()+Math.random(),name:file.name,type:file.type,size:file.size,data:ev.target.result}]);r.readAsDataURL(file);});};
-  const doSave=()=>{if(!form.employeeName)return alert("Please fill in Employee Name.");onSave({...form,attachments,id:existing?.id||Date.now().toString(),createdAt:existing?.createdAt||new Date().toISOString(),subject:`WORK RELATED INJURY - ${form.employeeName.toUpperCase()}`});};
+  const MAX_ATTACH_BYTES=10*1024*1024;
+  const handleFiles=e=>{Array.from(e.target.files).forEach(file=>{if(file.size>MAX_ATTACH_BYTES){alert(`"${file.name}" is too large (${(file.size/1048576).toFixed(1)} MB). Max 10 MB per file.`);return;}setPending(p=>[...p,{id:Date.now()+Math.random(),name:file.name,type:file.type,size:file.size,file,preview:file.type.startsWith("image")?URL.createObjectURL(file):null}]);});e.target.value="";};
+  const removePending=id=>setPending(p=>{const f=p.find(x=>x.id===id);if(f?.preview)URL.revokeObjectURL(f.preview);return p.filter(x=>x.id!==id);});
+  const doSave=async()=>{
+    if(!form.employeeName)return alert("Please fill in Employee Name.");
+    setSaving(true);
+    const reportId=existing?.id||Date.now().toString();
+    const uploadedNew=[];
+    for(const f of pending){
+      const result=await uploadInjuryFile(reportId,f.file);
+      if(result.error){setSaving(false);return alert(`Failed to upload "${f.name}": ${result.error}`);}
+      uploadedNew.push({id:f.id,name:f.name,type:f.type,size:f.size,url:result.url,path:result.path});
+    }
+    const allAttachments=[...uploaded,...uploadedNew];
+    setSaving(false);
+    onSave({...form,attachments:allAttachments,id:reportId,createdAt:existing?.createdAt||new Date().toISOString(),subject:`WORK RELATED INJURY - ${form.employeeName.toUpperCase()}`});
+  };
+  const allFiles=[...uploaded.map(a=>({...a,source:"uploaded"})),...pending.map(a=>({...a,source:"pending"}))];
   return <>
     <div style={{background:cc.bg,border:"1px solid "+cc.bd,borderRadius:10,padding:"10px 14px",marginBottom:16}}>
       <div style={{fontSize:10,color:cc.tx,fontWeight:700,letterSpacing:.8,textTransform:"uppercase",marginBottom:2}}>Work Related Injury Report</div>
@@ -710,23 +728,23 @@ function InjuryForm({onSave,onClose,existing,terminals=[],users=[]}) {
         <Ico n="attach" s={16}/><span style={{fontSize:13,color:"#9ca3af"}}>Click to attach files (images, PDFs, videos)</span>
         <input type="file" multiple accept="image/*,video/*,.pdf,.doc,.docx" onChange={handleFiles} style={{display:"none"}}/>
       </label>
-      {attachments.length>0&&<div style={{display:"flex",flexDirection:"column",gap:6}}>
-        {attachments.map(a=>(
+      {allFiles.length>0&&<div style={{display:"flex",flexDirection:"column",gap:6}}>
+        {allFiles.map(a=>(
           <div key={a.id} style={{display:"flex",alignItems:"center",gap:10,background:"#f9fafb",border:"1px solid #e5e7eb",borderRadius:6,padding:"8px 12px"}}>
             <span style={{fontSize:18}}>{a.type.startsWith("image")?"[img]":a.type.startsWith("video")?"[vid]":"[doc]"}</span>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:12,color:"#374151",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.name}</div>
-              <div style={{fontSize:10,color:"#9ca3af"}}>{fmtSize(a.size)}</div>
+              <div style={{fontSize:10,color:"#9ca3af"}}>{fmtSize(a.size)}{a.source==="pending"?" (pending upload)":""}</div>
             </div>
-            {a.type.startsWith("image")&&<img src={a.data} alt={a.name} style={{width:40,height:40,objectFit:"cover",borderRadius:4,border:"1px solid #e5e7eb"}}/>}
-            <button onClick={()=>setAttachments(p=>p.filter(x=>x.id!==a.id))} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",padding:4,display:"flex"}}><Ico n="x" s={13}/></button>
+            {a.type.startsWith("image")&&<img src={a.source==="pending"?a.preview:a.url} alt={a.name} style={{width:40,height:40,objectFit:"cover",borderRadius:4,border:"1px solid #e5e7eb"}}/>}
+            <button onClick={()=>a.source==="pending"?removePending(a.id):setUploaded(p=>p.filter(x=>x.id!==a.id))} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",padding:4,display:"flex"}}><Ico n="x" s={13}/></button>
           </div>
         ))}
       </div>}
     </div>
     <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:10}}>
-      <button style={Btn("ghost")} onClick={onClose}>Cancel</button>
-      <button style={{...Btn("danger"),display:"flex",alignItems:"center",gap:6}} onClick={doSave}><Ico n="medkit" s={14}/>{existing?"Update Report":"Submit Injury Report"}</button>
+      <button style={Btn("ghost")} onClick={onClose} disabled={saving}>Cancel</button>
+      <button style={{...Btn("danger"),display:"flex",alignItems:"center",gap:6,opacity:saving?.6:1}} onClick={doSave} disabled={saving}><Ico n="medkit" s={14}/>{saving?"Uploading...":existing?"Update Report":"Submit Injury Report"}</button>
     </div>
   </>;
 }
@@ -749,7 +767,7 @@ function InjuryCard({report,onView,onEdit,onDelete,terminals=[]}) {
       </div>
       {report.description&&<div style={{background:"#f9fafb",borderRadius:6,padding:"8px 10px",marginBottom:10,fontSize:12,color:"#6b7280",lineHeight:1.6}}>{report.description.length>120?report.description.slice(0,120)+"...":report.description}</div>}
       {report.attachments?.length>0&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
-        {report.attachments.slice(0,4).map((a,i)=>a.type.startsWith("image")?<img key={i} src={a.data} alt={a.name} style={{width:48,height:48,objectFit:"cover",borderRadius:6,border:"1px solid #e5e7eb"}}/>:<div key={i} style={{width:48,height:48,background:"#f3f4f6",border:"1px solid #e5e7eb",borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:"#6b7280"}}>{a.type.startsWith("video")?"vid":"doc"}</div>)}
+        {report.attachments.slice(0,4).map((a,i)=>a.type.startsWith("image")?<img key={i} src={a.url||a.data} alt={a.name} style={{width:48,height:48,objectFit:"cover",borderRadius:6,border:"1px solid #e5e7eb"}}/>:<div key={i} style={{width:48,height:48,background:"#f3f4f6",border:"1px solid #e5e7eb",borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:"#6b7280"}}>{a.type.startsWith("video")?"vid":"doc"}</div>)}
       </div>}
       <div style={{fontSize:10,color:"#9ca3af",marginBottom:8}}>Filed {new Date(report.createdAt).toLocaleDateString()} - {report.reportedBy||t.manager}</div>
       <div style={{display:"flex",gap:6,paddingTop:10,borderTop:"1px solid #f3f4f6"}}>
@@ -784,8 +802,8 @@ function InjuryDetail({report,onClose,terminals=[]}) {
         {report.returnToWork&&<Row label="Return to Work" value={new Date(report.returnToWork+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}/>}
       </div>
       <Row label="Witnesses" value={report.witnesses||"None reported"}/>
-      {report.attachments?.length>0&&<div style={{marginTop:16}}><div style={{fontSize:10,color:"#9ca3af",fontWeight:600,textTransform:"uppercase",marginBottom:8}}>Attachments</div><div style={{display:"flex",flexWrap:"wrap",gap:8}}>{report.attachments.map((a,i)=>a.type.startsWith("image")?<img key={i} src={a.data} alt="" onClick={()=>setLb(a)} style={{width:80,height:80,objectFit:"cover",borderRadius:6,border:"1px solid #e5e7eb",cursor:"pointer"}}/>:<a key={i} href={a.data} download={a.name} style={{background:"#f3f4f6",border:"1px solid #e5e7eb",borderRadius:8,padding:"10px 14px",textDecoration:"none",fontSize:12,color:"#374151"}}>{a.name}</a>)}</div></div>}
-      {lb&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.85)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>setLb(null)}><img src={lb.data} alt="" style={{maxWidth:"90vw",maxHeight:"90vh",borderRadius:8}}/><button onClick={()=>setLb(null)} style={{position:"absolute",top:20,right:20,background:"none",border:"none",color:"#fff",cursor:"pointer",fontSize:28}}>x</button></div>}
+      {report.attachments?.length>0&&<div style={{marginTop:16}}><div style={{fontSize:10,color:"#9ca3af",fontWeight:600,textTransform:"uppercase",marginBottom:8}}>Attachments</div><div style={{display:"flex",flexWrap:"wrap",gap:8}}>{report.attachments.map((a,i)=>{const src=a.url||a.data;return a.type.startsWith("image")?<img key={i} src={src} alt="" onClick={()=>setLb({...a,src})} style={{width:80,height:80,objectFit:"cover",borderRadius:6,border:"1px solid #e5e7eb",cursor:"pointer"}}/>:<a key={i} href={src} target="_blank" rel="noopener noreferrer" download={a.name} style={{background:"#f3f4f6",border:"1px solid #e5e7eb",borderRadius:8,padding:"10px 14px",textDecoration:"none",fontSize:12,color:"#374151"}}>{a.name}</a>;})}</div></div>}
+      {lb&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.85)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>setLb(null)}><img src={lb.src||lb.url||lb.data} alt="" style={{maxWidth:"90vw",maxHeight:"90vh",borderRadius:8}}/><button onClick={()=>setLb(null)} style={{position:"absolute",top:20,right:20,background:"none",border:"none",color:"#fff",cursor:"pointer",fontSize:28}}>x</button></div>}
     </Modal>
   );
 }
@@ -1884,7 +1902,7 @@ export default function App() {
     const result=await sendModuleEmail(moduleKey,placeholders,emailSettings,toOverride||undefined);
     const label=MODULE_LABELS[moduleKey]||"Notification";
     if(result?.ok) toast(`📧 ${label} notification sent.`,"success");
-    else if(result?.error) toast("📧 Email failed — check console.","warn");
+    else if(result?.error) toast(`📧 Email failed: ${result.error}`,"warn");
   },[emailSettings,toast]);
 
   const loadAll=useCallback(async()=>{
@@ -1957,7 +1975,7 @@ export default function App() {
         html:buildOutcomeHtml({...test,default_unit_number:termRec.default_unit_number||""}),
       });
       if(result?.ok) toast("📧 Notification sent.","success");
-      else if(result?.error) toast("📧 Email failed — check console.","warn");
+      else if(result?.error) toast(`📧 Email failed: ${result.error}`,"warn");
     }
   };
 
@@ -1988,7 +2006,7 @@ export default function App() {
   const saveInj=async r=>{
     const isNew=!injs.some(x=>x.id===r.id);
     const upd=isNew?[...injs,r]:injs.map(x=>x.id===r.id?r:x);
-    setInjs(upd);toast(isNew?"Injury report filed.":"Report updated.","warn");setModal(null);dbSave(SK.inj,upd);
+    setInjs(upd);toast(isNew?"Injury report filed.":"Report updated.","warn");setModal(null);dbSaveOne(SK.inj,r);
     if(isNew){
       sendNotification("injuryReportNew",{
         terminal:r.terminal||"",
@@ -2010,12 +2028,12 @@ export default function App() {
       });
     }
   };
-  const delInj=async id=>{if(!confirm("Delete this injury report?"))return;const upd=injs.filter(r=>r.id!==id);setInjs(upd);toast("Report deleted.");dbSave(SK.inj,upd);};
+  const delInj=async id=>{if(!confirm("Delete this injury report?"))return;const upd=injs.filter(r=>r.id!==id);setInjs(upd);toast("Report deleted.");dbDeleteOne(SK.inj,id);deleteInjuryFiles(id);};
 
   const saveAcc=async r=>{
     const isNew=!accs.some(x=>x.id===r.id);
     const upd=isNew?[...accs,r]:accs.map(x=>x.id===r.id?r:x);
-    setAccs(upd);toast(isNew?"Accident report filed.":"Report updated.","warn");setModal(null);dbSave(SK.acc,upd);
+    setAccs(upd);toast(isNew?"Accident report filed.":"Report updated.","warn");setModal(null);dbSaveOne(SK.acc,r);
     if(isNew){
       sendNotification("accidentReportNew",{
         terminal:r.terminal||"",
@@ -2042,7 +2060,7 @@ export default function App() {
       });
     }
   };
-  const delAcc=async id=>{if(!confirm("Delete this accident report?"))return;const upd=accs.filter(r=>r.id!==id);setAccs(upd);toast("Report deleted.");dbSave(SK.acc,upd);};
+  const delAcc=async id=>{if(!confirm("Delete this accident report?"))return;const upd=accs.filter(r=>r.id!==id);setAccs(upd);toast("Report deleted.");dbDeleteOne(SK.acc,id);};
 
   const saveHir=async r=>{
     const showNotify=r._notify; const clean={...r}; delete clean._notify;

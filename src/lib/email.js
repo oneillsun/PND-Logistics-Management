@@ -243,8 +243,10 @@ export async function sendEmail({ to, cc, subject, html }) {
 
   const { error } = await supabase.functions.invoke('send-email', { body: payload })
   if (error) {
-    console.error('[email] Edge function error:', error)
-    return { error: error.message || String(error) }
+    // error.context holds the parsed response body when Supabase wraps a non-2xx
+    const detail = error.context?.error || error.context?.message || error.message || String(error)
+    console.error('[email] Edge function error:', detail, error)
+    return { error: detail }
   }
   return { ok: true }
 }

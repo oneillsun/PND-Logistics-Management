@@ -193,7 +193,7 @@ const CSV_COLS = {
   rt:    ["id","candidateName","phone","fedexId","dln","dlnState","terminal","date","time","duration","status","manager","notes","feedback","firstDay","completedAt","createdAt","paylocityOnboarding"],
   uni:   ["id","terminal","requestedBy","status","notes","items","createdAt","fulfilledAt"],
   fleet: ["id","terminal","truckNumber","licensePlate","regState","regExpiry","inspExpiry","vin","notes","createdAt","updatedAt"],
-  inj:   ["id","terminal","employeeName","injuryDate","injuryTime","injuryAddress","description","bodyPart","medicalAttention","medicalProvider","missedWork","missedDays","lastDayWorked","returnToWork","witnesses","reportedBy","createdAt"],
+  inj:   ["id","terminal","employeeName","injuryDate","injuryTime","injuryAddress","description","bodyPart","medicalAttention","medicalProvider","missedWork","missedDays","lastDayWorked","returnToWork","witnesses","claimNumber","reportedBy","createdAt"],
   dot:       ["id","terminal","firstName","lastName","fedexId","expirationDate","file_url","createdAt"],
   drivers:   ["id","terminal","firstName","lastName","fedexId","status","createdAt","updatedAt"],
   users:     ["id","name","username","role","terminal","phone","email","fedex_id","status","created_at"],
@@ -657,7 +657,7 @@ function InjuryForm({onSave,onClose,existing,terminals=[],users=[]}) {
   const defaultTerminal=activeTerminals[0]?`${activeTerminals[0].name} - ${activeTerminals[0].code}`:"";
   const [form,setForm]=useState(existing
     ?{...existing,reportedBy:existing.reportedBy||getBcName(existing.terminal)}
-    :{terminal:defaultTerminal,reportedBy:getBcName(defaultTerminal),employeeName:"",injuryDate:`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`,injuryTime:`${pad(now.getHours())}:${pad(now.getMinutes())}`,injuryAddress:"",description:"",bodyPart:BODY_PARTS[0],medicalAttention:"",medicalProvider:"",missedWork:"",missedDays:"",lastDayWorked:"",returnToWork:"",witnesses:""});
+    :{terminal:defaultTerminal,reportedBy:getBcName(defaultTerminal),employeeName:"",injuryDate:`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`,injuryTime:`${pad(now.getHours())}:${pad(now.getMinutes())}`,injuryAddress:"",description:"",bodyPart:BODY_PARTS[0],medicalAttention:"",medicalProvider:"",missedWork:"",missedDays:"",lastDayWorked:"",returnToWork:"",witnesses:"",claimNumber:""});
   const [uploaded,setUploaded]=useState((existing?.attachments||[]).filter(a=>a.url));
   const [pending,setPending]=useState([]);
   const [saving,setSaving]=useState(false);
@@ -723,6 +723,7 @@ function InjuryForm({onSave,onClose,existing,terminals=[],users=[]}) {
       {form.missedWork==="Yes"&&<Field label="Return to Work"><input style={INP} type="date" value={form.returnToWork} onChange={e=>set("returnToWork",e.target.value)}/></Field>}
     </div>
     <Field label="Witnesses (Names or None)" span><textarea style={{...INP,height:60,resize:"vertical"}} value={form.witnesses} onChange={e=>set("witnesses",e.target.value)} placeholder="List witness names, or write 'None'..."/></Field>
+    <Field label="Claim Number"><input style={INP} value={form.claimNumber} onChange={e=>set("claimNumber",e.target.value)} placeholder="Optional"/></Field>
     <div style={{marginBottom:14}}>
       <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",background:"#f9fafb",border:"2px dashed #e5e7eb",borderRadius:8,padding:"12px 16px",marginBottom:8}}>
         <Ico n="attach" s={16}/><span style={{fontSize:13,color:"#9ca3af"}}>Click to attach files (images, PDFs, videos)</span>
@@ -802,6 +803,7 @@ function InjuryDetail({report,onClose,terminals=[]}) {
         {report.returnToWork&&<Row label="Return to Work" value={new Date(report.returnToWork+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}/>}
       </div>
       <Row label="Witnesses" value={report.witnesses||"None reported"}/>
+      <Row label="Claim Number" value={report.claimNumber}/>
       {report.attachments?.length>0&&<div style={{marginTop:16}}><div style={{fontSize:10,color:"#9ca3af",fontWeight:600,textTransform:"uppercase",marginBottom:8}}>Attachments</div><div style={{display:"flex",flexWrap:"wrap",gap:8}}>{report.attachments.map((a,i)=>{const src=a.url||a.data;return a.type.startsWith("image")?<img key={i} src={src} alt="" onClick={()=>setLb({...a,src})} style={{width:80,height:80,objectFit:"cover",borderRadius:6,border:"1px solid #e5e7eb",cursor:"pointer"}}/>:<a key={i} href={src} target="_blank" rel="noopener noreferrer" download={a.name} style={{background:"#f3f4f6",border:"1px solid #e5e7eb",borderRadius:8,padding:"10px 14px",textDecoration:"none",fontSize:12,color:"#374151"}}>{a.name}</a>;})}</div></div>}
       {lb&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.85)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>setLb(null)}><img src={lb.src||lb.url||lb.data} alt="" style={{maxWidth:"90vw",maxHeight:"90vh",borderRadius:8}}/><button onClick={()=>setLb(null)} style={{position:"absolute",top:20,right:20,background:"none",border:"none",color:"#fff",cursor:"pointer",fontSize:28}}>x</button></div>}
     </Modal>
@@ -2023,6 +2025,7 @@ export default function App() {
         lastDayWorked:r.lastDayWorked||"",
         returnToWork:r.returnToWork||"",
         witnesses:r.witnesses||"",
+        claimNumber:r.claimNumber||"",
         reportedBy:r.reportedBy||"",
         createdAt:new Date(r.createdAt).toLocaleString("en-US"),
       });
@@ -2427,7 +2430,7 @@ export default function App() {
                 <EmailSettingsForm
                   moduleKey="injuryReportNew"
                   label="New Injury Report"
-                  placeholders={["terminal","employeeName","bodyPart","injuryDate","injuryTime","injuryAddress","description","medicalAttention","medicalProvider","missedWork","missedDays","lastDayWorked","returnToWork","witnesses","reportedBy","createdAt"]}
+                  placeholders={["terminal","employeeName","bodyPart","injuryDate","injuryTime","injuryAddress","description","medicalAttention","medicalProvider","missedWork","missedDays","lastDayWorked","returnToWork","witnesses","claimNumber","reportedBy","createdAt"]}
                   config={emailSettings.injuryReportNew||{}}
                   onChange={handleSettingsChange}
                 />

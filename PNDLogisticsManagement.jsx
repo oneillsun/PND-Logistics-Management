@@ -1867,7 +1867,7 @@ export default function App() {
     if(!currentUser) return;
     loadTerminals();
     loadUsers();
-    if(currentUser.role==="admin"){ loadSettings(); }
+    loadSettings();
   },[currentUser,loadUsers,loadTerminals,loadSettings]);
 
   // ── Data ────────────────────────────────────────────────────────────────────

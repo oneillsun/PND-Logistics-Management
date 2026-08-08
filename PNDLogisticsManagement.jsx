@@ -456,7 +456,8 @@ function RTCard({test,onEdit,onOutcome,onDelete,onSms,users=[],terminals=[],onEr
           {test.dln&&<span style={{fontSize:11,color:"#9ca3af",marginLeft:10}}>DLN: {test.dln}{test.dlnState&&" ("+test.dlnState+")"}</span>}
         </div>
         {test.status==="Passed"&&<div style={{background:FC.hir.bg,border:"1px solid "+FC.hir.bd,borderRadius:7,padding:"7px 11px",marginBottom:10,fontSize:12,color:FC.hir.tx,fontWeight:600}}>PASSED{test.firstDay?" · Training: "+new Date(test.firstDay+"T12:00:00").toLocaleDateString():""}</div>}
-        {test.status==="Failed"&&<div style={{background:FC.inj.bg,border:"1px solid "+FC.inj.bd,borderRadius:7,padding:"7px 11px",marginBottom:10,fontSize:12,color:FC.inj.tx,fontWeight:600}}>FAILED{test.feedback?" · "+test.feedback.slice(0,70):""}</div>}
+        {test.status==="Failed"&&<div style={{background:FC.inj.bg,border:"1px solid "+FC.inj.bd,borderRadius:7,padding:"7px 11px",marginBottom:10,fontSize:12,color:FC.inj.tx,fontWeight:600}}>FAILED</div>}
+        {(test.status==="Passed"||test.status==="Failed")&&test.feedback&&<div style={{background:"#f9fafb",border:"1px solid #e5e7eb",borderRadius:7,padding:"9px 11px",marginBottom:10}}><div style={{fontSize:10,color:"#9ca3af",fontWeight:600,textTransform:"uppercase",letterSpacing:.5,marginBottom:3}}>Manager Notes</div><div style={{fontSize:12,color:"#374151",lineHeight:1.5,whiteSpace:"pre-wrap"}}>{test.feedback}</div></div>}
         <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",paddingTop:10,borderTop:"1px solid #f3f4f6"}}>
           <button onClick={e=>{e.stopPropagation();onEdit(test);}} style={Btn("ghost")}>Edit</button>
           {(test.status==="Scheduled"||test.status==="In Progress")&&<>

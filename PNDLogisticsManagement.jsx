@@ -42,6 +42,7 @@ const STC = {
   Failed:   { bg:"#fef2f2", tx:"#991b1b", bd:"#fecaca" },
   Pending:  { bg:"#fefce8", tx:"#854d0e", bd:"#fde68a" },
   Completed:{ bg:"#f5f3ff", tx:"#5b21b6", bd:"#ddd6fe" },
+  Submitted:{ bg:"#f0fdf4", tx:"#166534", bd:"#bbf7d0" },
   Active:   { bg:"#f0fdf4", tx:"#166534", bd:"#bbf7d0" },
   Paused:   { bg:"#fef2f2", tx:"#991b1b", bd:"#fecaca" },
   Admin:    { bg:"#f5f3ff", tx:"#5b21b6", bd:"#ddd6fe" },
@@ -193,7 +194,7 @@ const CSV_COLS = {
   rt:    ["id","candidateName","phone","fedexId","dln","dlnState","terminal","date","time","duration","status","manager","notes","feedback","firstDay","completedAt","createdAt","paylocityOnboarding"],
   uni:   ["id","terminal","requestedBy","status","notes","items","createdAt","fulfilledAt"],
   fleet: ["id","terminal","truckNumber","licensePlate","regState","regExpiry","inspExpiry","vin","notes","createdAt","updatedAt"],
-  inj:   ["id","terminal","employeeName","injuryDate","injuryTime","injuryAddress","description","bodyPart","medicalAttention","medicalProvider","missedWork","missedDays","lastDayWorked","returnToWork","witnesses","claimNumber","reportedBy","createdAt"],
+  inj:   ["id","terminal","employeeName","status","injuryDate","injuryTime","injuryAddress","description","bodyPart","medicalAttention","medicalProvider","missedWork","missedDays","lastDayWorked","returnToWork","witnesses","claimNumber","reportedBy","createdAt"],
   dot:       ["id","terminal","firstName","lastName","fedexId","expirationDate","file_url","createdAt"],
   drivers:   ["id","terminal","firstName","lastName","fedexId","status","createdAt","updatedAt"],
   users:     ["id","name","username","role","terminal","phone","email","fedex_id","status","created_at"],
@@ -650,15 +651,16 @@ function TruckCard({truck,onEdit,onDelete,terminals=[]}) {
 }
 
 // ─── Injury Form ──────────────────────────────────────────────────────────────
-function InjuryForm({onSave,onClose,existing,terminals=[],users=[]}) {
+function InjuryForm({onSave,onClose,existing,terminals=[],users=[],currentUser}) {
   const cc=FC.inj;
   const now=new Date(); const pad=n=>String(n).padStart(2,"0");
   const activeTerminals=terminals.filter(t=>(t.status||"Active")==="Active");
   const getBcName=termLabel=>users.find(u=>u.role==="bc"&&u.terminal===termLabel&&u.status==="active")?.name||"";
   const defaultTerminal=activeTerminals[0]?`${activeTerminals[0].name} - ${activeTerminals[0].code}`:"";
+  const canEditStatus=currentUser?.role==="admin"||currentUser?.role==="user";
   const [form,setForm]=useState(existing
-    ?{...existing,reportedBy:existing.reportedBy||getBcName(existing.terminal)}
-    :{terminal:defaultTerminal,reportedBy:getBcName(defaultTerminal),employeeName:"",injuryDate:`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`,injuryTime:`${pad(now.getHours())}:${pad(now.getMinutes())}`,injuryAddress:"",description:"",bodyPart:BODY_PARTS[0],medicalAttention:"",medicalProvider:"",missedWork:"",missedDays:"",lastDayWorked:"",returnToWork:"",witnesses:"",claimNumber:""});
+    ?{...existing,reportedBy:existing.reportedBy||getBcName(existing.terminal),status:existing.status||"Pending"}
+    :{terminal:defaultTerminal,reportedBy:getBcName(defaultTerminal),employeeName:"",injuryDate:`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`,injuryTime:`${pad(now.getHours())}:${pad(now.getMinutes())}`,injuryAddress:"",description:"",bodyPart:BODY_PARTS[0],medicalAttention:"",medicalProvider:"",missedWork:"",missedDays:"",lastDayWorked:"",returnToWork:"",witnesses:"",claimNumber:"",status:"Pending"});
   const [uploaded,setUploaded]=useState((existing?.attachments||[]).filter(a=>a.url));
   const [pending,setPending]=useState([]);
   const [saving,setSaving]=useState(false);
@@ -670,6 +672,7 @@ function InjuryForm({onSave,onClose,existing,terminals=[],users=[]}) {
   const removePending=id=>setPending(p=>{const f=p.find(x=>x.id===id);if(f?.preview)URL.revokeObjectURL(f.preview);return p.filter(x=>x.id!==id);});
   const doSave=async()=>{
     if(!form.employeeName)return alert("Please fill in Employee Name.");
+    if(form.status==="Submitted"&&!form.claimNumber.trim())return alert("Claim Number is required to mark this report as Submitted.");
     setSaving(true);
     const reportId=existing?.id||Date.now().toString();
     const uploadedNew=[];
@@ -724,7 +727,14 @@ function InjuryForm({onSave,onClose,existing,terminals=[],users=[]}) {
       {form.missedWork==="Yes"&&<Field label="Return to Work"><input style={INP} type="date" value={form.returnToWork} onChange={e=>set("returnToWork",e.target.value)}/></Field>}
     </div>
     <Field label="Witnesses (Names or None)" span><textarea style={{...INP,height:60,resize:"vertical"}} value={form.witnesses} onChange={e=>set("witnesses",e.target.value)} placeholder="List witness names, or write 'None'..."/></Field>
-    <Field label="Claim Number"><input style={INP} value={form.claimNumber} onChange={e=>set("claimNumber",e.target.value)} placeholder="Optional"/></Field>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
+      <Field label={form.status==="Submitted"?"Claim Number *":"Claim Number"}><input style={INP} value={form.claimNumber} onChange={e=>set("claimNumber",e.target.value)} placeholder={form.status==="Submitted"?"Required to submit":"Optional"}/></Field>
+      <Field label="Status">
+        {canEditStatus
+          ?<select style={INP} value={form.status} onChange={e=>set("status",e.target.value)}>{["Pending","Submitted"].map(s=><option key={s} value={s}>{s}</option>)}</select>
+          :<div style={{...INP,background:"#f3f4f6",display:"flex",alignItems:"center"}}><Badge status={form.status}/></div>}
+      </Field>
+    </div>
     <div style={{marginBottom:14}}>
       <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",background:"#f9fafb",border:"2px dashed #e5e7eb",borderRadius:8,padding:"12px 16px",marginBottom:8}}>
         <Ico n="attach" s={16}/><span style={{fontSize:13,color:"#9ca3af"}}>Click to attach files (images, PDFs, videos)</span>
@@ -757,7 +767,10 @@ function InjuryCard({report,onView,onEdit,onDelete,terminals=[]}) {
   return (
     <div style={{background:"#fff",border:"1.5px solid "+cc.bd,borderLeft:"4px solid "+cc.h,borderRadius:14,padding:18,boxShadow:"0 1px 6px rgba(0,0,0,.06)"}}>
       <div style={{background:cc.bg,border:"1px solid "+cc.bd,borderRadius:8,padding:"8px 12px",marginBottom:12}}>
-        <div style={{fontSize:10,color:cc.tx,fontWeight:700,letterSpacing:.8,textTransform:"uppercase",marginBottom:2}}>Work Related Injury</div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,marginBottom:2}}>
+          <div style={{fontSize:10,color:cc.tx,fontWeight:700,letterSpacing:.8,textTransform:"uppercase"}}>Work Related Injury</div>
+          <Badge status={report.status||"Pending"}/>
+        </div>
         <div style={{fontSize:15,fontWeight:700,color:cc.tx}}>{report.employeeName}</div>
       </div>
       <div style={{fontSize:12,color:"#6b7280",display:"flex",flexDirection:"column",gap:4,marginBottom:10}}>
@@ -787,7 +800,10 @@ function InjuryDetail({report,onClose,terminals=[]}) {
   const Row=({label,value})=>value?<div style={{marginBottom:12}}><div style={{fontSize:10,color:"#9ca3af",fontWeight:600,letterSpacing:.5,textTransform:"uppercase",marginBottom:3}}>{label}</div><div style={{fontSize:14,color:"#374151",lineHeight:1.6}}>{value}</div></div>:null;
   return (
     <Modal title="Full Injury Report" onClose={onClose} wide>
-      <div style={{background:cc.bg,border:"1px solid "+cc.bd,borderRadius:10,padding:"12px 16px",marginBottom:18}}><div style={{fontSize:10,color:cc.tx,fontWeight:700,textTransform:"uppercase",marginBottom:3}}>Work Related Injury</div><div style={{fontSize:17,fontWeight:700,color:cc.tx}}>{report.employeeName?.toUpperCase()}</div></div>
+      <div style={{background:cc.bg,border:"1px solid "+cc.bd,borderRadius:10,padding:"12px 16px",marginBottom:18,display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12}}>
+        <div><div style={{fontSize:10,color:cc.tx,fontWeight:700,textTransform:"uppercase",marginBottom:3}}>Work Related Injury</div><div style={{fontSize:17,fontWeight:700,color:cc.tx}}>{report.employeeName?.toUpperCase()}</div></div>
+        <Badge status={report.status||"Pending"}/>
+      </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 20px"}}>
         <Row label="Terminal" value={report.terminal}/><Row label="Reported By" value={report.reportedBy||t.manager}/>
         <Row label="Employee" value={report.employeeName}/><Row label="Body Part" value={report.bodyPart}/>
@@ -1889,6 +1905,7 @@ export default function App() {
   const [fTerm,setFTerm]=useState("All");
   const [fStatus,setFStatus]=useState("Scheduled");
   const [fUniStatus,setFUniStatus]=useState("Pending");
+  const [fInjStatus,setFInjStatus]=useState("All");
   const [fDrvStatus,setFDrvStatus]=useState("Active");
   const [fDrvName,setFDrvName]=useState("");
   const [fDateFrom,setFDateFrom]=useState("");
@@ -2151,7 +2168,7 @@ export default function App() {
   const fUsers     =users.filter(u=>fUserRole==="All"||u.role===fUserRole).sort((a,b)=>a.name?.localeCompare(b.name));
   const fUnis  =unis.filter(u=>(effectiveFTerm==="All"||u.terminal===effectiveFTerm)&&(fUniStatus==="All"||u.status===fUniStatus)).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
   const fTrucks=trucks.filter(t=>effectiveFTerm==="All"||t.terminal===effectiveFTerm).sort((a,b)=>{const u=x=>{const r=expStatus(x.regExpiry),i=expStatus(x.inspExpiry);if(r==="expired"||i==="expired")return 0;if(r==="warning"||i==="warning")return 1;return 2;};return u(a)-u(b);});
-  const fInjs  =injs.filter(r=>effectiveFTerm==="All"||r.terminal===effectiveFTerm).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  const fInjs  =injs.filter(r=>(effectiveFTerm==="All"||r.terminal===effectiveFTerm)&&(fInjStatus==="All"||(r.status||"Pending")===fInjStatus)).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
   const fAccs  =accs.filter(r=>effectiveFTerm==="All"||r.terminal===effectiveFTerm).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
   const fHirs  =hirs.filter(r=>effectiveFTerm==="All"||r.terminal===effectiveFTerm).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
   const fInsrs =insrs.filter(r=>effectiveFTerm==="All"||r.terminal===effectiveFTerm).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
@@ -2307,6 +2324,7 @@ export default function App() {
           {tab!=="settings"&&isBc&&<span style={{fontSize:13,fontWeight:600,color:"#374151",padding:"7px 12px",background:"#f3f4f6",borderRadius:8,border:"1px solid #e5e7eb"}}>{bcTerminal||"No terminal assigned"}</span>}
           {tab==="rt"&&<select style={{...INP,width:"auto"}} value={fStatus} onChange={e=>setFStatus(e.target.value)}>{["All","Scheduled","Passed","Failed"].map(s=><option key={s} value={s}>{s}</option>)}</select>}
           {tab==="uni"&&<select style={{...INP,width:"auto"}} value={fUniStatus} onChange={e=>setFUniStatus(e.target.value)}>{["Pending","Completed","All"].map(s=><option key={s} value={s}>{s}</option>)}</select>}
+          {tab==="inj"&&<select style={{...INP,width:"auto"}} value={fInjStatus} onChange={e=>setFInjStatus(e.target.value)}>{["All","Pending","Submitted"].map(s=><option key={s} value={s}>{s}</option>)}</select>}
           {tab==="drivers"&&<select style={{...INP,width:"auto"}} value={fDrvStatus} onChange={e=>setFDrvStatus(e.target.value)}>{["Active","Inactive","All"].map(s=><option key={s} value={s}>{s}</option>)}</select>}
           {tab==="drivers"&&<div style={{position:"relative",display:"inline-flex",alignItems:"center"}}>
             <input style={{...INP,width:"auto",minWidth:180,paddingRight:fDrvName?30:12}} value={fDrvName} onChange={e=>setFDrvName(e.target.value)} placeholder="Search by first name..."/>
@@ -2478,8 +2496,8 @@ export default function App() {
       {modal?.type==="editUni"   && <Modal title="Edit Uniform Request"      onClose={()=>setModal(null)} wide><UniForm    onSave={saveUni}     onClose={()=>setModal(null)} existing={modal.data} terminals={visibleTerminals} users={users}/></Modal>}
       {modal?.type==="newTruck"  && <Modal title="Add Truck to Fleet"        onClose={()=>setModal(null)} wide><TruckForm  onSave={saveTruck}   onClose={()=>setModal(null)} terminals={visibleTerminals}/></Modal>}
       {modal?.type==="editTruck" && <Modal title="Edit Truck"                onClose={()=>setModal(null)} wide><TruckForm  onSave={saveTruck}   onClose={()=>setModal(null)} existing={modal.data} terminals={visibleTerminals}/></Modal>}
-      {modal?.type==="newInj"    && <Modal title="File Work Injury Report"   onClose={()=>setModal(null)} wide><InjuryForm onSave={saveInj}     onClose={()=>setModal(null)} terminals={visibleTerminals} users={users}/></Modal>}
-      {modal?.type==="editInj"   && <Modal title="Edit Injury Report"        onClose={()=>setModal(null)} wide><InjuryForm onSave={saveInj}     onClose={()=>setModal(null)} existing={modal.data} terminals={visibleTerminals} users={users}/></Modal>}
+      {modal?.type==="newInj"    && <Modal title="File Work Injury Report"   onClose={()=>setModal(null)} wide><InjuryForm onSave={saveInj}     onClose={()=>setModal(null)} terminals={visibleTerminals} users={users} currentUser={currentUser}/></Modal>}
+      {modal?.type==="editInj"   && <Modal title="Edit Injury Report"        onClose={()=>setModal(null)} wide><InjuryForm onSave={saveInj}     onClose={()=>setModal(null)} existing={modal.data} terminals={visibleTerminals} users={users} currentUser={currentUser}/></Modal>}
       {modal?.type==="viewInj"   && <InjuryDetail report={modal.data} onClose={()=>setModal(null)} terminals={terminals}/>}
       {modal?.type==="newAcc"    && <Modal title="File Accident Report"     onClose={()=>setModal(null)} wide><AccidentForm  onSave={saveAcc}  onClose={()=>setModal(null)} terminals={visibleTerminals} users={users}/></Modal>}
       {modal?.type==="editAcc"   && <Modal title="Edit Accident Report"     onClose={()=>setModal(null)} wide><AccidentForm  onSave={saveAcc}  onClose={()=>setModal(null)} existing={modal.data} terminals={visibleTerminals} users={users}/></Modal>}

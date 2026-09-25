@@ -89,6 +89,11 @@ function expStatus(d){ const n=daysUntil(d); if(n===null)return"none"; if(n<0)re
 function expLabel(d) { const n=daysUntil(d); if(n===null)return"-"; if(n<0)return`Expired ${Math.abs(n)}d ago`; if(n===0)return"Expires TODAY"; return`${n}d remaining`; }
 
 function findTerm(terminals,label){return terminals.find(t=>`${t.name} - ${t.code}`===label)||{};}
+function isContingencyTerminal(label){return /contingency/i.test(label||"");}
+// Fixed Road Test Administrator used on the PDF record for Contingency terminal tests only.
+const CONTINGENCY_RT_ADMIN = { name:"Daniel Alvisuriz", fedex_id:"8400481" };
+// Fixed Vehicle/Unit Number used on the PDF record for Contingency terminal tests only.
+const CONTINGENCY_UNIT_NUMBER = "513937";
 
 function buildSms(f,terminals=[],users=[]) {
   const t=findTerm(terminals,f.terminal);
@@ -334,10 +339,16 @@ function RTForm({onSave,onClose,existing,terminals=[]}) {
   const activeTerminals=terminals.filter(t=>(t.status||"Active")==="Active");
   const [form,setForm]=useState(existing?{...existing,terminal_id:existing.terminal_id||activeTerminals.find(t=>`${t.name} - ${t.code}`===existing.terminal)?.id||""}:{candidateName:"",phone:"",fedexId:"",dln:"",dlnState:"",terminal:activeTerminals[0]?`${activeTerminals[0].name} - ${activeTerminals[0].code}`:"",terminal_id:activeTerminals[0]?.id||"",date:`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`,time:`${pad(now.getHours())}:${pad(now.getMinutes())}`,duration:"60",notes:"",paylocityOnboarding:false});
   const [prev,setPrev]=useState(false);
+  const isContingency=isContingencyTerminal(form.terminal);
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const doSave=withSms=>{
     if(!form.candidateName||!form.phone||!form.fedexId) return alert("Please fill in Name, Phone, and FedEx ID.");
-    onSave({...form,id:existing?.id||Date.now().toString(),status:existing?.status||"Scheduled",createdAt:existing?.createdAt||new Date().toISOString(),_sms:withSms});
+    if(!existing&&isContingency){
+      if(!form.dln?.trim()) return alert("Candidate License Number is required for a Contingency road test.");
+      if(!form.dlnState) return alert("Candidate License State is required for a Contingency road test.");
+    }
+    const status=existing?existing.status:(isContingency?"Passed":"Scheduled");
+    onSave({...form,id:existing?.id||Date.now().toString(),status,completedAt:(!existing&&isContingency)?new Date().toISOString():existing?.completedAt,createdAt:existing?.createdAt||new Date().toISOString(),_sms:withSms});
   };
   return <>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
@@ -349,21 +360,25 @@ function RTForm({onSave,onClose,existing,terminals=[]}) {
       <Field label="Terminal Location"><select style={INP} value={form.terminal} onChange={e=>{const sel=activeTerminals.find(t=>`${t.name} - ${t.code}`===e.target.value);set("terminal",e.target.value);set("terminal_id",sel?.id||"");}}>{activeTerminals.length===0&&<option value="">Loading terminals…</option>}{activeTerminals.map(t=><option key={t.id} value={`${t.name} - ${t.code}`}>{t.name} - {t.code}</option>)}</select></Field>
     </div>
     <TInfo tk={form.terminal} terminals={terminals}/>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0 14px"}}>
-      <Field label="Test Date"><input style={INP} type="date" value={form.date} onChange={e=>set("date",e.target.value)}/></Field>
-      <Field label="Start Time"><input style={INP} type="time" value={form.time} onChange={e=>set("time",e.target.value)}/></Field>
-      <Field label="Duration (min)"><input style={INP} type="number" min="15" max="240" value={form.duration} onChange={e=>set("duration",e.target.value)}/></Field>
-    </div>
+    {isContingency
+      ?<div style={{background:cc.bg,border:"1px solid "+cc.bd,borderRadius:8,padding:"10px 14px",marginBottom:14,fontSize:12,color:cc.tx,lineHeight:1.6}}>
+        <strong>Contingency Road Test</strong> — no scheduling needed. This test will be recorded immediately with a status of <strong>Passed</strong>, so Candidate License Number and State are required above.
+      </div>
+      :<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0 14px"}}>
+        <Field label="Test Date"><input style={INP} type="date" value={form.date} onChange={e=>set("date",e.target.value)}/></Field>
+        <Field label="Start Time"><input style={INP} type="time" value={form.time} onChange={e=>set("time",e.target.value)}/></Field>
+        <Field label="Duration (min)"><input style={INP} type="number" min="15" max="240" value={form.duration} onChange={e=>set("duration",e.target.value)}/></Field>
+      </div>}
     <Field label="Notes" span><textarea style={{...INP,height:58,resize:"vertical"}} value={form.notes} onChange={e=>set("notes",e.target.value)} placeholder="Additional notes..."/></Field>
     <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",marginBottom:14,userSelect:"none"}}>
       <input type="checkbox" checked={!!form.paylocityOnboarding} onChange={e=>set("paylocityOnboarding",e.target.checked)} style={{width:16,height:16,accentColor:cc.h,cursor:"pointer"}}/>
       <span style={{fontSize:13,color:"#374151",fontWeight:500}}>Paylocity Onboarding</span>
     </label>
-    {prev&&<div style={{background:cc.bg,border:"1px solid "+cc.bd,borderRadius:8,padding:14,marginBottom:14}}><div style={{fontSize:11,color:cc.tx,fontWeight:600,marginBottom:8}}>SMS Preview</div><pre style={{margin:0,fontSize:12,color:"#374151",lineHeight:1.75,whiteSpace:"pre-wrap",fontFamily:"monospace"}}>{buildSms(form)}</pre></div>}
+    {prev&&!isContingency&&<div style={{background:cc.bg,border:"1px solid "+cc.bd,borderRadius:8,padding:14,marginBottom:14}}><div style={{fontSize:11,color:cc.tx,fontWeight:600,marginBottom:8}}>SMS Preview</div><pre style={{margin:0,fontSize:12,color:"#374151",lineHeight:1.75,whiteSpace:"pre-wrap",fontFamily:"monospace"}}>{buildSms(form)}</pre></div>}
     <div style={{display:"flex",gap:8,justifyContent:"flex-end",flexWrap:"wrap",marginTop:10}}>
       <button style={Btn("ghost")} onClick={onClose}>Cancel</button>
-      {!existing&&<button style={Btn("outline",cc.h)} onClick={()=>setPrev(p=>!p)}>{prev?"Hide SMS":"Preview SMS"}</button>}
-      <button style={Btn("primary",cc.h)} onClick={()=>doSave(!existing)}>{existing?"Update Test":"Schedule & Send SMS"}</button>
+      {!existing&&!isContingency&&<button style={Btn("outline",cc.h)} onClick={()=>setPrev(p=>!p)}>{prev?"Hide SMS":"Preview SMS"}</button>}
+      <button style={Btn("primary",cc.h)} onClick={()=>doSave(!existing&&!isContingency)}>{existing?"Update Test":isContingency?"Submit Contingency Test":"Schedule & Send SMS"}</button>
     </div>
   </>;
 }
@@ -420,9 +435,10 @@ function RTCard({test,onEdit,onOutcome,onDelete,onSms,users=[],terminals=[],onEr
   const handleDownload=async()=>{
     setDownloading(true);
     try{
-      const adminUser=users.find(u=>u.terminal===test.terminal&&u.status==="active")||null;
+      const isCont=isContingencyTerminal(test.terminal);
+      const adminUser=isCont?CONTINGENCY_RT_ADMIN:(users.find(u=>u.terminal===test.terminal&&u.status==="active")||null);
       const termRec=terminals.find(t=>`${t.name} - ${t.code}`===test.terminal||t.name===test.terminal)||{};
-      await generateRoadTestPDF({...test,default_unit_number:termRec.default_unit_number||""},termRec,adminUser,termRec.pdf_url||null);
+      await generateRoadTestPDF({...test,default_unit_number:isCont?CONTINGENCY_UNIT_NUMBER:(termRec.default_unit_number||"")},termRec,adminUser,termRec.pdf_url||null);
     }
     catch(e){onError?onError("Failed to generate PDF: "+e.message):alert("Failed to generate PDF: "+e.message);}
     finally{setDownloading(false);}

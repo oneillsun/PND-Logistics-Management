@@ -94,6 +94,8 @@ function isContingencyTerminal(label){return /contingency/i.test(label||"");}
 const CONTINGENCY_RT_ADMIN = { name:"Daniel Alvisuriz", fedex_id:"8400481" };
 // Fixed Vehicle/Unit Number used on the PDF record for Contingency terminal tests only.
 const CONTINGENCY_UNIT_NUMBER = "513937";
+// Fixed Road Test Administrator Employer's Business Address used on the PDF record for Contingency terminal tests only.
+const CONTINGENCY_EMPLOYER_ADDRESS = { address:"3215 Spur 482", city:"Irving", state:"TX", zip:"75062" };
 
 function buildSms(f,terminals=[],users=[]) {
   const t=findTerm(terminals,f.terminal);
@@ -437,7 +439,8 @@ function RTCard({test,onEdit,onOutcome,onDelete,onSms,users=[],terminals=[],onEr
     try{
       const isCont=isContingencyTerminal(test.terminal);
       const adminUser=isCont?CONTINGENCY_RT_ADMIN:(users.find(u=>u.terminal===test.terminal&&u.status==="active")||null);
-      const termRec=terminals.find(t=>`${t.name} - ${t.code}`===test.terminal||t.name===test.terminal)||{};
+      const termRecRaw=terminals.find(t=>`${t.name} - ${t.code}`===test.terminal||t.name===test.terminal)||{};
+      const termRec=isCont?{...termRecRaw,...CONTINGENCY_EMPLOYER_ADDRESS}:termRecRaw;
       await generateRoadTestPDF({...test,default_unit_number:isCont?CONTINGENCY_UNIT_NUMBER:(termRec.default_unit_number||"")},termRec,adminUser,termRec.pdf_url||null);
     }
     catch(e){onError?onError("Failed to generate PDF: "+e.message):alert("Failed to generate PDF: "+e.message);}

@@ -429,8 +429,7 @@ function OutcomeForm({test,onSave,onClose}) {
 function RTCard({test,onEdit,onOutcome,onDelete,onSms,users=[],terminals=[],onError}) {
   const cc=FC.rt;
   const start=new Date(`${test.date}T${test.time}`);
-  const end=new Date(start.getTime()+parseInt(test.duration||60)*60000);
-  const needsOutcome=new Date()>=end&&test.status==="Scheduled";
+  const needsOutcome=new Date()>=start&&test.status==="Scheduled";
   const t=findTerm(terminals,test.terminal);
   const [downloading,setDownloading]=useState(false);
   const [expanded,setExpanded]=useState(false);
@@ -448,7 +447,7 @@ function RTCard({test,onEdit,onOutcome,onDelete,onSms,users=[],terminals=[],onEr
   };
   return (
     <div style={{background:"#fff",border:"1.5px solid "+(needsOutcome?cc.h:cc.bd),borderLeft:"4px solid "+(needsOutcome?cc.h:cc.h),borderRadius:14,padding:18,boxShadow:"0 1px 6px rgba(0,0,0,.06)"}}>
-      {needsOutcome&&<div style={{background:cc.soft,border:"1px solid "+cc.bd,borderRadius:7,padding:"7px 11px",marginBottom:12,display:"flex",alignItems:"center",gap:6}}><Ico n="bell" s={13}/><span style={{fontSize:12,color:cc.tx,fontWeight:600}}>Road test ended — awaiting outcome</span></div>}
+      {needsOutcome&&<div style={{background:cc.soft,border:"1px solid "+cc.bd,borderRadius:7,padding:"7px 11px",marginBottom:12,display:"flex",alignItems:"center",gap:6}}><Ico n="bell" s={13}/><span style={{fontSize:12,color:cc.tx,fontWeight:600}}>Road test time reached — awaiting outcome</span></div>}
       <div onClick={()=>setExpanded(e=>!e)} style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:expanded?10:0,cursor:"pointer",userSelect:"none"}}>
         <div>
           <div style={{fontSize:17,fontWeight:700,color:"#111827"}}>{test.candidateName}</div>
@@ -2178,7 +2177,7 @@ export default function App() {
   const effectiveFTerm = isBc ? bcTerminal : fTerm;
   const visibleTerminals = isBc ? terminals.filter(t=>`${t.name} - ${t.code}`===bcTerminal) : terminals;
 
-  const pendingOut=rts.filter(r=>{const e=new Date(`${r.date}T${r.time}`);e.setMinutes(e.getMinutes()+parseInt(r.duration||60));return new Date()>=e&&r.status==="Scheduled"&&(effectiveFTerm==="All"||r.terminal===effectiveFTerm);}).length;
+  const pendingOut=rts.filter(r=>{const e=new Date(`${r.date}T${r.time}`);return new Date()>=e&&r.status==="Scheduled"&&(effectiveFTerm==="All"||r.terminal===effectiveFTerm);}).length;
   const truckAlerts=trucks.filter(t=>((expStatus(t.regExpiry)!=="ok"&&expStatus(t.regExpiry)!=="none")||(expStatus(t.inspExpiry)!=="ok"&&expStatus(t.inspExpiry)!=="none"))&&(effectiveFTerm==="All"||t.terminal===effectiveFTerm)).length;
   const activeHiring=hirs.filter(h=>h.action==="start"&&h.status==="Active"&&(effectiveFTerm==="All"||h.terminal===effectiveFTerm)).length;
 

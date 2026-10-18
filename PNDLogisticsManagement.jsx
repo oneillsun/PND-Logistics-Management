@@ -426,8 +426,12 @@ function OutcomeForm({test,onSave,onClose}) {
 }
 
 // ─── Road Test Card ───────────────────────────────────────────────────────────
+// FedEx ID color on the road test card, keyed by the creator's first name (lowercase).
+const RT_CREATOR_ID_COLORS = { alejandro:"#3e07ad", samaki:"#ad6007" };
 function RTCard({test,onEdit,onOutcome,onDelete,onSms,users=[],terminals=[],onError}) {
   const cc=FC.rt;
+  const creatorFirst=(test.createdBy?.name||"").trim().split(/\s+/)[0].toLowerCase();
+  const fedexIdColor=RT_CREATOR_ID_COLORS[creatorFirst];
   const start=new Date(`${test.date}T${test.time}`);
   const needsOutcome=new Date()>=start&&test.status==="Scheduled";
   const t=findTerm(terminals,test.terminal);
@@ -474,7 +478,7 @@ function RTCard({test,onEdit,onOutcome,onDelete,onSms,users=[],terminals=[],onEr
       <div onClick={()=>setExpanded(e=>!e)} style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:expanded?10:0,cursor:"pointer",userSelect:"none"}}>
         <div>
           <div style={{fontSize:17,fontWeight:700,color:"#111827"}}>{test.candidateName}</div>
-          <div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>FX ID: <span onClick={copyFedexId} title="Click to copy" style={{cursor:"copy",userSelect:"text",textDecoration:"underline dotted",display:"inline-block",padding:"4px 6px",margin:"-4px -6px",WebkitTapHighlightColor:"transparent"}}>{test.fedexId}</span>{copiedId&&<span style={{color:"#16a34a",fontWeight:600,marginLeft:6}}>Copied!</span>}</div>
+          <div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>FX ID: <span onClick={copyFedexId} title={(test.createdBy?.name?`Created by: ${test.createdBy.name}\n`:"")+"Click to copy"} style={{cursor:"copy",userSelect:"text",textDecoration:"underline dotted",...(fedexIdColor&&{color:fedexIdColor,fontWeight:700}),display:"inline-block",padding:"4px 6px",margin:"-4px -6px",WebkitTapHighlightColor:"transparent"}}>{test.fedexId}</span>{copiedId&&<span style={{color:"#16a34a",fontWeight:600,marginLeft:6}}>Copied!</span>}</div>
           <div style={{fontSize:12,color:cc.h,fontWeight:500,marginTop:3}}>{test.terminal}</div>
           <div style={{fontSize:12,color:"#6b7280",marginTop:2}}>{new Date(test.date+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"})}</div>
         </div>

@@ -433,6 +433,29 @@ function RTCard({test,onEdit,onOutcome,onDelete,onSms,users=[],terminals=[],onEr
   const t=findTerm(terminals,test.terminal);
   const [downloading,setDownloading]=useState(false);
   const [expanded,setExpanded]=useState(false);
+  const [copiedId,setCopiedId]=useState(false);
+  const copyFedexId=e=>{
+    e.stopPropagation();
+    const v=test.fedexId||"";
+    if(!v)return;
+    // Fallback for non-HTTPS pages and older mobile browsers (iOS needs readonly + setSelectionRange).
+    const legacyCopy=()=>{
+      const el=document.createElement("textarea");
+      el.value=v;el.setAttribute("readonly","");
+      el.style.cssText="position:fixed;top:0;left:0;opacity:0;font-size:16px;";
+      document.body.appendChild(el);
+      el.select();el.setSelectionRange(0,v.length);
+      let ok=false;try{ok=document.execCommand("copy");}catch{}
+      document.body.removeChild(el);
+      return ok;
+    };
+    const done=ok=>{
+      if(!ok){onError?onError("Could not copy FedEx ID"):alert("Could not copy FedEx ID");return;}
+      setCopiedId(true);setTimeout(()=>setCopiedId(false),1500);
+    };
+    if(navigator.clipboard?.writeText&&window.isSecureContext)navigator.clipboard.writeText(v).then(()=>done(true),()=>done(legacyCopy()));
+    else done(legacyCopy());
+  };
   const handleDownload=async()=>{
     setDownloading(true);
     try{
@@ -451,7 +474,7 @@ function RTCard({test,onEdit,onOutcome,onDelete,onSms,users=[],terminals=[],onEr
       <div onClick={()=>setExpanded(e=>!e)} style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:expanded?10:0,cursor:"pointer",userSelect:"none"}}>
         <div>
           <div style={{fontSize:17,fontWeight:700,color:"#111827"}}>{test.candidateName}</div>
-          <div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>FX ID: {test.fedexId}</div>
+          <div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>FX ID: <span onClick={copyFedexId} title="Click to copy" style={{cursor:"copy",userSelect:"text",textDecoration:"underline dotted",display:"inline-block",padding:"4px 6px",margin:"-4px -6px",WebkitTapHighlightColor:"transparent"}}>{test.fedexId}</span>{copiedId&&<span style={{color:"#16a34a",fontWeight:600,marginLeft:6}}>Copied!</span>}</div>
           <div style={{fontSize:12,color:cc.h,fontWeight:500,marginTop:3}}>{test.terminal}</div>
           <div style={{fontSize:12,color:"#6b7280",marginTop:2}}>{new Date(test.date+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"})}</div>
         </div>

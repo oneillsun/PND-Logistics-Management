@@ -7,14 +7,14 @@ export const DEFAULT_SETTINGS = {
     enabled: false,
     to: '',
     cc: '',
-    subject: 'Road Test Scheduled - {{candidateName}} at {{terminal}}',
-    body: 'Hello,\n\nA new road test has been scheduled at your terminal. Please review the details below and make sure you are available at the indicated time.\n\nCANDIDATE\n{{candidateName}}\nFedEx ID: {{fedexId}}\nPhone: {{phone}}\n\nROAD TEST\nTerminal: {{terminal}}\nAddress: {{terminalAddress}}\nDate: {{date}}\nTime: {{time}}\nDuration: {{duration}}\n\nPlease have the test vehicle ready and be at the terminal a few minutes before the scheduled time.\n\n— PND Logistics Management',
+    subject: 'Interview & Test Drive Scheduled - {{candidateName}} at {{terminal}}',
+    body: 'Hello,\n\nA new interview & test drive has been scheduled at your terminal. Please review the details below and make sure you are available at the indicated time.\n\nCANDIDATE\n{{candidateName}}\nFedEx ID: {{fedexId}}\nPhone: {{phone}}\n\nINTERVIEW & TEST DRIVE\nTerminal: {{terminal}}\nAddress: {{terminalAddress}}\nDate: {{date}}\nTime: {{time}}\nDuration: {{duration}}\n\nPlease have the test vehicle ready and be at the terminal a few minutes before the scheduled time.\n\n— PND Logistics Management',
   },
   roadTestOutcome: {
     enabled: false,
     to: '',
     cc: '',
-    subject: 'Road Test {{status}} - {{candidateName}}',
+    subject: 'Interview & Test Drive {{status}} - {{candidateName}}',
     body: '',
   },
   uniformOrderNew: {

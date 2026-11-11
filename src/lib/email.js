@@ -45,7 +45,7 @@ export function buildOutcomeHtml(test) {
         <tr>
           <td style="background:#0a0a1e;padding:24px 28px;border-bottom:1px solid #1e1e3a;">
             <span style="font-size:11px;color:#ff6200;font-family:monospace;letter-spacing:2px;text-transform:uppercase;">PND Logistics Management</span>
-            <div style="font-size:22px;font-weight:800;color:#eeeeff;margin-top:6px;letter-spacing:1px;">Road Test Outcome</div>
+            <div style="font-size:22px;font-weight:800;color:#eeeeff;margin-top:6px;letter-spacing:1px;">Interview &amp; Test Drive Outcome</div>
           </td>
         </tr>
 
@@ -88,14 +88,14 @@ function interpolate(template, data) {
 }
 
 const MODULE_TITLES = {
-  roadTestNew:         'Road Test Scheduled',
+  roadTestNew:         'Interview & Test Drive Scheduled',
   uniformOrderNew:     'Uniform Order',
   injuryReportNew:     'Work Injury Report',
   dotCardNew:          'DOT Card',
   insuranceRequestNew: 'Insurance Enrollment',
   hiringRequestNew:    'Hiring Request',
   accidentReportNew:   'Accident Report',
-  roadTestOutcome:     'Road Test Outcome',
+  roadTestOutcome:     'Interview & Test Drive Outcome',
 }
 
 const LABEL_MAP = {
@@ -268,7 +268,7 @@ export function buildCalendarUrl(test, terminalAddress) {
   ].filter(Boolean).join('\n')
   const params = new URLSearchParams({
     action:   'TEMPLATE',
-    text:     `Road Test - ${test.candidateName || 'Candidate'}`,
+    text:     `Interview & Test Drive - ${test.candidateName || 'Candidate'}`,
     dates:    `${start}/${end}`,
     details,
     location: terminalAddress || test.terminal || '',

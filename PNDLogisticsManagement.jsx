@@ -17,7 +17,7 @@ const BODY_PARTS = ["Head / Skull","Face","Eye(s)","Ear(s)","Neck","Shoulder(s)"
 const US_STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
 const SK = { rt:"pnd_rt_v5", uni:"pnd_uni_v5", tr:"pnd_tr_v5", inj:"pnd_inj_v5", acc:"pnd_acc_v2", hir:"pnd_hir_v1", ins:"pnd_ins_v1", dot:"pnd_dot_v1", drv:"pnd_drv_v1" };
 const MODULE_LABELS = {
-  roadTestNew:        "Road test notification",
+  roadTestNew:        "Interview & test drive notification",
   uniformOrderNew:    "Uniform order",
   injuryReportNew:    "Injury report",
   accidentReportNew:  "Accident report",
@@ -101,7 +101,7 @@ function buildSms(f,terminals=[],users=[]) {
   const t=findTerm(terminals,f.terminal);
   const bc=users.find(u=>u.role==="bc"&&u.terminal===f.terminal&&u.status==="active");
   const d=f.date?new Date(f.date+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",year:"numeric",month:"long",day:"numeric"}):"[date]";
-  return "Hello "+(f.candidateName||"[Candidate]")+",\n\nYour road test has been scheduled:\n\nTerminal: "+f.terminal+"\n"+(t.address||"")+"\n\nDate: "+d+"\nTime: "+(f.time||"")+"\n\nManager: "+(bc?.name||"")+"\nPhone: "+(bc?.phone||"")+"\n\nPlease arrive 10 min early with a valid driver's license.\n\nBRING TO YOUR ROAD TEST:\n- Driver License\n- Birth Certificate OR Social Security Card\n- Permanent Resident Card (if applicable)\n- Work Permit (if applicable)\n\nGood luck!\n- PND Logistics HR Team";
+  return "Hello "+(f.candidateName||"[Candidate]")+",\n\nYour interview & test drive has been scheduled:\n\nTerminal: "+f.terminal+"\n"+(t.address||"")+"\n\nDate: "+d+"\nTime: "+(f.time||"")+"\n\nManager: "+(bc?.name||"")+"\nPhone: "+(bc?.phone||"")+"\n\nPlease arrive 10 min early with a valid driver's license.\n\nBRING TO YOUR INTERVIEW & TEST DRIVE:\n- Driver License\n- Birth Certificate OR Social Security Card\n- Permanent Resident Card (if applicable)\n- Work Permit (if applicable)\n\nGood luck!\n- PND Logistics HR Team";
 }
 function buildHiringSMS(f,terminals=[]) {
   const t=findTerm(terminals,f.terminal);
@@ -346,8 +346,8 @@ function RTForm({onSave,onClose,existing,terminals=[],canEditUnit=false}) {
   const doSave=withSms=>{
     if(!form.candidateName||!form.phone||!form.fedexId) return alert("Please fill in Name, Phone, and FedEx ID.");
     if(!existing&&isContingency){
-      if(!form.dln?.trim()) return alert("Candidate License Number is required for a Contingency road test.");
-      if(!form.dlnState) return alert("Candidate License State is required for a Contingency road test.");
+      if(!form.dln?.trim()) return alert("Candidate License Number is required for a Contingency interview & test drive.");
+      if(!form.dlnState) return alert("Candidate License State is required for a Contingency interview & test drive.");
     }
     const status=existing?existing.status:(isContingency?"Passed":"Scheduled");
     onSave({...form,...(form.unitNumber!=null&&{unitNumber:String(form.unitNumber).trim()||null}),id:existing?.id||Date.now().toString(),status,completedAt:(!existing&&isContingency)?new Date().toISOString():existing?.completedAt,createdAt:existing?.createdAt||new Date().toISOString(),_sms:withSms});
@@ -361,11 +361,11 @@ function RTForm({onSave,onClose,existing,terminals=[],canEditUnit=false}) {
       <Field label="DLN State"><select style={INP} value={form.dlnState||""} onChange={e=>set("dlnState",e.target.value)}><option value="">— Select —</option>{US_STATES.map(s=><option key={s} value={s}>{s}</option>)}</select></Field>
       <Field label="Terminal Location"><select style={INP} value={form.terminal} onChange={e=>{const sel=activeTerminals.find(t=>`${t.name} - ${t.code}`===e.target.value);set("terminal",e.target.value);set("terminal_id",sel?.id||"");}}>{activeTerminals.length===0&&<option value="">Loading terminals…</option>}{activeTerminals.map(t=><option key={t.id} value={`${t.name} - ${t.code}`}>{t.name} - {t.code}</option>)}</select></Field>
     </div>
-    {canEditUnit&&existing?.status==="Passed"&&!isContingency&&<Field label="Road Test Unit Number" span><input style={INP} value={form.unitNumber||""} onChange={e=>set("unitNumber",e.target.value)} placeholder={terminals.find(t=>`${t.name} - ${t.code}`===form.terminal)?.default_unit_number?"Terminal default: "+terminals.find(t=>`${t.name} - ${t.code}`===form.terminal).default_unit_number:"e.g. 4821"}/></Field>}
+    {canEditUnit&&existing?.status==="Passed"&&!isContingency&&<Field label="Interview & Test Drive Unit Number" span><input style={INP} value={form.unitNumber||""} onChange={e=>set("unitNumber",e.target.value)} placeholder={terminals.find(t=>`${t.name} - ${t.code}`===form.terminal)?.default_unit_number?"Terminal default: "+terminals.find(t=>`${t.name} - ${t.code}`===form.terminal).default_unit_number:"e.g. 4821"}/></Field>}
     <TInfo tk={form.terminal} terminals={terminals}/>
     {isContingency
       ?<div style={{background:cc.bg,border:"1px solid "+cc.bd,borderRadius:8,padding:"10px 14px",marginBottom:14,fontSize:12,color:cc.tx,lineHeight:1.6}}>
-        <strong>Contingency Road Test</strong> — no scheduling needed. This test will be recorded immediately with a status of <strong>Passed</strong>, so Candidate License Number and State are required above.
+        <strong>Contingency Interview & Test Drive</strong> — no scheduling needed. This test will be recorded immediately with a status of <strong>Passed</strong>, so Candidate License Number and State are required above.
       </div>
       :<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"0 14px"}}>
         <Field label="Test Date"><input style={INP} type="date" value={form.date} onChange={e=>set("date",e.target.value)}/></Field>
@@ -410,7 +410,7 @@ function OutcomeForm({test,onSave,onClose}) {
       <div style={{fontSize:12,color:"#9ca3af",marginTop:2}}>{test.fedexId} · {test.phone}</div>
     </div>
     <TInfo tk={test.terminal}/>
-    <Field label="Road Test Result *">
+    <Field label="Interview & Test Drive Result *">
       <div style={{display:"flex",gap:10}}>
         <button onClick={()=>setPassed(true)}  style={{...Btn(passed===true?"primary":"ghost","#16a34a"),flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}><Ico n="check" s={14}/>PASSED</button>
         <button onClick={()=>setPassed(false)} style={{...Btn(passed===false?"danger":"ghost"),flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}><Ico n="x" s={14}/>FAILED</button>
@@ -479,7 +479,7 @@ function RTCard({test,onEdit,onOutcome,onDelete,onSms,users=[],terminals=[],onEr
   };
   return (
     <div style={{background:"#fff",border:"1.5px solid "+(needsOutcome?cc.h:cc.bd),borderLeft:"4px solid "+(needsOutcome?cc.h:cc.h),borderRadius:14,padding:18,boxShadow:"0 1px 6px rgba(0,0,0,.06)"}}>
-      {needsOutcome&&<div style={{background:cc.soft,border:"1px solid "+cc.bd,borderRadius:7,padding:"7px 11px",marginBottom:12,display:"flex",alignItems:"center",gap:6}}><Ico n="bell" s={13}/><span style={{fontSize:12,color:cc.tx,fontWeight:600}}>Road test time reached — awaiting outcome</span></div>}
+      {needsOutcome&&<div style={{background:cc.soft,border:"1px solid "+cc.bd,borderRadius:7,padding:"7px 11px",marginBottom:12,display:"flex",alignItems:"center",gap:6}}><Ico n="bell" s={13}/><span style={{fontSize:12,color:cc.tx,fontWeight:600}}>Interview & test drive time reached — awaiting outcome</span></div>}
       <div onClick={()=>setExpanded(e=>!e)} style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:expanded?10:0,cursor:"pointer",userSelect:"none"}}>
         <div>
           <div style={{fontSize:17,fontWeight:700,color:"#111827"}}>{test.candidateName}</div>
@@ -507,7 +507,10 @@ function RTCard({test,onEdit,onOutcome,onDelete,onSms,users=[],terminals=[],onEr
           {test.dln&&<span style={{fontSize:11,color:"#9ca3af",marginLeft:10}}>DLN: {test.dln}{test.dlnState&&" ("+test.dlnState+")"}</span>}
           {test.unitNumber&&<span style={{fontSize:11,color:"#9ca3af",marginLeft:10}}>Unit: {test.unitNumber}</span>}
         </div>
-        {test.status==="Passed"&&<div style={{background:FC.hir.bg,border:"1px solid "+FC.hir.bd,borderRadius:7,padding:"7px 11px",marginBottom:10,fontSize:12,color:FC.hir.tx,fontWeight:600}}>PASSED{test.firstDay?" · Training: "+new Date(test.firstDay+"T12:00:00").toLocaleDateString():""}</div>}
+        {test.status==="Passed"&&<div style={{background:FC.hir.bg,border:"1px solid "+FC.hir.bd,borderRadius:7,padding:"7px 11px",marginBottom:10,fontSize:12,color:FC.hir.tx,fontWeight:600}}>
+          <div>PASSED</div>
+          <div style={{fontWeight:500,marginTop:3}}>First Day of Training: {test.firstDay?new Date(test.firstDay+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"}):<span style={{color:"#9ca3af"}}>Not set</span>}</div>
+        </div>}
         {test.status==="Failed"&&<div style={{background:FC.inj.bg,border:"1px solid "+FC.inj.bd,borderRadius:7,padding:"7px 11px",marginBottom:10,fontSize:12,color:FC.inj.tx,fontWeight:600}}>FAILED</div>}
         {(test.status==="Passed"||test.status==="Failed")&&test.feedback&&<div style={{background:"#f9fafb",border:"1px solid #e5e7eb",borderRadius:7,padding:"9px 11px",marginBottom:10}}><div style={{fontSize:10,color:"#9ca3af",fontWeight:600,textTransform:"uppercase",letterSpacing:.5,marginBottom:3}}>Manager Notes</div><div style={{fontSize:12,color:"#374151",lineHeight:1.5,whiteSpace:"pre-wrap"}}>{test.feedback}</div></div>}
         <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",paddingTop:10,borderTop:"1px solid #f3f4f6"}}>
@@ -1227,8 +1230,8 @@ function TerminalForm({onSave,onClose,existing}) {
       <Field label="State"><select style={INP} value={form.state} onChange={e=>set("state",e.target.value)}><option value="">— Select —</option>{US_STATES.map(s=><option key={s} value={s}>{s}</option>)}</select></Field>
       <Field label="ZIP Code"><input style={INP} value={form.zip} onChange={e=>set("zip",e.target.value)} placeholder="76119"/></Field>
     </div>
-    <Field label="Road Test Employer Name" span><input style={INP} value={form.rt_employer_name} onChange={e=>set("rt_employer_name",e.target.value)} placeholder="Company LLC"/></Field>
-    <Field label="Default Road Test Unit Number" span><input style={INP} value={form.default_unit_number} onChange={e=>set("default_unit_number",e.target.value)} placeholder="e.g. 4821"/></Field>
+    <Field label="Interview & Test Drive Employer Name" span><input style={INP} value={form.rt_employer_name} onChange={e=>set("rt_employer_name",e.target.value)} placeholder="Company LLC"/></Field>
+    <Field label="Default Interview & Test Drive Unit Number" span><input style={INP} value={form.default_unit_number} onChange={e=>set("default_unit_number",e.target.value)} placeholder="e.g. 4821"/></Field>
     <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:10}}>
       <button style={Btn("ghost")} onClick={onClose}>Cancel</button>
       <button style={Btn("primary")} onClick={doSave}>{existing?"Update Terminal":"Add Terminal"}</button>
@@ -2003,7 +2006,7 @@ export default function App() {
     if(isNew) clean.createdBy={id:currentUser.id,name:currentUser.name,email:currentUser.email||null};
     const upd=isNew?[...rts,clean]:rts.map(r=>r.id===clean.id?clean:r);
     setRts(upd);
-    toast(isNew?"✅ Road test scheduled!":"Road test updated.","success");
+    toast(isNew?"✅ Interview & test drive scheduled!":"Interview & test drive updated.","success");
     setModal(showSms?{type:"sms",data:clean}:null);
     dbSave(SK.rt,upd);
     if(isNew){
@@ -2023,7 +2026,7 @@ export default function App() {
       },bcUser?.email||"");
     }
   };
-  const delRT=async id=>{if(!confirm("Delete this road test?"))return;const upd=rts.filter(r=>r.id!==id);setRts(upd);toast("Road test removed.");dbSave(SK.rt,upd);};
+  const delRT=async id=>{if(!confirm("Delete this interview & test drive?"))return;const upd=rts.filter(r=>r.id!==id);setRts(upd);toast("Interview & test drive removed.");dbSave(SK.rt,upd);};
   const saveOutcome=async test=>{
     const upd=rts.map(r=>r.id===test.id?test:r);
     setRts(upd);
@@ -2037,7 +2040,7 @@ export default function App() {
     else{
       if(!creatorEmail) toast("📧 Creator has no email — sending to module list only.","warn");
       const cc=emailSettings.roadTestOutcome?.cc||"";
-      const subject="Road Test "+(test.status==="Passed"?"Passed":"Failed")+" - "+test.candidateName;
+      const subject="Interview & Test Drive "+(test.status==="Passed"?"Passed":"Failed")+" - "+test.candidateName;
       const result=await sendEmail({
         to:allTo.join(", "),
         ...(cc&&{cc}),
@@ -2226,7 +2229,7 @@ export default function App() {
   const fDrivers=drivers.filter(r=>(effectiveFTerm==="All"||r.terminal===effectiveFTerm)&&(fDrvStatus==="All"||(r.status||"Active")===fDrvStatus)&&(!fDrvName.trim()||(r.firstName||"").includes(fDrvName.trim().toLowerCase()))).sort((a,b)=>{const ln=(a.lastName||"").localeCompare(b.lastName||"");return ln!==0?ln:(a.firstName||"").localeCompare(b.firstName||"");});
 
   const TABS=[
-    {key:"rt",    icon:"clip",   label:"Road Tests",     count:rts.filter(r=>r.status==="Scheduled").length, badgeColor:FC.rt.h},
+    {key:"rt",    icon:"clip",   label:"Interview & Test Drive",count:rts.filter(r=>r.status==="Scheduled").length, badgeColor:FC.rt.h},
     {key:"uni",   icon:"shirt",  label:"Uniform Orders", count:unis.filter(u=>u.status==="Pending").length,  badgeColor:FC.uni.h},
     {key:"fleet", icon:"fleet",  label:"Fleet",          count:truckAlerts,                                   badgeColor:FC.fleet.h},
     {key:"inj",   icon:"medkit", label:"Injury Reports", count:injs.length,                                   badgeColor:FC.inj.h},
@@ -2242,7 +2245,7 @@ export default function App() {
     ]:[]),
   ];
 
-  const addLabel={rt:"Schedule Road Test",uni:"New Uniform Request",fleet:"Add Truck",inj:"File Injury Report",acc:"File Accident Report",hir:"New Hiring Request",ins:"New Insurance Request",dot:"+ DOT Card",drivers:"Add Driver"};
+  const addLabel={rt:"Schedule Interview & Test Drive",uni:"New Uniform Request",fleet:"Add Truck",inj:"File Injury Report",acc:"File Accident Report",hir:"New Hiring Request",ins:"New Insurance Request",dot:"+ DOT Card",drivers:"Add Driver"};
   const addType ={...(isBc?{}:{rt:"newRT"}),uni:"newUni",fleet:"newTruck",inj:"newInj",acc:"newAcc",hir:"newHir",ins:"newIns",dot:"newDot",drivers:"newDrv"};
 
   const STATS=[
@@ -2326,7 +2329,7 @@ export default function App() {
               <div style={{background:"#111827",borderRadius:10,padding:"8px 11px",display:"flex",flexShrink:0}}><Ico n="truck" s={20}/></div>
               <div>
                 <div className="brand-title" style={{color:"#111827"}}>PND LOGISTICS MANAGEMENT</div>
-                <div className="brand-sub" style={{color:"#9ca3af"}}>ROAD TESTS · UNIFORMS · FLEET · INJURY · ACCIDENTS · HIRING · INSURANCE</div>
+                <div className="brand-sub" style={{color:"#9ca3af"}}>INTERVIEW & TEST DRIVE · UNIFORMS · FLEET · INJURY · ACCIDENTS · HIRING · INSURANCE</div>
               </div>
             </div>
             <div className="header-actions">
@@ -2401,14 +2404,14 @@ export default function App() {
           {tab==="settings"&&settingsTab==="users"&&<button onClick={()=>setModal({type:"newUser"})} style={{...Btn("primary","#6b7280"),display:"flex",alignItems:"center",gap:6}}><Ico n="plus" s={14}/>Add User</button>}
         </div>
 
-        {!loading&&tab==="rt"&&<div style={{fontSize:14,color:"#6b7280",padding:"4px 2px"}}>Showing <span style={{fontWeight:700,color:activeCC.h}}>{fRts.length}</span> road test{fRts.length!==1?"s":""}</div>}
+        {!loading&&tab==="rt"&&<div style={{fontSize:14,color:"#6b7280",padding:"4px 2px"}}>Showing <span style={{fontWeight:700,color:activeCC.h}}>{fRts.length}</span> interview{fRts.length!==1?"s":""} & test drive{fRts.length!==1?"s":""}</div>}
         {!loading&&tab==="drivers"&&<div style={{fontSize:14,color:"#6b7280",padding:"4px 2px"}}>Showing <span style={{fontWeight:700,color:activeCC.h}}>{fDrivers.length}</span> driver{fDrivers.length!==1?"s":""}</div>}
 
         {loading ? (
           <div style={{textAlign:"center",padding:80,color:"#9ca3af",fontFamily:"'DM Mono',monospace"}}>Loading shared data…</div>
         ) : tab==="rt" ? (
           fRts.length===0
-            ?<Empty msg="No road tests yet. Click Schedule Road Test to begin."/>
+            ?<Empty msg="No interviews & test drives yet. Click Schedule Interview & Test Drive to begin."/>
             :<Grid>{fRts.map(t=><RTCard key={t.id} test={t} onEdit={t=>setModal({type:"editRT",data:t})} onOutcome={t=>setModal({type:"outcome",data:t})} onDelete={delRT} onSms={t=>setModal({type:"sms",data:t})} users={users} terminals={terminals} onError={msg=>toast(msg,"warn")}/>)}</Grid>
         ) : tab==="uni" ? (
           fUnis.length===0
@@ -2476,7 +2479,7 @@ export default function App() {
                 </div>
                 <EmailSettingsForm
                   moduleKey="roadTestNew"
-                  label="New Road Test Scheduled"
+                  label="New Interview & Test Drive Scheduled"
                   placeholders={["candidateName","fedexId","phone","terminal","terminalAddress","date","time","duration","createdAt"]}
                   config={emailSettings.roadTestNew||{}}
                   onChange={handleSettingsChange}
@@ -2484,7 +2487,7 @@ export default function App() {
                 />
                 <EmailSettingsForm
                   moduleKey="roadTestOutcome"
-                  label="Road Test Outcome"
+                  label="Interview & Test Drive Outcome"
                   placeholders={["candidateName","fedexId","phone","terminal","date","time","status","feedback","firstDay","completedAt"]}
                   config={emailSettings.roadTestOutcome}
                   onChange={handleSettingsChange}
@@ -2538,9 +2541,9 @@ export default function App() {
       </div>
 
       {/* ── MODALS ─────────────────────────────────────────── */}
-      {modal?.type==="newRT"     && <Modal title="Schedule Road Test"        onClose={()=>setModal(null)} wide><RTForm      onSave={saveRT}      onClose={()=>setModal(null)} terminals={visibleTerminals}/></Modal>}
-      {modal?.type==="editRT"    && <Modal title="Edit Road Test"            onClose={()=>setModal(null)} wide><RTForm      onSave={saveRT}      onClose={()=>setModal(null)} existing={modal.data} terminals={visibleTerminals} canEditUnit={currentUser?.role==="admin"||(!!currentUser&&modal.data.createdBy?.id===currentUser.id)}/></Modal>}
-      {modal?.type==="outcome"   && <Modal title="Enter Road Test Outcome"   onClose={()=>setModal(null)}     ><OutcomeForm onSave={saveOutcome} onClose={()=>setModal(null)} test={modal.data}/></Modal>}
+      {modal?.type==="newRT"     && <Modal title="Schedule Interview & Test Drive" onClose={()=>setModal(null)} wide><RTForm      onSave={saveRT}      onClose={()=>setModal(null)} terminals={visibleTerminals}/></Modal>}
+      {modal?.type==="editRT"    && <Modal title="Edit Interview & Test Drive" onClose={()=>setModal(null)} wide><RTForm      onSave={saveRT}      onClose={()=>setModal(null)} existing={modal.data} terminals={visibleTerminals} canEditUnit={currentUser?.role==="admin"||(!!currentUser&&modal.data.createdBy?.id===currentUser.id)}/></Modal>}
+      {modal?.type==="outcome"   && <Modal title="Enter Interview & Test Drive Outcome" onClose={()=>setModal(null)}     ><OutcomeForm onSave={saveOutcome} onClose={()=>setModal(null)} test={modal.data}/></Modal>}
       {modal?.type==="sms"       && <SmsModal test={modal.data} onClose={()=>setModal(null)} terminals={terminals} users={users}/>}
       {modal?.type==="newUni"    && <Modal title="New Uniform Order"         onClose={()=>setModal(null)} wide><UniForm    onSave={saveUni}     onClose={()=>setModal(null)} terminals={visibleTerminals} users={users}/></Modal>}
       {modal?.type==="editUni"   && <Modal title="Edit Uniform Request"      onClose={()=>setModal(null)} wide><UniForm    onSave={saveUni}     onClose={()=>setModal(null)} existing={modal.data} terminals={visibleTerminals} users={users}/></Modal>}

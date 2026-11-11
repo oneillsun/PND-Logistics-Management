@@ -335,7 +335,7 @@ function SmsModal({test,onClose,terminals=[],users=[]}) {
 }
 
 // ─── Road Test Form ───────────────────────────────────────────────────────────
-function RTForm({onSave,onClose,existing,terminals=[]}) {
+function RTForm({onSave,onClose,existing,terminals=[],canEditUnit=false}) {
   const cc=FC.rt;
   const now=new Date(); const pad=n=>String(n).padStart(2,"0");
   const activeTerminals=terminals.filter(t=>(t.status||"Active")==="Active");
@@ -350,7 +350,7 @@ function RTForm({onSave,onClose,existing,terminals=[]}) {
       if(!form.dlnState) return alert("Candidate License State is required for a Contingency road test.");
     }
     const status=existing?existing.status:(isContingency?"Passed":"Scheduled");
-    onSave({...form,id:existing?.id||Date.now().toString(),status,completedAt:(!existing&&isContingency)?new Date().toISOString():existing?.completedAt,createdAt:existing?.createdAt||new Date().toISOString(),_sms:withSms});
+    onSave({...form,...(form.unitNumber!=null&&{unitNumber:String(form.unitNumber).trim()||null}),id:existing?.id||Date.now().toString(),status,completedAt:(!existing&&isContingency)?new Date().toISOString():existing?.completedAt,createdAt:existing?.createdAt||new Date().toISOString(),_sms:withSms});
   };
   return <>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
@@ -361,6 +361,7 @@ function RTForm({onSave,onClose,existing,terminals=[]}) {
       <Field label="DLN State"><select style={INP} value={form.dlnState||""} onChange={e=>set("dlnState",e.target.value)}><option value="">— Select —</option>{US_STATES.map(s=><option key={s} value={s}>{s}</option>)}</select></Field>
       <Field label="Terminal Location"><select style={INP} value={form.terminal} onChange={e=>{const sel=activeTerminals.find(t=>`${t.name} - ${t.code}`===e.target.value);set("terminal",e.target.value);set("terminal_id",sel?.id||"");}}>{activeTerminals.length===0&&<option value="">Loading terminals…</option>}{activeTerminals.map(t=><option key={t.id} value={`${t.name} - ${t.code}`}>{t.name} - {t.code}</option>)}</select></Field>
     </div>
+    {canEditUnit&&existing?.status==="Passed"&&!isContingency&&<Field label="Road Test Unit Number" span><input style={INP} value={form.unitNumber||""} onChange={e=>set("unitNumber",e.target.value)} placeholder={terminals.find(t=>`${t.name} - ${t.code}`===form.terminal)?.default_unit_number?"Terminal default: "+terminals.find(t=>`${t.name} - ${t.code}`===form.terminal).default_unit_number:"e.g. 4821"}/></Field>}
     <TInfo tk={form.terminal} terminals={terminals}/>
     {isContingency
       ?<div style={{background:cc.bg,border:"1px solid "+cc.bd,borderRadius:8,padding:"10px 14px",marginBottom:14,fontSize:12,color:cc.tx,lineHeight:1.6}}>
@@ -393,11 +394,13 @@ function OutcomeForm({test,onSave,onClose}) {
   const [feedback,setFeedback]=useState(test.feedback||"");
   const [dln,setDln]=useState(test.dln||"");
   const [dlnState,setDlnState]=useState(test.dlnState||"");
+  const [unitNumber,setUnitNumber]=useState(test.unitNumber||"");
   const save=()=>{
     if(passed===null)return alert("Select Pass or Fail.");
     if(passed&&!dln.trim())return alert("Candidate Driver License Number is required for a Passed outcome.");
     if(passed&&!dlnState)return alert("Candidate Driver License State is required for a Passed outcome.");
-    onSave({...test,status:passed?"Passed":"Failed",firstDay:passed?firstDay:null,feedback,dln:passed?dln.trim():test.dln,dlnState:passed?dlnState:test.dlnState,completedAt:new Date().toISOString()});
+    if(passed&&!unitNumber.trim())return alert("Unit Number is required for a Passed outcome.");
+    onSave({...test,status:passed?"Passed":"Failed",firstDay:passed?firstDay:null,feedback,dln:passed?dln.trim():test.dln,dlnState:passed?dlnState:test.dlnState,unitNumber:passed?unitNumber.trim():(test.unitNumber||null),completedAt:new Date().toISOString()});
   };
   return <>
     <div style={{background:cc.bg,border:"1px solid "+cc.bd,borderRadius:10,padding:14,marginBottom:14}}>
@@ -416,6 +419,7 @@ function OutcomeForm({test,onSave,onClose}) {
       <Field label="Candidate Driver License Number *"><input style={INP} value={dln} onChange={e=>setDln(e.target.value)} placeholder="DLN-000000"/></Field>
       <Field label="Candidate Driver License State *"><select style={INP} value={dlnState} onChange={e=>setDlnState(e.target.value)}><option value="">— Select —</option>{US_STATES.map(s=><option key={s} value={s}>{s}</option>)}</select></Field>
     </div>}
+    {passed===true&&<Field label="Unit Number *" span><input style={INP} value={unitNumber} onChange={e=>setUnitNumber(e.target.value)} placeholder="e.g. 4821"/></Field>}
     {passed===true&&<Field label="First Day of Training" span><input style={INP} type="date" value={firstDay} onChange={e=>setFirstDay(e.target.value)}/></Field>}
     <Field label="Manager Feedback"><textarea style={{...INP,height:80,resize:"vertical"}} value={feedback} onChange={e=>setFeedback(e.target.value)} placeholder="Observations..."/></Field>
     <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:10}}>
@@ -467,7 +471,7 @@ function RTCard({test,onEdit,onOutcome,onDelete,onSms,users=[],terminals=[],onEr
       const adminUser=isCont?CONTINGENCY_RT_ADMIN:(users.find(u=>u.terminal===test.terminal&&u.status==="active")||null);
       const termRecRaw=terminals.find(t=>`${t.name} - ${t.code}`===test.terminal||t.name===test.terminal)||{};
       const termRec=isCont?{...termRecRaw,...CONTINGENCY_EMPLOYER_ADDRESS}:termRecRaw;
-      await generateRoadTestPDF({...test,default_unit_number:isCont?CONTINGENCY_UNIT_NUMBER:(termRec.default_unit_number||"")},termRec,adminUser,termRec.pdf_url||null);
+      await generateRoadTestPDF({...test,default_unit_number:isCont?CONTINGENCY_UNIT_NUMBER:(test.unitNumber||termRec.default_unit_number||"")},termRec,adminUser,termRec.pdf_url||null);
     }
     catch(e){onError?onError("Failed to generate PDF: "+e.message):alert("Failed to generate PDF: "+e.message);}
     finally{setDownloading(false);}
@@ -500,6 +504,7 @@ function RTCard({test,onEdit,onOutcome,onDelete,onSms,users=[],terminals=[],onEr
           <span style={{color:test.paylocityOnboarding?cc.h:"#ef4444",display:"flex",alignItems:"center"}}><Ico n={test.paylocityOnboarding?"check":"x"} s={12}/></span>
           <span style={{fontSize:11,color:test.paylocityOnboarding?cc.h:"#ef4444",fontWeight:500}}>Paylocity Onboarding</span>
           {test.dln&&<span style={{fontSize:11,color:"#9ca3af",marginLeft:10}}>DLN: {test.dln}{test.dlnState&&" ("+test.dlnState+")"}</span>}
+          {test.unitNumber&&<span style={{fontSize:11,color:"#9ca3af",marginLeft:10}}>Unit: {test.unitNumber}</span>}
         </div>
         {test.status==="Passed"&&<div style={{background:FC.hir.bg,border:"1px solid "+FC.hir.bd,borderRadius:7,padding:"7px 11px",marginBottom:10,fontSize:12,color:FC.hir.tx,fontWeight:600}}>PASSED{test.firstDay?" · Training: "+new Date(test.firstDay+"T12:00:00").toLocaleDateString():""}</div>}
         {test.status==="Failed"&&<div style={{background:FC.inj.bg,border:"1px solid "+FC.inj.bd,borderRadius:7,padding:"7px 11px",marginBottom:10,fontSize:12,color:FC.inj.tx,fontWeight:600}}>FAILED</div>}
@@ -2030,14 +2035,13 @@ export default function App() {
     if(!allTo.length){toast("📧 Email skipped — no recipients configured.","warn");}
     else{
       if(!creatorEmail) toast("📧 Creator has no email — sending to module list only.","warn");
-      const termRec=terminals.find(t=>`${t.name} - ${t.code}`===test.terminal||t.name===test.terminal)||{};
       const cc=emailSettings.roadTestOutcome?.cc||"";
       const subject="Road Test "+(test.status==="Passed"?"Passed":"Failed")+" - "+test.candidateName;
       const result=await sendEmail({
         to:allTo.join(", "),
         ...(cc&&{cc}),
         subject,
-        html:buildOutcomeHtml({...test,default_unit_number:termRec.default_unit_number||""}),
+        html:buildOutcomeHtml({...test,default_unit_number:test.unitNumber||""}),
       });
       if(result?.ok) toast("📧 Notification sent.","success");
       else if(result?.error) toast(`📧 Email failed: ${result.error}`,"warn");
@@ -2534,7 +2538,7 @@ export default function App() {
 
       {/* ── MODALS ─────────────────────────────────────────── */}
       {modal?.type==="newRT"     && <Modal title="Schedule Road Test"        onClose={()=>setModal(null)} wide><RTForm      onSave={saveRT}      onClose={()=>setModal(null)} terminals={visibleTerminals}/></Modal>}
-      {modal?.type==="editRT"    && <Modal title="Edit Road Test"            onClose={()=>setModal(null)} wide><RTForm      onSave={saveRT}      onClose={()=>setModal(null)} existing={modal.data} terminals={visibleTerminals}/></Modal>}
+      {modal?.type==="editRT"    && <Modal title="Edit Road Test"            onClose={()=>setModal(null)} wide><RTForm      onSave={saveRT}      onClose={()=>setModal(null)} existing={modal.data} terminals={visibleTerminals} canEditUnit={currentUser?.role==="admin"||(!!currentUser&&modal.data.createdBy?.id===currentUser.id)}/></Modal>}
       {modal?.type==="outcome"   && <Modal title="Enter Road Test Outcome"   onClose={()=>setModal(null)}     ><OutcomeForm onSave={saveOutcome} onClose={()=>setModal(null)} test={modal.data}/></Modal>}
       {modal?.type==="sms"       && <SmsModal test={modal.data} onClose={()=>setModal(null)} terminals={terminals} users={users}/>}
       {modal?.type==="newUni"    && <Modal title="New Uniform Order"         onClose={()=>setModal(null)} wide><UniForm    onSave={saveUni}     onClose={()=>setModal(null)} terminals={visibleTerminals} users={users}/></Modal>}

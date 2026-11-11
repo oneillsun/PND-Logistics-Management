@@ -400,6 +400,7 @@ function OutcomeForm({test,onSave,onClose}) {
     if(passed&&!dln.trim())return alert("Candidate Driver License Number is required for a Passed outcome.");
     if(passed&&!dlnState)return alert("Candidate Driver License State is required for a Passed outcome.");
     if(passed&&!unitNumber.trim())return alert("Unit Number is required for a Passed outcome.");
+    if(passed&&!firstDay)return alert("First Day of Training is required for a Passed outcome.");
     onSave({...test,status:passed?"Passed":"Failed",firstDay:passed?firstDay:null,feedback,dln:passed?dln.trim():test.dln,dlnState:passed?dlnState:test.dlnState,unitNumber:passed?unitNumber.trim():(test.unitNumber||null),completedAt:new Date().toISOString()});
   };
   return <>
@@ -420,7 +421,7 @@ function OutcomeForm({test,onSave,onClose}) {
       <Field label="Candidate Driver License State *"><select style={INP} value={dlnState} onChange={e=>setDlnState(e.target.value)}><option value="">— Select —</option>{US_STATES.map(s=><option key={s} value={s}>{s}</option>)}</select></Field>
     </div>}
     {passed===true&&<Field label="Unit Number *" span><input style={INP} value={unitNumber} onChange={e=>setUnitNumber(e.target.value)} placeholder="e.g. 4821"/></Field>}
-    {passed===true&&<Field label="First Day of Training" span><input style={INP} type="date" value={firstDay} onChange={e=>setFirstDay(e.target.value)}/></Field>}
+    {passed===true&&<Field label="First Day of Training *" span><input style={INP} type="date" value={firstDay} onChange={e=>setFirstDay(e.target.value)}/></Field>}
     <Field label="Manager Feedback"><textarea style={{...INP,height:80,resize:"vertical"}} value={feedback} onChange={e=>setFeedback(e.target.value)} placeholder="Observations..."/></Field>
     <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:10}}>
       <button style={Btn("ghost")} onClick={onClose}>Cancel</button>

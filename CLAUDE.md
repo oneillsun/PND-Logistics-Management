@@ -66,7 +66,7 @@ VITE_SUPABASE_STORAGE_BUCKET=terminal-pdfs   # optional, defaults to 'terminal-p
 | Tab key | Label | Description |
 |---------|-------|-------------|
 | `rt` | Road Tests | Schedule tests, SMS candidates, record pass/fail, generate PDF |
-| `uni` | Uniforms | Uniform/equipment orders per terminal (Pending → Completed) |
+| `uni` | Uniforms | Uniform orders per terminal from the uniform-site catalog with photos (Pending → Completed) |
 | `fleet` | Fleet | Truck registry with registration/inspection expiry tracking |
 | `inj` | Injuries | Injury reports with file attachments (Supabase Storage bucket `injury-files`) |
 | `acc` | Accidents | Accident reports with victim/vehicle info and media |
@@ -106,6 +106,7 @@ Light theme with per-module accent colors. Key constants at the top of the file:
 ### Key Conventions
 
 - JSX must use straight ASCII quotes (`"` `'`) — Unicode curly quotes break the build
-- `getSizes(type)` returns waist sizes (W24–W48) for pants/shorts, XS–4XL for everything else
+- Uniform orders use `UNIFORM_CATALOG` (top of the JSX file), which mirrors the FedEx uniform site: each item has `id`, `cat`, `name`, `lot` (site item #), `d1` (fit/length/waist options), `d2` (size/inseam options), optional `lotFor(d1)` (big-size item #) and `outer:true` (counts toward the one-jacket-or-vest-per-driver rule). Photos are `public/uniforms/<id>.jpg`. Saved items look like `{pid, lot, type, d1, d2, size, qty}`; `type`/`size` stay for older code and emails. `uniOrderLines(order)` combines identical items into the lines to enter on the uniform site
+- `getSizes(type)` / `UNIFORM_TYPES` are only used to display orders saved before the catalog (legacy items have no `pid`)
 - Terminal lookup for PDF: `terminals.find(t => \`${t.name} - ${t.code}\` === test.terminal)`
 - Injury attachments stored in Supabase Storage bucket `injury-files`; only metadata (name, type, size, url, path) is kept in jsonb

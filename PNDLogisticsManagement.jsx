@@ -13,6 +13,67 @@ const BOTTOM_SIZES  = Array.from({length:13},(_,i)=>String(24+i*2));
 const TOP_SIZES     = ["XS","S","M","L","XL","2XL","3XL","4XL"];
 const getSizes = t => BOTTOM_TYPES.includes(t) ? BOTTOM_SIZES : TOP_SIZES;
 const defSize  = t => BOTTOM_TYPES.includes(t) ? "32" : "M";
+
+// ─── Uniform catalog (matches the FedEx uniform site, fedexsp.imageauthority.com) ──
+// d1 = fit / length / waist, d2 = size / inseam. Photos live in public/uniforms/<id>.jpg.
+// lot is the uniform site's item number; lotFor() picks the big-size item number by waist.
+const U_TOP8=["XS","S","M","L","XL","XXL","3XL","4XL"], U_TOP9=[...U_TOP8,"5XL"], U_W8=["XXS","XS","S","M","L","XL","XXL","3XL"];
+const U_INS_M=["37U","24","25","26","27","28","29","30","31","32","33","34","35","36"];
+const U_INS_W=["35U","24","25","26","27","28","29","30","31","32","33","34"];
+const uExpand=s=>s.replace(/(\d+)R$/,"$1 Regular").replace(/(\d+)S$/,"$1 Short").replace(/(\d+)L$/,"$1 Long").replace(/(\d+)P$/,"$1 Petite");
+const uList=a=>a.split(",").map(uExpand);
+const U_RL=["Regular","Long"];
+const uWaist=d=>parseInt(d)||0;
+const UNIFORM_CATALOG=[
+  {id:"m-ss-polo",cat:"Polos",name:"Men's Short Sleeve Polo",lot:"FD5343",color:"Navy/Purple",d1:["Short Sleeve Regular Body"],d2:U_TOP8},
+  {id:"m-ls-polo",cat:"Polos",name:"Men's Long Sleeve Polo",lot:"FD5346",color:"Navy/Purple",d1:["Regular"],d2:U_TOP8},
+  {id:"w-ss-polo",cat:"Polos",name:"Women's Short Sleeve Polo",lot:"FD5349",color:"Navy/Purple",d1:["Short Sleeve Regular Body"],d2:U_W8},
+  {id:"w-ls-polo",cat:"Polos",name:"Women's Long Sleeve Polo",lot:"FD5352",color:"Navy/Purple",d1:["Regular"],d2:U_W8},
+  {id:"m-pants",cat:"Bottoms",name:"Men's Cargo Pants",lot:"FD2901 / FD2931",lotFor:d=>uWaist(d)>=42?"FD2931":"FD2901",color:"Navy",waist:true,note:"Waist 42 and up is item FD2931",
+    d1:uList("24R,26R,28R,29R,30R,31R,32R,33R,34R,36S,36R,38S,38R,40R,42R,44R,46R,48R,50R,52R,54R,56R,58R,60R,62R,64R"),d2:U_INS_M},
+  {id:"w-pants",cat:"Bottoms",name:"Women's Cargo Pants",lot:"FD2903",color:"Navy",waist:true,
+    d1:uList("0P,0R,2P,2R,4P,4R,6P,6R,8P,8R,10P,10R,12P,12R,14P,14R,16P,16R,18P,18R,20R,22R,24R,26R,28R,30R"),d2:U_INS_W},
+  {id:"m-shorts",cat:"Bottoms",name:"Men's Cargo Shorts",lot:"FD2904 / FD2934",lotFor:d=>uWaist(d)>=42?"FD2934":"FD2904",color:"Navy",waist:true,note:"Waist 42 and up is item FD2934",
+    d1:uList("24R,26S,26R,28S,28R,29S,29R,29L,30S,30R,30L,31S,31R,31L,32S,32R,32L,33S,33R,33L,34S,34R,34L,36S,36R,36L,38S,38R,38L,40S,40R,40L,42S,42R,42L,44S,44R,44L,46S,46R,46L,48S,48R,48L,50S,50R,50L,52R,52L,54R,54L,56R,56L,58R,58L,60R,60L,62R,64R"),d2:["095"]},
+  {id:"w-shorts",cat:"Bottoms",name:"Women's Cargo Shorts",lot:"FD2905",color:"Navy",waist:true,
+    d1:uList("0S,0R,2S,2R,4S,4R,6S,6R,6L,8S,8R,8L,10S,10R,10L,12S,12R,12L,14S,14R,14L,16S,16R,16L,18S,18R,18L,20S,20R,20L,22S,22R,22L,24S,24R,24L,26R,26L,28R,28L,30R"),d2:["09"]},
+  {id:"aw-vest",cat:"Outerwear",name:"Unisex All Weather Vest",lot:"FD3433",color:"Navy/Purple",d1:U_RL,d2:U_TOP9,outer:true},
+  {id:"aw-jacket",cat:"Outerwear",name:"Unisex All Weather Jacket",lot:"FD3446",color:"Navy/Purple",d1:U_RL,d2:U_TOP9,outer:true},
+  {id:"bomber",cat:"Outerwear",name:"Unisex Bomber Jacket",lot:"FD3449",color:"Navy/Purple",d1:U_RL,d2:U_TOP9,outer:true},
+  {id:"parka",cat:"Outerwear",name:"Unisex Parka",lot:"FD3430",color:"Navy/Purple",d1:U_RL,d2:U_TOP9,outer:true},
+  {id:"qz-fleece",cat:"Outerwear",name:"Unisex 1/4 Zip Fleece Pullover",lot:"FD5865",color:"Navy/Purple",d1:U_RL,d2:[...U_TOP9,"6XL"],outer:true},
+  {id:"hood-fleece",cat:"Outerwear",name:"Unisex Full Zip Hooded Fleece Jacket",lot:"FD3450",color:"Navy/Purple",d1:U_RL,d2:U_TOP9,outer:true},
+  {id:"aw-pant",cat:"Outerwear",name:"Unisex All Weather Pant",lot:"FD3429",color:"Navy",d1:U_RL,d2:[...U_TOP9,"6XL"]},
+  {id:"hivis",cat:"Outerwear",name:"Unisex Dual-Sized Hi Vis Vest",lot:"FD3401",color:"Hi Vis Yellow",d1:[],d2:["M","XL","3XL","5XL"],outer:true},
+  {id:"twill-cap",cat:"Headwear",name:"Unisex Solid Twill Ballcap",lot:"FD7370",color:"Navy",d1:[],d2:["M","XL"]},
+  {id:"trucker",cat:"Headwear",name:"Unisex Mesh-back Trucker Ballcap",lot:"FD7371",color:"Navy",d1:[],d2:["M","XL"]},
+  {id:"summer-hat",cat:"Headwear",name:"Unisex Summer Hat",lot:"FD7303",color:"Black",d1:[],d2:["M","XL"]},
+  {id:"knit-cap",cat:"Headwear",name:"Unisex Winter Knit Cap",lot:"FD7326",color:"Navy",d1:[],d2:["OS"]},
+  {id:"id-break",cat:"Accessories",name:"Breakaway ID Holder",lot:"FD7061",color:"Purple",d1:[],d2:["RG"]},
+  {id:"id-arm",cat:"Accessories",name:"Armband ID Holder",lot:"FD7063",color:"",d1:[],d2:["OS"]},
+  {id:"gaiter",cat:"Accessories",name:"Unisex Neck Gaiter",lot:"FD7128",color:"Navy",d1:[],d2:["M"]},
+  {id:"thermal-gloves",cat:"Accessories",name:"Unisex Thermal Gloves With Fold Back Fingers",lot:"FD7226",color:"Black",d1:[],d2:[]},
+  {id:"fingerless",cat:"Accessories",name:"Unisex Fingerless Gloves",lot:"FD7227",color:"Black",d1:[],d2:["S","M","L","XL"]},
+];
+const UNIFORM_CATS=[...new Set(UNIFORM_CATALOG.map(p=>p.cat))];
+const uById=Object.fromEntries(UNIFORM_CATALOG.map(p=>[p.id,p]));
+const uD1Label=p=>p.waist?"Waist":p.d1.some(x=>/Body/.test(x))?"Length":"Fit";
+const uD2Label=p=>p.waist?"Inseam":"Size";
+// One jacket OR vest per driver (all items flagged outer:true count toward it).
+const uIsOuter=item=>!!(item.pid&&uById[item.pid]?.outer);
+// Size text for any item: catalog items carry their own size text; legacy items get the W prefix for bottoms.
+const uSizeText=item=>item.pid?(item.size||[item.d1,item.d2].filter(Boolean).join(" / ")):(BOTTOM_TYPES.includes(item.type)?"W"+item.size:item.size);
+// Combine identical items across all drivers of an order: the lines to enter on the uniform site.
+function uniOrderLines(order){
+  const m=new Map();
+  for(const d of (order.drivers||[])) for(const i of (d.items||[])){
+    const k=[i.lot||"",i.type,i.d1||"",i.d2||"",i.pid?"":i.size].join("|");
+    const c=m.get(k)||{lot:i.lot||"",type:i.type,d1:i.d1||"",d2:i.d2||"",size:uSizeText(i),qty:0};
+    c.qty+=(+i.qty||1);m.set(k,c);
+  }
+  const rank=l=>{const i=UNIFORM_CATALOG.findIndex(p=>p.name===l.type);return i<0?999:i;};
+  return [...m.values()].sort((a,b)=>rank(a)-rank(b)||a.lot.localeCompare(b.lot)||a.d1.localeCompare(b.d1,undefined,{numeric:true})||a.d2.localeCompare(b.d2,undefined,{numeric:true}));
+}
 const BODY_PARTS = ["Head / Skull","Face","Eye(s)","Ear(s)","Neck","Shoulder(s)","Upper Arm","Elbow","Forearm","Wrist","Hand / Fingers","Upper Back","Lower Back","Chest / Ribs","Abdomen","Hip","Thigh","Knee","Lower Leg / Shin","Ankle","Foot / Toes","Multiple Areas","Other"];
 const US_STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
 const SK = { rt:"pnd_rt_v5", uni:"pnd_uni_v5", tr:"pnd_tr_v5", inj:"pnd_inj_v5", acc:"pnd_acc_v2", hir:"pnd_hir_v1", ins:"pnd_ins_v1", dot:"pnd_dot_v1", drv:"pnd_drv_v1" };
@@ -199,7 +260,7 @@ const Fld = Field;
 // ─── CSV export ───────────────────────────────────────────────────────────────
 const CSV_COLS = {
   rt:    ["id","candidateName","phone","fedexId","dln","dlnState","terminal","date","time","duration","status","manager","notes","feedback","firstDay","completedAt","createdAt","paylocityOnboarding"],
-  uni:   ["id","terminal","requestedBy","status","notes","items","createdAt","fulfilledAt"],
+  uni:   ["id","terminal","requestedBy","status","notes","drivers","createdAt","fulfilledAt"],
   fleet: ["id","terminal","truckNumber","licensePlate","regState","regExpiry","inspExpiry","vin","notes","createdAt","updatedAt"],
   inj:   ["id","terminal","employeeName","status","injuryDate","injuryTime","injuryAddress","description","bodyPart","medicalAttention","medicalProvider","missedWork","missedDays","lastDayWorked","returnToWork","witnesses","claimNumber","reportedBy","createdAt"],
   dot:       ["id","terminal","firstName","lastName","fedexId","expirationDate","file_url","createdAt"],
@@ -212,7 +273,7 @@ function toCSV(rows, cols) {
   const esc = v => {
     if (v === null || v === undefined) return "";
     let s;
-    if (Array.isArray(v)) s = v.map(i => `${i.qty}x ${i.type} (${i.size})`).join("; ");
+    if (Array.isArray(v)) s = v.map(i => i.items ? `${i.name}: ` + i.items.map(x => `${x.qty||1}x ${x.type} (${uSizeText(x)})`).join(", ") : `${i.qty||1}x ${i.type} (${i.size})`).join("; ");
     else if (typeof v === "object") s = JSON.stringify(v);
     else s = String(v);
     s = s.replace(/\r\n/g, " ").replace(/\r/g, " ").replace(/\n/g, " ");
@@ -253,15 +314,17 @@ function downloadPendingUniCSV(orders) {
         rows.push({
           Terminal: order.terminal,
           Driver: drv.name,
+          "Item #": item.lot || "",
           Type: item.type,
-          Size: BOTTOM_TYPES.includes(item.type) ? "W" + item.size : item.size,
+          "Fit / Waist": item.d1 || "",
+          "Size / Inseam": item.pid ? (item.d2 || "") : uSizeText(item),
           Quantity: item.qty || 1,
         });
       }
     }
   }
   if (!rows.length) return;
-  const csv = "\ufeff" + toCSV(rows, ["Terminal","Driver","Type","Size","Quantity"]);
+  const csv = "\ufeff" + toCSV(rows, ["Terminal","Driver","Item #","Type","Fit / Waist","Size / Inseam","Quantity"]);
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -528,60 +591,146 @@ function RTCard({test,onEdit,onOutcome,onDelete,onSms,users=[],terminals=[],onEr
 }
 
 // ─── Uniform Form ─────────────────────────────────────────────────────────────
+// Step 1: terminal. Step 2: driver name. Step 3: pick items from the catalog (photo, fit/size, qty).
 function UniForm({onSave,onClose,existing,terminals=[],users=[]}) {
   const cc=FC.uni;
   const activeTerminals=terminals.filter(t=>(t.status||"Active")==="Active");
-  const newDrv=()=>({id:Date.now().toString()+Math.random(),name:"",items:[{type:UNIFORM_TYPES[0],size:defSize(UNIFORM_TYPES[0])}]});
+  const newDrv=()=>({id:Date.now().toString()+Math.random(),name:"",items:[]});
   const getBcName=termLabel=>users.find(u=>u.role==="bc"&&u.terminal===termLabel&&u.status==="active")?.name||"";
   const defaultTerminal=activeTerminals[0]?`${activeTerminals[0].name} - ${activeTerminals[0].code}`:"";
   const [form,setForm]=useState(existing
     ?{...existing,requestedBy:existing.requestedBy||getBcName(existing.terminal)}
     :{terminal:defaultTerminal,requestedBy:getBcName(defaultTerminal),drivers:[newDrv()],notes:""});
+  const [activeId,setActiveId]=useState(form.drivers[0]?.id||null);
+  const [cat,setCat]=useState(UNIFORM_CATS[0]);
+  const [openPid,setOpenPid]=useState(null);
+  const [pick,setPick]=useState({d1:"",d2:"",qty:1});
+  const [err,setErr]=useState("");
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const handleTerminal=v=>setForm(f=>({...f,terminal:v,requestedBy:getBcName(v)}));
-  const addDrv=()=>set("drivers",[...form.drivers,newDrv()]);
-  const remDrv=id=>set("drivers",form.drivers.filter(d=>d.id!==id));
+  const addDrv=()=>{const d=newDrv();setForm(f=>({...f,drivers:[...f.drivers,d]}));setActiveId(d.id);setOpenPid(null);};
+  const remDrv=id=>{const rest=form.drivers.filter(d=>d.id!==id);set("drivers",rest);if(activeId===id)setActiveId(rest[0]?.id||null);};
   const setName=(id,name)=>set("drivers",form.drivers.map(d=>d.id===id?{...d,name}:d));
-  const addItem=id=>set("drivers",form.drivers.map(d=>d.id===id?{...d,items:[...d.items,{type:UNIFORM_TYPES[0],size:defSize(UNIFORM_TYPES[0])}]}:d));
   const remItem=(id,i)=>set("drivers",form.drivers.map(d=>d.id===id?{...d,items:d.items.filter((_,j)=>j!==i)}:d));
-  const setItem=(id,i,k,v)=>set("drivers",form.drivers.map(d=>{if(d.id!==id)return d;const items=d.items.map((item,j)=>{if(j!==i)return item;const n={...item,[k]:v};if(k==="type")n.size=defSize(v);return n;});return{...d,items};}));
+  const bumpQty=(id,i,delta)=>set("drivers",form.drivers.map(d=>{
+    if(d.id!==id)return d;
+    const items=d.items.map((it,j)=>j===i?{...it,qty:Math.max(1,(+it.qty||1)+delta)}:it);
+    return {...d,items};
+  }));
+  const active=form.drivers.find(d=>d.id===activeId);
+  const openProduct=pid=>{setErr("");if(openPid===pid){setOpenPid(null);return;}const p=uById[pid];setOpenPid(pid);setPick({d1:p.d1.length===1?p.d1[0]:"",d2:p.d2.length===1?p.d2[0]:"",qty:1});};
+  const addPicked=()=>{
+    const p=uById[openPid];if(!p||!active)return;
+    const d1=p.d1.length?pick.d1:"";const d2=String(pick.d2||"").trim();const qty=Math.max(1,+pick.qty||1);
+    if(!active.name.trim())return setErr("Type the driver's name first.");
+    if(p.d1.length&&!d1)return setErr(`Choose a ${uD1Label(p).toLowerCase()}.`);
+    if(!d2)return setErr(`Choose a ${uD2Label(p).toLowerCase()}.`);
+    if(p.outer){
+      const outer=active.items.filter(uIsOuter);
+      const other=outer.find(i=>i.pid!==p.id);
+      if(other)return setErr(`${active.name} already has the ${other.type}. One jacket or vest per driver.`);
+      if(outer.reduce((s,i)=>s+(+i.qty||1),0)+qty>1)return setErr("One jacket or vest per driver.");
+    }
+    const lot=p.lotFor?p.lotFor(d1):p.lot;
+    const size=[d1,d2].filter(Boolean).join(" / ");
+    const items=[...active.items];
+    const ex=items.findIndex(i=>i.pid===p.id&&i.d1===d1&&i.d2===d2);
+    if(ex>=0)items[ex]={...items[ex],qty:(+items[ex].qty||1)+qty};
+    else items.push({pid:p.id,lot,type:p.name,d1,d2,size,qty});
+    set("drivers",form.drivers.map(d=>d.id===active.id?{...d,items}:d));
+    setOpenPid(null);setErr("");
+  };
   const doSave=()=>{
+    if(form.drivers.length===0)return alert("Add at least one driver.");
     if(form.drivers.some(d=>!d.name.trim()))return alert("Fill in all driver names.");
+    const empty=form.drivers.find(d=>!d.items.length);
+    if(empty)return alert(`Add at least one item for ${empty.name}.`);
     onSave({...form,id:existing?.id||Date.now().toString(),status:existing?.status||"Pending",createdAt:existing?.createdAt||new Date().toISOString()});
   };
+  const totalPcs=form.drivers.reduce((s,d)=>s+d.items.reduce((a,i)=>a+(+i.qty||1),0),0);
+  const prods=UNIFORM_CATALOG.filter(p=>p.cat===cat);
+  const op=openPid?uById[openPid]:null;
+  const qtyBtn={width:28,height:28,border:"1px solid #e5e7eb",background:"#fff",borderRadius:6,cursor:"pointer",fontSize:15,lineHeight:1,color:"#111827"};
   return <>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 14px"}}>
-      <Field label="Terminal Location"><select style={INP} value={form.terminal} onChange={e=>handleTerminal(e.target.value)}>{activeTerminals.length===0&&<option value="">Loading terminals…</option>}{activeTerminals.map(t=><option key={t.id} value={`${t.name} - ${t.code}`}>{t.name} - {t.code}</option>)}</select></Field>
+      <Field label="1. Terminal Location"><select style={INP} value={form.terminal} onChange={e=>handleTerminal(e.target.value)}>{activeTerminals.length===0&&<option value="">Loading terminals...</option>}{activeTerminals.map(t=><option key={t.id} value={`${t.name} - ${t.code}`}>{t.name} - {t.code}</option>)}</select></Field>
       <Field label="Requested By"><input style={{...INP,background:"#f3f4f6",color:form.requestedBy?"#111827":"#9ca3af",cursor:"default"}} value={form.requestedBy} readOnly placeholder="No active BC for this terminal"/></Field>
     </div>
     <TInfo tk={form.terminal} terminals={terminals}/>
+
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-      <label style={{fontSize:11,color:"#6b7280",fontWeight:600,textTransform:"uppercase",letterSpacing:.5}}>Drivers and Items</label>
+      <label style={{fontSize:11,color:"#6b7280",fontWeight:600,textTransform:"uppercase",letterSpacing:.5}}>2. Drivers ({form.drivers.length}) · {totalPcs} piece{totalPcs!==1?"s":""}</label>
       <button onClick={addDrv} style={{...Btn("outline",cc.h),padding:"5px 12px",fontSize:12}}>+ Add Driver</button>
     </div>
     <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:14}}>
-      {form.drivers.map((drv,di)=>(
-        <div key={drv.id} style={{background:cc.bg,border:"1px solid "+cc.bd,borderRadius:10,padding:"12px 14px"}}>
-          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+      {form.drivers.map((drv,di)=>{
+        const isActive=drv.id===activeId;
+        return (
+        <div key={drv.id} style={{background:isActive?cc.bg:"#fff",border:(isActive?"2px solid "+cc.h:"1px solid "+cc.bd),borderRadius:10,padding:"12px 14px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:drv.items.length?10:0}}>
             <div style={{background:cc.h,borderRadius:"50%",width:22,height:22,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#fff",flexShrink:0}}>{di+1}</div>
-            <input style={{...INP,flex:1}} value={drv.name} onChange={e=>setName(drv.id,e.target.value)} placeholder="Driver full name *"/>
-            {form.drivers.length>1&&<button onClick={()=>remDrv(drv.id)} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",fontSize:14,padding:4}}>X</button>}
+            <input style={{...INP,flex:1}} value={drv.name} onFocus={()=>setActiveId(drv.id)} onChange={e=>setName(drv.id,e.target.value)} placeholder="Driver full name *"/>
+            {!isActive&&<button onClick={()=>{setActiveId(drv.id);setOpenPid(null);}} style={{...Btn("outline",cc.h),padding:"5px 10px",fontSize:12,whiteSpace:"nowrap"}}>Add items</button>}
+            {form.drivers.length>1&&<button onClick={()=>remDrv(drv.id)} title="Remove driver" style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",fontSize:14,padding:4}}>X</button>}
           </div>
           {drv.items.map((item,ii)=>(
-            <div key={ii} style={{display:"grid",gridTemplateColumns:"2fr 1fr auto",gap:6,alignItems:"center",marginBottom:6}}>
-              <select style={{...INP,fontSize:13}} value={item.type} onChange={e=>setItem(drv.id,ii,"type",e.target.value)}>{UNIFORM_TYPES.map(t=><option key={t} value={t}>{t}</option>)}</select>
-              <select style={{...INP,fontSize:13}} value={item.size} onChange={e=>setItem(drv.id,ii,"size",e.target.value)}>{getSizes(item.type).map(s=><option key={s} value={s}>{BOTTOM_TYPES.includes(item.type)?"W"+s:s}</option>)}</select>
-              {drv.items.length>1?<button onClick={()=>remItem(drv.id,ii)} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",fontSize:16,padding:2}}>-</button>:<span/>}
+            <div key={ii} style={{display:"grid",gridTemplateColumns:"1fr auto auto",gap:8,alignItems:"center",padding:"6px 0",borderTop:"1px solid "+cc.bd}}>
+              <div style={{minWidth:0}}>
+                <div style={{fontSize:13,fontWeight:600,color:"#111827"}}>{item.type}</div>
+                <div style={{fontSize:11,color:"#6b7280"}}>{item.lot?<span style={{fontFamily:"monospace"}}>{item.lot} · </span>:null}{uSizeText(item)}</div>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:4}}>
+                <button style={qtyBtn} onClick={()=>bumpQty(drv.id,ii,-1)} aria-label="Less">-</button>
+                <span style={{minWidth:20,textAlign:"center",fontWeight:700,fontSize:13}}>{item.qty||1}</span>
+                <button style={qtyBtn} onClick={()=>{if(uIsOuter(item))return setErr("One jacket or vest per driver.");bumpQty(drv.id,ii,1);}} aria-label="More">+</button>
+              </div>
+              <button onClick={()=>remItem(drv.id,ii)} title="Remove item" style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",fontSize:13,padding:2}}>Remove</button>
             </div>
           ))}
-          <button onClick={()=>addItem(drv.id)} style={{marginTop:4,background:"none",border:"1px dashed "+cc.bd,color:cc.h,cursor:"pointer",padding:"5px 10px",borderRadius:6,fontSize:11,display:"flex",alignItems:"center",gap:4,width:"100%",justifyContent:"center",fontWeight:600}}>
-            + Add Item for {drv.name||"Driver "+(di+1)}
-          </button>
-        </div>
-      ))}
+        </div>);
+      })}
     </div>
-    <div style={{fontSize:11,color:"#9ca3af",marginBottom:14}}>Pants and Shorts: waist sizes W24-W48. All others: XS-4XL</div>
-    <Field label="Notes / Employee Names"><textarea style={{...INP,height:58,resize:"vertical"}} value={form.notes} onChange={e=>set("notes",e.target.value)} placeholder="Employee names, special requirements..."/></Field>
+
+    {active&&<div style={{border:"1.5px solid "+cc.bd,borderRadius:12,padding:14,marginBottom:14}}>
+      <div style={{fontSize:11,color:"#6b7280",fontWeight:600,textTransform:"uppercase",letterSpacing:.5,marginBottom:10}}>3. Choose items for {active.name||"driver "+(form.drivers.indexOf(active)+1)}</div>
+      <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:6,marginBottom:10}}>
+        {UNIFORM_CATS.map(c=><button key={c} onClick={()=>{setCat(c);setOpenPid(null);setErr("");}} style={{border:"1px solid "+(c===cat?cc.h:"#e5e7eb"),background:c===cat?cc.soft:"#fff",color:c===cat?cc.tx:"#374151",borderRadius:999,padding:"5px 12px",fontSize:12,fontWeight:c===cat?700:500,cursor:"pointer",whiteSpace:"nowrap"}}>{c}</button>)}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:10}}>
+        {prods.map(p=>{
+          const on=openPid===p.id;
+          return <button key={p.id} onClick={()=>openProduct(p.id)} style={{border:(on?"2px solid "+cc.h:"1px solid #e5e7eb"),borderRadius:10,background:"#fff",padding:0,cursor:"pointer",textAlign:"left",overflow:"hidden",display:"flex",flexDirection:"column"}}>
+            <div style={{aspectRatio:"1 / 1",background:"#fff",display:"flex",alignItems:"center",justifyContent:"center"}}><img src={`/uniforms/${p.id}.jpg`} alt={p.name} loading="lazy" style={{width:"100%",height:"100%",objectFit:"contain"}}/></div>
+            <div style={{padding:"8px 10px",borderTop:"1px solid #f3f4f6"}}>
+              <div style={{fontSize:12,fontWeight:700,color:"#111827",lineHeight:1.3}}>{p.name}</div>
+              <div style={{fontSize:10,color:"#9ca3af",fontFamily:"monospace",marginTop:2}}>{p.lot}</div>
+            </div>
+          </button>;
+        })}
+      </div>
+      {op&&<div style={{marginTop:12,background:cc.bg,border:"1px solid "+cc.bd,borderRadius:10,padding:12}}>
+        <div style={{fontSize:13,fontWeight:700,color:"#111827",marginBottom:8}}>{op.name} <span style={{fontWeight:400,color:"#6b7280",fontSize:12}}>{op.color}</span></div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:10,alignItems:"end"}}>
+          {op.d1.length>1&&<Field label={uD1Label(op)}><select style={INP} value={pick.d1} onChange={e=>setPick(x=>({...x,d1:e.target.value}))}><option value="">Choose...</option>{op.d1.map(v=><option key={v} value={v}>{v}</option>)}</select></Field>}
+          {op.d2.length
+            ?<Field label={uD2Label(op)}><select style={INP} value={pick.d2} onChange={e=>setPick(x=>({...x,d2:e.target.value}))}>{op.d2.length>1&&<option value="">Choose...</option>}{op.d2.map(v=><option key={v} value={v}>{v}</option>)}</select></Field>
+            :<Field label="Size"><input style={INP} value={pick.d2} onChange={e=>setPick(x=>({...x,d2:e.target.value}))} placeholder="Type size"/></Field>}
+          <Field label="Quantity"><div style={{display:"flex",alignItems:"center",gap:6}}>
+            <button style={{...qtyBtn,width:34,height:36}} onClick={()=>setPick(x=>({...x,qty:Math.max(1,x.qty-1)}))}>-</button>
+            <span style={{minWidth:24,textAlign:"center",fontWeight:700}}>{pick.qty}</span>
+            <button style={{...qtyBtn,width:34,height:36}} onClick={()=>setPick(x=>({...x,qty:Math.min(20,x.qty+1)}))}>+</button>
+          </div></Field>
+        </div>
+        {(op.outer||op.note)&&<div style={{fontSize:11,color:"#6b7280",marginTop:4}}>{op.outer?"Counts as this driver's one jacket or vest. ":""}{op.note?op.note+".":""}</div>}
+        <div style={{display:"flex",gap:8,marginTop:10}}>
+          <button style={Btn("primary",cc.h)} onClick={addPicked}>Add for {active.name||"driver"}</button>
+          <button style={Btn("ghost")} onClick={()=>{setOpenPid(null);setErr("");}}>Close</button>
+        </div>
+      </div>}
+      {err&&<div style={{marginTop:10,background:"#fef2f2",border:"1px solid #fecaca",color:"#b91c1c",borderRadius:8,padding:"8px 12px",fontSize:12}}>{err}</div>}
+    </div>}
+
+    <Field label="Notes"><textarea style={{...INP,height:58,resize:"vertical"}} value={form.notes} onChange={e=>set("notes",e.target.value)} placeholder="Special requirements..."/></Field>
     <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:10}}>
       <button style={Btn("ghost")} onClick={onClose}>Cancel</button>
       <button style={Btn("primary",cc.h)} onClick={doSave}>{existing?"Update Request":"Submit Order"}</button>
@@ -594,7 +743,14 @@ function UniCard({req,onEdit,onDelete,onFulfill,onView,terminals=[],selected=fal
   const cc=FC.uni;
   const [open,setOpen]=useState(false);
   const drivers=req.drivers||[];
-  const totalItems=drivers.reduce((s,d)=>s+(d.items?.length||0),0);
+  const totalItems=drivers.reduce((s,d)=>s+(d.items||[]).reduce((a,i)=>a+(+i.qty||1),0),0);
+  const [copied,setCopied]=useState(false);
+  const copyLines=async e=>{
+    e.stopPropagation();
+    const lines=uniOrderLines(req);
+    const txt=req.terminal+"\n"+lines.map(l=>[l.lot||"-",l.type,l.d1||"",l.d2||(l.d1?"":l.size),l.qty].join("\t")).join("\n")+"\nTotal\t\t\t\t"+lines.reduce((a,l)=>a+l.qty,0);
+    try{await navigator.clipboard.writeText(txt);setCopied(true);setTimeout(()=>setCopied(false),2000);}catch(_){alert(txt);}
+  };
   const t=findTerm(terminals,req.terminal);
   const isPending=req.status==="Pending";
   return (
@@ -626,15 +782,21 @@ function UniCard({req,onEdit,onDelete,onFulfill,onView,terminals=[],selected=fal
           {drivers.map((drv,di)=>(
             <div key={di} style={{marginBottom:di<drivers.length-1?10:0,paddingBottom:di<drivers.length-1?10:0,borderBottom:di<drivers.length-1?"1px solid "+cc.bd:"none"}}>
               <div style={{fontSize:13,fontWeight:700,color:"#111827",marginBottom:3}}>{drv.name}</div>
-              {drv.items?.map((item,ii)=><div key={ii} style={{fontSize:12,color:"#6b7280",paddingLeft:8,lineHeight:1.8}}>{item.type} <span style={{color:cc.h,fontWeight:600}}>{BOTTOM_TYPES.includes(item.type)?"W"+item.size:item.size}</span></div>)}
+              {drv.items?.map((item,ii)=><div key={ii} style={{fontSize:12,color:"#6b7280",paddingLeft:8,lineHeight:1.8}}><b style={{color:"#111827"}}>{item.qty||1}x</b> {item.type} <span style={{color:cc.h,fontWeight:600}}>{uSizeText(item)}</span>{item.lot&&<span style={{fontFamily:"monospace",fontSize:11,color:"#9ca3af"}}> · {item.lot}</span>}</div>)}
             </div>
           ))}
         </div>
+        <div style={{fontSize:11,color:"#6b7280",fontWeight:600,textTransform:"uppercase",letterSpacing:.5,margin:"4px 0 6px"}}>Order lines for the uniform site</div>
+        <div style={{overflowX:"auto",marginBottom:10}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+          <thead><tr>{["Item #","Item","Fit / Waist","Size / Inseam","Qty"].map(h=><th key={h} style={{textAlign:h==="Qty"?"right":"left",fontSize:10,color:"#9ca3af",fontWeight:600,textTransform:"uppercase",padding:"4px 6px",borderBottom:"1px solid #e5e7eb",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
+          <tbody>{uniOrderLines(req).map((l,i)=><tr key={i}><td style={{padding:"4px 6px",fontFamily:"monospace",whiteSpace:"nowrap"}}>{l.lot||"-"}</td><td style={{padding:"4px 6px"}}>{l.type}</td><td style={{padding:"4px 6px",whiteSpace:"nowrap"}}>{l.d1||(l.lot?"":"")}</td><td style={{padding:"4px 6px",whiteSpace:"nowrap"}}>{l.d2||(l.d1?"":l.size)}</td><td style={{padding:"4px 6px",textAlign:"right",fontWeight:700}}>{l.qty}</td></tr>)}</tbody>
+        </table></div>
         {req.notes&&<div style={{fontSize:12,color:"#6b7280",marginBottom:10,fontStyle:"italic"}}>{req.notes}</div>}
       </>}
       <div style={{display:"flex",gap:6,flexWrap:"wrap",paddingTop:10,borderTop:"1px solid #f3f4f6"}}>
         {req.status==="Pending"&&<><button onClick={e=>{e.stopPropagation();onEdit(req);}} style={Btn("ghost")}>Edit</button><button onClick={e=>{e.stopPropagation();onFulfill(req.id);}} style={Btn("primary","#16a34a")}>Fulfilled</button></>}
         {onView&&<button onClick={e=>{e.stopPropagation();onView(req);}} style={Btn("outline",cc.h)}>View Order</button>}
+        <button onClick={copyLines} style={Btn("outline",cc.h)}>{copied?"Copied":"Copy order lines"}</button>
         <button onClick={e=>{e.stopPropagation();onDelete(req.id);}} style={{...Btn("ghost"),marginLeft:"auto",color:"#dc2626",borderColor:"#fecaca"}}><Ico n="trash" s={13}/></button>
       </div>
     </div>
@@ -2058,7 +2220,11 @@ export default function App() {
     setUnis(upd);toast("Uniform order saved!","success");setModal(null);dbSave(SK.uni,upd);
     if(isNew){
       const driverNames=(req.drivers||[]).map(d=>d.name).filter(Boolean).join(", ");
-      const itemSummary=(req.drivers||[]).map(d=>`${d.name}: `+(d.items||[]).map(i=>`${i.type} (${i.size})`).join(", ")).join("\n");
+      const itemSummary=(req.drivers||[]).map(d=>`${d.name}: `+(d.items||[]).map(i=>`${i.qty||1}x ${i.type}${i.lot?" ["+i.lot+"]":""} (${uSizeText(i)})`).join(", ")).join("\n");
+      // The manager who submits the order also gets a copy (added to the module's To list).
+      const baseTo=(emailSettings.uniformOrderNew?.to||"").split(",").map(x=>x.trim()).filter(Boolean);
+      const me=(currentUser?.email||"").trim();
+      const toList=me&&!baseTo.some(x=>x.toLowerCase()===me.toLowerCase())?[...baseTo,me]:baseTo;
       sendNotification("uniformOrderNew",{
         terminal:req.terminal||"",
         requestedBy:req.requestedBy||"",
@@ -2067,7 +2233,7 @@ export default function App() {
         itemSummary,
         notes:req.notes||"",
         createdAt:new Date(req.createdAt).toLocaleString("en-US"),
-      });
+      },toList.join(", "));
     }
   };
   const delUni=async id=>{if(!confirm("Delete?"))return;const upd=unis.filter(u=>u.id!==id);setUnis(upd);toast("Removed.");dbSave(SK.uni,upd);};
